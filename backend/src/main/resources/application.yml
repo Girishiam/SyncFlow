@@ -1,0 +1,58 @@
+server:
+  port: 9090
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: syncflow-api
+
+  # Java 21 Project Loom Virtual Threads Enabled
+  threads:
+    virtual:
+      enabled: true
+
+  # Database Connection - Microsoft SQL Server
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=syncflow_db;encrypt=true;trustServerCertificate=true;
+    username: syncflow_user
+    password: SyncFlow@2026!
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    hikari:
+      connection-timeout: 20000
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 300000
+      max-lifetime: 1200000
+
+  # JPA & Hibernate
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.SQLServerDialect
+        format_sql: true
+
+  # Caffeine In-Memory Cache
+  cache:
+    type: caffeine
+    cache-names:
+      - user_permissions
+      - active_projects
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=30m
+
+# SyncFlow Custom Configurations
+syncflow:
+  jwt:
+    secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+    expiration-ms: 86400000 # 24 Hours
+  cors:
+    allowed-origins:
+      - "http://localhost:4200"
+      - "http://localhost:8100"
+      - "capacitor://localhost"
+      - "http://localhost"
