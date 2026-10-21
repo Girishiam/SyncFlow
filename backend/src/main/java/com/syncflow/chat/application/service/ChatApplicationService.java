@@ -37,6 +37,7 @@ public class ChatApplicationService implements ChatUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final ProjectRepositoryPort projectRepositoryPort;
     private final ChatNotificationPort chatNotificationPort;
+    private final com.syncflow.notification.application.port.in.NotificationUseCase notificationUseCase;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("hh:mm a").withZone(ZoneId.systemDefault());
 
@@ -102,7 +103,52 @@ public class ChatApplicationService implements ChatUseCase {
                 .build();
 
         chatNotificationPort.broadcastMessage(channelId, dto);
+
+        // Detect and dispatch mention notifications
+        dispatchMentionNotifications(channel, saved, sender, content);
+
         return dto;
+    }
+
+    private void dispatchMentionNotifications(Channel channel, Message message, User sender, String content) {
+        if (content == null || !content.contains("@")) return;
+
+        String lowerContent = content.toLowerCase();
+        try {
+            List<User> allUsers = userRepositoryPort.findAll();
+            for (User u : allUsers) {
+                if (u.getId().equals(sender.getId())) continue;
+
+                boolean mentioned = false;
+                String fullName = u.getFullName() != null ? u.getFullName().toLowerCase() : "";
+                String emailPrefix = u.getEmail() != null ? u.getEmail().toLowerCase().split("@")[0] : "";
+                String roleName = u.getRole() != null ? u.getRole().getName().toLowerCase() : "";
+
+                // Match @FullName, @FirstName, @emailPrefix, or @Role
+                if (!fullName.isEmpty() && lowerContent.contains("@" + fullName)) {
+                    mentioned = true;
+                } else if (!fullName.isEmpty() && lowerContent.contains("@" + fullName.replace(" ", ""))) {
+                    mentioned = true;
+                } else if (!emailPrefix.isEmpty() && lowerContent.contains("@" + emailPrefix)) {
+                    mentioned = true;
+                } else if (!roleName.isEmpty() && (lowerContent.contains("@" + roleName) || lowerContent.contains("@" + roleName.replace("_", "")))) {
+                    mentioned = true;
+                } else if (lowerContent.contains("@channel") || lowerContent.contains("@here") || lowerContent.contains("@all")) {
+                    // Channel-wide mention
+                    if (channel.getMembers() != null && channel.getMembers().contains(u)) {
+                        mentioned = true;
+                    } else if (channel.getMembers() == null || channel.getMembers().isEmpty()) {
+                        mentioned = true;
+                    }
+                }
+
+                if (mentioned) {
+                    notificationUseCase.notifyChannelMention(channel, message, sender, u);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to dispatch mention notifications for message {}: {}", message.getId(), e.getMessage());
+        }
     }
 
     @Override

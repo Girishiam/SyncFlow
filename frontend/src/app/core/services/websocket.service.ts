@@ -53,6 +53,11 @@ export class WebSocketService implements IWebSocketPort {
       if (this.currentChannelId !== null) {
         this.bindChannelSubscription(this.currentChannelId);
       }
+
+      // 4. Resubscribe user/role notifications if any
+      if (this.currentUserId !== null) {
+        this.bindNotificationSubscriptions();
+      }
     };
 
     this.client.onDisconnect = () => {
@@ -64,6 +69,12 @@ export class WebSocketService implements IWebSocketPort {
 
   private currentChannelId: number | null = null;
   private channelMessages$ = new Subject<any>();
+
+  private notifications$ = new Subject<any>();
+  private userNotificationSubId: any = null;
+  private roleNotificationSubId: any = null;
+  private currentUserId: string | null = null;
+  private currentRoleName: string | null = null;
 
   private bindChannelSubscription(channelId: number): void {
     if (this.activeChannelSubId) {
@@ -84,12 +95,54 @@ export class WebSocketService implements IWebSocketPort {
     }
   }
 
+  public subscribeToUserNotifications(userId: string, roleName?: string): Observable<any> {
+    this.currentUserId = userId;
+    this.currentRoleName = roleName || null;
+    this.bindNotificationSubscriptions();
+    return this.notifications$.asObservable();
+  }
+
+  private bindNotificationSubscriptions(): void {
+    if (this.userNotificationSubId) {
+      try { this.userNotificationSubId.unsubscribe(); } catch (e) {}
+      this.userNotificationSubId = null;
+    }
+    if (this.roleNotificationSubId) {
+      try { this.roleNotificationSubId.unsubscribe(); } catch (e) {}
+      this.roleNotificationSubId = null;
+    }
+
+    if (this.client.connected && this.currentUserId) {
+      this.userNotificationSubId = this.client.subscribe(`/topic/notifications.${this.currentUserId}`, (msg: IMessage) => {
+        try {
+          this.notifications$.next(JSON.parse(msg.body));
+        } catch (e) {
+          console.error('Failed to parse user notification', e);
+        }
+      });
+
+      if (this.currentRoleName) {
+        this.roleNotificationSubId = this.client.subscribe(`/topic/notifications.role.${this.currentRoleName}`, (msg: IMessage) => {
+          try {
+            this.notifications$.next(JSON.parse(msg.body));
+          } catch (e) {
+            console.error('Failed to parse role notification', e);
+          }
+        });
+      }
+    }
+  }
+
   getBoardUpdates(): Observable<any> {
     return this.boardUpdates$.asObservable();
   }
 
   getBlockerAlerts(): Observable<any> {
     return this.blockerAlerts$.asObservable();
+  }
+
+  getNotifications(): Observable<any> {
+    return this.notifications$.asObservable();
   }
 
   subscribeToChannel(channelId: number): Observable<any> {

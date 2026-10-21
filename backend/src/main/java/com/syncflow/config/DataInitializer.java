@@ -28,6 +28,7 @@ public class DataInitializer implements CommandLineRunner {
     private final ChannelRepository channelRepository;
     private final MessageRepository messageRepository;
     private final MessageSeenReceiptRepository receiptRepository;
+    private final com.syncflow.notification.infrastructure.persistence.SpringDataNotificationRepository notificationRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -207,6 +208,118 @@ public class DataInitializer implements CommandLineRunner {
             receiptRepository.save(MessageSeenReceipt.builder().message(m3).channel(chGeneral).user(lead).build());
 
             log.info("Created Seed Channels and Messages!");
+        }
+
+        // 8. Seed Initial Notifications for Bank Roles
+        if (notificationRepository.count() == 0) {
+            java.time.Instant now = java.time.Instant.now();
+
+            // Task Assignment Notification for Dev
+            notificationRepository.save(Notification.builder()
+                    .recipient(dev)
+                    .title("New Task Assigned: MSSQL Partitioning for Ledger")
+                    .message("Tariq Manager assigned you to 'MSSQL Partitioning for Ledger' (CRITICAL priority). Due: Tomorrow at 05:00 PM.")
+                    .type("TASK_ASSIGNED")
+                    .priority("CRITICAL")
+                    .isRead(false)
+                    .actionType("NAVIGATE_TASK")
+                    .referenceId(3L)
+                    .senderName("Tariq Manager")
+                    .senderAvatar("TM")
+                    .createdAt(now.minusSeconds(3600))
+                    .build());
+
+            // Task Due Soon Notification for Dev
+            notificationRepository.save(Notification.builder()
+                    .recipient(dev)
+                    .title("Upcoming Deadline: Emerald Reserve Design Tokens")
+                    .message("Reminder: Task 'Emerald Reserve Design Tokens' is due in less than 24 hours. Stage: UI & Layout.")
+                    .type("TASK_DUE_SOON")
+                    .priority("WARNING")
+                    .isRead(false)
+                    .actionType("NAVIGATE_TASK")
+                    .referenceId(5L)
+                    .senderName("SyncFlow Automated System")
+                    .senderAvatar("SF")
+                    .createdAt(now.minusSeconds(1800))
+                    .build());
+
+            // Channel Mention for Dev
+            notificationRepository.save(Notification.builder()
+                    .recipient(dev)
+                    .title("Mentioned in #core-banking-api")
+                    .message("Arman Lead mentioned you in #core-banking-api: \"@dev please verify if the connection pool supports 100 concurrent requests.\"")
+                    .type("CHANNEL_MENTION")
+                    .priority("INFO")
+                    .isRead(false)
+                    .actionType("NAVIGATE_CHANNEL")
+                    .referenceId(2L)
+                    .senderName("Arman Lead")
+                    .senderAvatar("AL")
+                    .createdAt(now.minusSeconds(900))
+                    .build());
+
+            // Overdue Task for Lead
+            notificationRepository.save(Notification.builder()
+                    .recipient(lead)
+                    .title("OVERDUE: WebSocket STOMP Broker & Event Hook")
+                    .message("CRITICAL: Task 'WebSocket STOMP Broker & Event Hook' deadline has passed. Delivery update required.")
+                    .type("TASK_OVERDUE")
+                    .priority("CRITICAL")
+                    .isRead(false)
+                    .actionType("NAVIGATE_TASK")
+                    .referenceId(4L)
+                    .senderName("SyncFlow Automated System")
+                    .senderAvatar("SF")
+                    .createdAt(now.minusSeconds(7200))
+                    .build());
+
+            // Channel Mention for Lead
+            notificationRepository.save(Notification.builder()
+                    .recipient(lead)
+                    .title("Mentioned in #general")
+                    .message("Tariq Manager mentioned you in #general: \"@lead pipeline review is scheduled for today at 3 PM.\"")
+                    .type("CHANNEL_MENTION")
+                    .priority("INFO")
+                    .isRead(false)
+                    .actionType("NAVIGATE_CHANNEL")
+                    .referenceId(1L)
+                    .senderName("Tariq Manager")
+                    .senderAvatar("TM")
+                    .createdAt(now.minusSeconds(2400))
+                    .build());
+
+            // Blocker Alert for Admin, Manager, Lead
+            notificationRepository.save(Notification.builder()
+                    .targetRole(rAdmin)
+                    .title("Sprint Blocker Alert: WebSocket STOMP Broker & Event Hook")
+                    .message("Arman Lead reported a blocker on 'WebSocket STOMP Broker & Event Hook': Waiting for SSL certificate handshake setup.")
+                    .type("BLOCKER_ALERT")
+                    .priority("CRITICAL")
+                    .isRead(false)
+                    .actionType("NAVIGATE_TASK")
+                    .referenceId(4L)
+                    .senderName("Arman Lead")
+                    .senderAvatar("AL")
+                    .createdAt(now.minusSeconds(1200))
+                    .build());
+
+            // Assignment for SQA
+            notificationRepository.save(Notification.builder()
+                    .recipient(sqa)
+                    .title("New Task Assigned: JWT Refresh Filter Test Suite")
+                    .message("Arman Lead assigned you to 'JWT Refresh Filter Test Suite' (MEDIUM priority).")
+                    .type("TASK_ASSIGNED")
+                    .priority("INFO")
+                    .isRead(false)
+                    .actionType("NAVIGATE_TASK")
+                    .referenceId(6L)
+                    .senderName("Arman Lead")
+                    .senderAvatar("AL")
+                    .createdAt(now.minusSeconds(5000))
+                    .build());
+
+            log.info("Seeded Initial Bank Role Notifications!");
         }
 
         log.info("SyncFlow Bank Enterprise initialization complete!");

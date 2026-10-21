@@ -70,7 +70,7 @@
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
         <span>Discussions</span>
-        <span class="unread-chip">3</span>
+        <span *ngIf="unreadDiscussionsCount() > 0" class="unread-chip">{{ unreadDiscussionsCount() }}</span>
       </button>
 
       <button
@@ -217,6 +217,21 @@
           </svg>
           <input type="text" [(ngModel)]="searchQuery" placeholder="Search tasks, assignees..." />
         </div>
+
+        <!-- Enterprise Notifications Bell Action -->
+        <button
+          class="header-action-btn bell-action-btn"
+          [class.has-unread]="unreadNotificationCount() > 0"
+          (click)="toggleNotificationCenter()"
+          title="Notification Center: Assignments, Deadlines & Mentions"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          <span>Notifications</span>
+          <span *ngIf="unreadNotificationCount() > 0" class="bell-badge-pill">{{ unreadNotificationCount() }}</span>
+        </button>
 
         <button class="header-action-btn log-action-btn" (click)="openWorkLogDrawer()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -543,14 +558,33 @@
         </div>
       </div>
 
-      <div class="composer-bar">
-        <input
-          type="text"
-          [(ngModel)]="chatInput"
-          (keydown.enter)="sendMessage()"
-          placeholder="Send a message in #{{ activeChannel()?.name || 'general' }}..."
-        />
-        <button class="send-action" (click)="sendMessage()">Send</button>
+      <div class="composer-container">
+        <!-- Mention Suggestions Dropdown -->
+        <div *ngIf="showMentionPopup()" class="mention-autocomplete-popup">
+          <div class="mention-popup-header">Mention bank member:</div>
+          <div
+            *ngFor="let candidate of mentionCandidates()"
+            class="mention-candidate-row"
+            (click)="insertMention(candidate)"
+          >
+            <div class="candidate-avatar">{{ candidate.fullName.substring(0, 2).toUpperCase() }}</div>
+            <div class="candidate-info">
+              <span class="candidate-name">{{ candidate.fullName }}</span>
+              <span class="candidate-role">{{ candidate.role?.name || 'Member' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="composer-bar">
+          <input
+            type="text"
+            [(ngModel)]="chatInput"
+            (input)="onChatInput($event)"
+            (keydown.enter)="sendMessage()"
+            placeholder="Send a message in #{{ activeChannel()?.name || 'general' }}... (type @ to mention a role or person)"
+          />
+          <button class="send-action" (click)="sendMessage()">Send</button>
+        </div>
       </div>
     </div>
 
@@ -2004,6 +2038,135 @@
         >
           Permanently Delete Channel
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Real-time Floating Notification Toast -->
+  <div *ngIf="latestNotificationToast()" class="floating-notification-toast" [class.toast-critical]="latestNotificationToast()?.priority === 'CRITICAL'" [class.toast-warning]="latestNotificationToast()?.priority === 'WARNING'">
+    <div class="toast-icon">
+      <span *ngIf="latestNotificationToast()?.type === 'TASK_ASSIGNED'">📌</span>
+      <span *ngIf="latestNotificationToast()?.type === 'TASK_DUE_SOON'">⏰</span>
+      <span *ngIf="latestNotificationToast()?.type === 'TASK_OVERDUE'">🚨</span>
+      <span *ngIf="latestNotificationToast()?.type === 'CHANNEL_MENTION'">💬</span>
+      <span *ngIf="latestNotificationToast()?.type === 'BLOCKER_ALERT'">⚠️</span>
+      <span *ngIf="latestNotificationToast()?.type === 'ROLE_UPDATE'">🛡️</span>
+    </div>
+    <div class="toast-body" (click)="onNotificationClick(latestNotificationToast()!)">
+      <span class="toast-title">{{ latestNotificationToast()?.title }}</span>
+      <p class="toast-message">{{ latestNotificationToast()?.message }}</p>
+    </div>
+    <button class="toast-close" (click)="dismissNotificationToast()">×</button>
+  </div>
+
+  <!-- Enterprise Notification Center Drawer -->
+  <div *ngIf="isNotificationDrawerOpen()" class="drawer-overlay" (click)="closeNotificationCenter()"></div>
+  <div *ngIf="isNotificationDrawerOpen()" class="notification-drawer">
+    <div class="drawer-header">
+      <div class="drawer-title-area">
+        <div class="notif-header-icon-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+        </div>
+        <div>
+          <h3>Notification Center</h3>
+          <p class="drawer-subtitle">Assignments, upcoming deadlines, channel mentions & blockers.</p>
+        </div>
+      </div>
+      <div class="drawer-header-actions">
+        <button class="btn-scan-trigger" (click)="triggerDueScan()" title="Scan approaching task deadlines">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+          </svg>
+          <span>Scan Deadlines</span>
+        </button>
+        <button class="drawer-close" (click)="closeNotificationCenter()">×</button>
+      </div>
+    </div>
+
+    <!-- Notification Filters Tabs -->
+    <div class="notification-filter-tabs">
+      <button [class.active]="notificationFilter() === 'ALL'" (click)="setNotificationFilter('ALL')">
+        All
+      </button>
+      <button [class.active]="notificationFilter() === 'UNREAD'" (click)="setNotificationFilter('UNREAD')">
+        Unread <span *ngIf="unreadNotificationCount() > 0" class="tab-badge">{{ unreadNotificationCount() }}</span>
+      </button>
+      <button [class.active]="notificationFilter() === 'MENTIONS'" (click)="setNotificationFilter('MENTIONS')">
+        Mentions <span *ngIf="unreadDiscussionsCount() > 0" class="tab-badge">{{ unreadDiscussionsCount() }}</span>
+      </button>
+      <button [class.active]="notificationFilter() === 'TASKS'" (click)="setNotificationFilter('TASKS')">
+        Assignments <span *ngIf="unreadTasksCount() > 0" class="tab-badge">{{ unreadTasksCount() }}</span>
+      </button>
+      <button [class.active]="notificationFilter() === 'DEADLINES'" (click)="setNotificationFilter('DEADLINES')">
+        Deadlines <span *ngIf="unreadDeadlinesCount() > 0" class="tab-badge warning">{{ unreadDeadlinesCount() }}</span>
+      </button>
+    </div>
+
+    <!-- Sub Actions Bar -->
+    <div class="notification-sub-bar" *ngIf="unreadNotificationCount() > 0">
+      <span class="sub-info">{{ unreadNotificationCount() }} unread {{ unreadNotificationCount() === 1 ? 'alert' : 'alerts' }}</span>
+      <button class="btn-mark-all-read" (click)="markAllNotificationsAsRead()">Mark all as read</button>
+    </div>
+
+    <!-- Notifications List -->
+    <div class="notification-items-list">
+      <div *ngIf="notifications().length === 0" class="empty-notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+        <p>No notifications in this filter.</p>
+      </div>
+
+      <div
+        *ngFor="let item of notifications()"
+        class="notification-card-item"
+        [class.unread]="!item.isRead"
+        [class.priority-critical]="item.priority === 'CRITICAL'"
+        [class.priority-warning]="item.priority === 'WARNING'"
+        (click)="onNotificationClick(item)"
+      >
+        <div class="notification-card-header">
+          <div class="notif-type-pill" [class]="item.type.toLowerCase()">
+            <span *ngIf="item.type === 'TASK_ASSIGNED'">📌 ASSIGNMENT</span>
+            <span *ngIf="item.type === 'TASK_DUE_SOON'">⏰ DUE SOON</span>
+            <span *ngIf="item.type === 'TASK_OVERDUE'">🚨 OVERDUE</span>
+            <span *ngIf="item.type === 'CHANNEL_MENTION'">💬 MENTION</span>
+            <span *ngIf="item.type === 'BLOCKER_ALERT'">⚠️ BLOCKER</span>
+            <span *ngIf="item.type === 'ROLE_UPDATE'">🛡️ ROLE GOVERNANCE</span>
+          </div>
+          <div class="notif-meta">
+            <span class="notif-time">{{ item.timeAgo }}</span>
+            <button
+              *ngIf="!item.isRead"
+              class="btn-mark-read-dot"
+              (click)="markNotificationAsRead(item.id, $event)"
+              title="Mark as read"
+            ></button>
+          </div>
+        </div>
+
+        <div class="notif-card-body">
+          <div class="notif-card-avatar" *ngIf="item.senderAvatar">{{ item.senderAvatar }}</div>
+          <div class="notif-text-wrap">
+            <h4 class="notif-title">{{ item.title }}</h4>
+            <p class="notif-message">{{ item.message }}</p>
+          </div>
+        </div>
+
+        <div class="notif-card-footer" *ngIf="item.actionType !== 'NONE'">
+          <span class="action-hint">
+            View
+            <span *ngIf="item.actionType === 'NAVIGATE_CHANNEL'">in channel</span>
+            <span *ngIf="item.actionType === 'NAVIGATE_TASK'">on sprint board</span>
+            <span *ngIf="item.actionType === 'NAVIGATE_RBAC'">in RBAC matrix</span>
+            →
+          </span>
+        </div>
       </div>
     </div>
   </div>

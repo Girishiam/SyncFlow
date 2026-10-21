@@ -8,7 +8,9 @@ import { WebSocketService } from '../../core/services/websocket.service';
 import { BoardFacade } from '../../features/board/application/board.facade';
 import { ChatFacade } from '../../features/chat/application/chat.facade';
 import { RbacFacade } from '../../features/rbac/application/rbac.facade';
-import { Channel, TaskCard } from '../../core/models/project.models';
+import { Channel, TaskCard, BankUser } from '../../core/models/project.models';
+import { NotificationFacade } from '../../features/notification/application/notification.facade';
+import { NotificationItem } from '../../core/models/notification.models';
 
 @Component({
   selector: 'app-dashboard',
@@ -22,6 +24,7 @@ export class DashboardComponent implements OnInit {
   public boardFacade = inject(BoardFacade);
   public chatFacade = inject(ChatFacade);
   public rbacFacade = inject(RbacFacade);
+  public notificationFacade = inject(NotificationFacade);
   public wsService = inject(WebSocketService);
   private route = inject(ActivatedRoute);
 
@@ -29,6 +32,29 @@ export class DashboardComponent implements OnInit {
 
   // Active navigation view
   activeNav = signal<'overview' | 'board' | 'discussions' | 'analytics' | 'rbac'>('board');
+
+  // Notification State Delegates
+  notifications = this.notificationFacade.filteredNotifications;
+  unreadNotificationCount = this.notificationFacade.unreadCount;
+  unreadDiscussionsCount = this.notificationFacade.unreadMentionsCount;
+  unreadTasksCount = this.notificationFacade.unreadTasksCount;
+  unreadDeadlinesCount = this.notificationFacade.unreadDeadlinesCount;
+  isNotificationDrawerOpen = this.notificationFacade.isDrawerOpen;
+  notificationFilter = this.notificationFacade.activeFilter;
+  latestNotificationToast = this.notificationFacade.latestToast;
+
+  // Mention Autocomplete State
+  showMentionPopup = signal(false);
+  mentionSearchTerm = signal('');
+  mentionCandidates = computed(() => {
+    const query = this.mentionSearchTerm().toLowerCase();
+    const members = this.bankUsers();
+    if (!query) return members.slice(0, 6);
+    return members.filter(u =>
+      u.fullName.toLowerCase().includes(query) ||
+      (u.role?.name && u.role.name.toLowerCase().includes(query))
+    ).slice(0, 6);
+  });
 
   // Board Facade State Delegates
   projects = this.boardFacade.projects;
@@ -187,6 +213,7 @@ export class DashboardComponent implements OnInit {
     this.boardFacade.init();
     this.chatFacade.init();
     this.rbacFacade.init();
+    this.notificationFacade.init(this.currentUser()?.id, this.currentUser()?.role?.name);
   }
 
   // Board Operations
@@ -461,5 +488,90 @@ export class DashboardComponent implements OnInit {
     if (user) {
       user.onLeave = !user.onLeave;
     }
+  }
+
+  // --- Notification Center Actions ---
+  toggleNotificationCenter(): void {
+    this.notificationFacade.toggleDrawer();
+  }
+
+  closeNotificationCenter(): void {
+    this.notificationFacade.closeDrawer();
+  }
+
+  setNotificationFilter(filter: 'ALL' | 'UNREAD' | 'MENTIONS' | 'TASKS' | 'DEADLINES'): void {
+    this.notificationFacade.setFilter(filter);
+  }
+
+  markNotificationAsRead(id: number, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.notificationFacade.markAsRead(id);
+  }
+
+  markAllNotificationsAsRead(): void {
+    this.notificationFacade.markAllAsRead();
+  }
+
+  dismissNotificationToast(): void {
+    this.notificationFacade.dismissToast();
+  }
+
+  triggerDueScan(): void {
+    this.notificationFacade.triggerDueScan();
+  }
+
+  onNotificationClick(item: NotificationItem): void {
+    this.notificationFacade.markAsRead(item.id);
+    this.notificationFacade.closeDrawer();
+
+    if (item.actionType === 'NAVIGATE_CHANNEL' && item.referenceId) {
+      this.activeNav.set('discussions');
+      const target = this.channels().find(c => c.id === item.referenceId);
+      if (target) {
+        this.selectChannel(target);
+      }
+    } else if (item.actionType === 'NAVIGATE_TASK') {
+      this.activeNav.set('board');
+      if (item.referenceId) {
+        for (const col of this.columns()) {
+          const match = col.tasks?.find(t => t.id === item.referenceId);
+          if (match) {
+            this.openTaskDetail(match);
+            break;
+          }
+        }
+      }
+    } else if (item.actionType === 'NAVIGATE_RBAC') {
+      this.activeNav.set('rbac');
+    }
+  }
+
+  // --- Mention Autocomplete for Chat Composer ---
+  onChatInput(event: Event): void {
+    const text = this.chatInput();
+    const lastAtIdx = text.lastIndexOf('@');
+    if (lastAtIdx !== -1 && lastAtIdx >= text.length - 20) {
+      const query = text.substring(lastAtIdx + 1);
+      if (!query.includes(' ')) {
+        this.mentionSearchTerm.set(query);
+        this.showMentionPopup.set(true);
+        return;
+      }
+    }
+    this.showMentionPopup.set(false);
+  }
+
+  insertMention(user: BankUser): void {
+    const text = this.chatInput();
+    const lastAtIdx = text.lastIndexOf('@');
+    if (lastAtIdx !== -1) {
+      const prefix = text.substring(0, lastAtIdx);
+      this.chatInput.set(`${prefix}@${user.fullName} `);
+    } else {
+      this.chatInput.set(`${text}@${user.fullName} `);
+    }
+    this.showMentionPopup.set(false);
   }
 }

@@ -10,5 +10,6 @@ public interface TaskRepositoryPort {
     List<Task> findByProjectId(Long projectId);
     List<Task> findByStageId(Long stageId);
     List<Task> findByAssigneeId(java.util.UUID assigneeId);
+    List<Task> findAll();
     void deleteById(Long id);
 }

@@ -41,6 +41,7 @@ public class TaskApplicationService implements TaskUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final TaskNotificationPort taskNotificationPort;
     private final TaskCommentRepositoryPort taskCommentRepositoryPort;
+    private final com.syncflow.notification.application.port.in.NotificationUseCase notificationUseCase;
 
     @Override
     @Transactional(readOnly = true)
@@ -127,6 +128,14 @@ public class TaskApplicationService implements TaskUseCase {
         Task saved = taskRepositoryPort.save(task);
         log.info("Task created successfully with ID: {}", saved.getId());
 
+        if (saved.getAssignee() != null) {
+            try {
+                notificationUseCase.notifyTaskAssigned(saved, saved.getAssignee(), null);
+            } catch (Exception e) {
+                log.warn("Failed to dispatch assignment notification for task {}: {}", saved.getId(), e.getMessage());
+            }
+        }
+
         TaskDTO dto = toDTO(saved);
         taskNotificationPort.broadcastBoardUpdate(dto);
         return dto;
@@ -191,6 +200,11 @@ public class TaskApplicationService implements TaskUseCase {
         taskNotificationPort.broadcastBoardUpdate(dto);
         if (Boolean.TRUE.equals(saved.getIsBlocked())) {
             taskNotificationPort.broadcastBlockerAlert(dto);
+            try {
+                notificationUseCase.notifyBlockerAlert(saved, request.getBlockerReason(), null);
+            } catch (Exception e) {
+                log.warn("Failed to dispatch blocker notification for task {}: {}", saved.getId(), e.getMessage());
+            }
         }
         return dto;
     }
@@ -209,6 +223,14 @@ public class TaskApplicationService implements TaskUseCase {
         task.setAssignee(assignee);
         Task saved = taskRepositoryPort.save(task);
         log.info("Task {} assignee updated to {}", id, assignee != null ? assignee.getFullName() : "Unassigned");
+
+        if (saved.getAssignee() != null) {
+            try {
+                notificationUseCase.notifyTaskAssigned(saved, saved.getAssignee(), null);
+            } catch (Exception e) {
+                log.warn("Failed to dispatch reassignment notification for task {}: {}", saved.getId(), e.getMessage());
+            }
+        }
 
         TaskDTO dto = toDTO(saved);
         taskNotificationPort.broadcastBoardUpdate(dto);
