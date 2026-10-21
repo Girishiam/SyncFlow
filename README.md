@@ -1,219 +1,554 @@
-# 🚀 SyncFlow — Next-Gen Collaborative Project Management & Team Ops System
+# 🚀 SyncFlow — Enterprise Collaborative Project Management & Workflow Orchestration Suite
 
-> **SyncFlow** হলো একটি ১০০% ফ্রি, ওপেন ও হাইলি স্কেলেবল এন্টারপ্রাইজ প্রজেক্ট ম্যানেজমেন্ট এবং রিয়েল-টাইম টিম কোলাবোরেশন প্ল্যাটফর্ম। এটি একটি একক কোডবেস থেকে ডেস্কটপ ব্রাউজার (Web/PWA) এবং অ্যান্ড্রয়েড অ্যাপ (.apk) সাপোর্ট করে, ব্যাকএন্ডে জাভা ২১-এর ভার্চুয়াল থ্রেড ভিত্তিক স্প্রিং বুট আর্কিটেকচার দ্বারা পরিচালিত।
-
----
-
-## 📑 সূচিপত্র (Table of Contents)
-- [১. সিস্টেম ওভারভিউ ও মূল উদ্দেশ্য](#১-সিস্টেম-ওভারভিউ-ও-মূল-উদ্দেশ্য)
-- [২. ১০০% ফ্রি ও হাইলি স্কেলেবল টেক স্ট্যাক](#২-১০০-ফ্রি-ও-হাইলি-স্কেলেবল-টেক-স্ট্যাক)
-- [৩. সিস্টেম আর্কিটেকচার ডায়াগ্রাম](#৩-সিস্টেম-আর্কিটেকচার-ডায়াগ্রাম)
-- [৪. ডাইনামিক রোল ও গ্র্যানুলার পারমিশন ইঞ্জিন (RBAC)](#৪-ডাইনামিক-রোল-ও-গ্র্যানুলার-পারমিশন-ইঞ্জিন-rbac)
-- [৫. রোল ভিত্তিক কোর ওয়ার্কফ্লো](#৫-রোল-ভিত্তিক-কোর-ওয়ার্কফ্লো)
-  - [ক. Reporting Manager](#ক-reporting-manager-executive-control--analytics)
-  - [খ. Team Lead](#খ-team-lead-project-architecture--squad-execution)
-  - [গ. Developer](#গ-developer-focused-workspace--collaboration)
-- [৬. স্মার্ট প্রোডাক্টিভিটি ও ভ্যালু-অ্যাডেড ফিচারসমূহ](#৬-স্মার্ট-প্রোডাক্টিভিটি-ও-ভ্যালু-অ্যাডেড-ফিচারসমূহ)
-- [৭. রিকমেন্ডেড রিপোজিটরি ও ফোল্ডার স্ট্রাকচার](#৭-রিকমেন্ডেড-রিপোজিটরি-ও-ফোল্ডার-স্ট্রাকচার)
-- [৮. উইন্ডোজ সার্ভার হোস্টিং ও জিরো-কস্ট ডিপ্লয়মেন্ট গাইড](#৮-উইন্ডোজ-সার্ভার-হোস্টিং-ও-জিরো-কস্ট-ডিপ্লয়মেন্ট-গাইড)
+<p align="center">
+  <img src="https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk" alt="Java 21" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-3.4.1-brightgreen?style=for-the-badge&logo=springboot" alt="Spring Boot 3.4.1" />
+  <img src="https://img.shields.io/badge/Angular-19.0-red?style=for-the-badge&logo=angular" alt="Angular 19" />
+  <img src="https://img.shields.io/badge/Microsoft%20SQL%20Server-2022-blue?style=for-the-badge&logo=microsoftsqlserver" alt="Microsoft SQL Server" />
+  <img src="https://img.shields.io/badge/WebSocket-STOMP-blueviolet?style=for-the-badge&logo=socketdotio" alt="WebSocket STOMP" />
+  <img src="https://img.shields.io/badge/Clean%20Architecture-Ports%20%26%20Adapters-teal?style=for-the-badge" alt="Clean Architecture" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License MIT" />
+</p>
 
 ---
 
-## ১. সিস্টেম ওভারভিউ ও মূল উদ্দেশ্য
+## 📑 Table of Contents
 
-SyncFlow-এর মূল উদ্দেশ্য হলো প্রজেক্ট লাইফসাইকেল ট্র্যাকিং, টাস্ক ম্যানেজমেন্ট, ডিসকর্ড-স্টাইল রিয়েল-টাইম চ্যাট এবং ইন-অ্যাপ অডিও/ভিডিও কনফারেন্সিং-কে এক ছাদের নিচে নিয়ে আসা। কোনো থার্ড-পার্টি পেইড সাবস্ক্রিপশন ছাড়াই উইন্ডোজ ইকোসিস্টেমে সর্বোচ্চ পারফরম্যান্স নিশ্চিত করা।
-
-### প্রধান হাইলাইটস:
-- **একক ক্রস-প্ল্যাটফর্ম কোডবেস**: Web, PWA এবং Android APK (Angular 18 + Ionic/Capacitor)।
-- **আল্ট্রা-লো ল্যাটেন্সি ও ভার্চুয়াল থ্রেডস**: Java 21 Project Loom (Virtual Threads) দিয়ে সীমিত হার্ডওয়্যারে লক্ষাধিক কনকারেন্ট রিকোয়েস্ট হ্যান্ডলিং।
-- **জিরো সফটওয়্যার লাইসেন্স কস্ট**: সম্পূর্ণ ফ্রি ও ওপেন-সোর্স লাইব্রেরি ও ফ্রি-টিয়ার ক্লাউড সার্ভিস (Cloudflare Tunnel, Firebase FCM, Jitsi Meet)।
-
----
-
-## ২. ১০০% ফ্রি ও হাইলি স্কেলেবল টেক স্ট্যাক
-
-| Layer | Technology & Tools | Why / Purpose | Free Tier / Open Source Status |
-| :--- | :--- | :--- | :--- |
-| **Frontend & Mobile App** | **Angular 18+ + Ionic UI / Capacitor** | একক কোডবেস থেকে পিসি ব্রাউজার (Web/PWA) এবং অ্যান্ড্রয়েড অ্যাপ (.apk) তৈরি। | 100% Free & Open Source (MIT / Apache) |
-| **Backend API** | **Spring Boot 3.x (Java 21 Virtual Threads)** | রেস্ট এপিআই, বিজনেস লজিক এবং জাভা ২১-এর ভার্চুয়াল থ্রেড দিয়ে হাজার হাজার রিকোয়েস্ট জিরো ল্যাগে হ্যান্ডেল করা। | 100% Free & Open Source |
-| **Security & RBAC** | **Spring Security 6 + JWT + Custom Permission Evaluator** | ডাইনামিক রোল এবং গ্র্যানুলার পারমিশন (মডিউল ভিত্তিক চেকবক্স) হ্যান্ডেল করা। | 100% Free & Open Source |
-| **Real-Time Chat & Seen** | **Spring WebSocket (STOMP + SockJS)** | ডিসকর্ডের মতো লাইভ চ্যাট, মেসেজ Seen স্ট্যাটাস এবং লাইভ কানবান বোর্ড আপডেট। | 100% Free & Open Source |
-| **Video/Audio Meeting** | **Jitsi Meet SDK / IFrame API** | জুম বা গুগলের মতো ফ্রি ইন-অ্যাপ অডিও/ভিডিও কল ও স্ক্রিন শেয়ারিং (নো লিমিট)। | 100% Free Open Source Service |
-| **Database & Caching** | **PostgreSQL 16 (or MySQL 8) + Caffeine In-Memory Cache** | ডাটা স্টোরেজ এবং পারমিশন ও ফ্রিকোয়েন্ট কুয়েরি দ্রুত করার জন্য র্যাম ক্যাশিং। | 100% Free & Open Source |
-| **Push Notifications** | **Firebase Cloud Messaging (FCM)** | অ্যাপ বন্ধ বা ব্যাকগ্রাউন্ডে থাকা অবস্থায় মোবাইলে ইনস্ট্যান্ট টাস্ক বা চ্যাট নোটিফিকেশন পাঠানো। | FCM Free Tier (Unlimited push) |
-| **Server & Hosting** | **Windows Server + Nginx + WinSW (Service Wrapper)** | উইন্ডোজ সার্ভারে স্প্রিং বুট ব্যাকগ্রাউন্ড সার্ভিস হিসেবে ২৪/৭ সচল রাখা ও রিভার্স প্রক্সি। | 100% Free Open Source Tools |
-| **Public Access & SSL** | **Cloudflare Tunnel OR DuckDNS + Let's Encrypt** | পোর্ট ফরওয়ার্ডিং বা পাবলিক আইপি ছাড়া সম্পূর্ণ ফ্রি https:// এবং রিমোট কানেকশন। | 100% Free |
+- [1. Executive Overview](#1-executive-overview)
+- [2. Architectural Highlights & Clean Architecture](#2-architectural-highlights--clean-architecture)
+- [3. Core Enterprise Features](#3-core-enterprise-features)
+- [4. Technology Stack](#4-technology-stack)
+- [5. System Architecture & Component Flow](#5-system-architecture--component-flow)
+- [6. Database Architecture & ER Diagram](#6-database-architecture--er-diagram)
+- [7. Directory & Package Structure](#7-directory--package-structure)
+- [8. Getting Started & Installation Guide](#8-getting-started--installation-guide)
+- [9. Default Seed Accounts & Security Matrix](#9-default-seed-accounts--security-matrix)
+- [10. REST API & WebSocket Documentation](#10-rest-api--websocket-documentation)
+- [11. Contributing & Author](#11-contributing--author)
 
 ---
 
-## ৩. সিস্টেম আর্কিটেকচার ডায়াগ্রাম
+## 1. Executive Overview
+
+**SyncFlow** is an enterprise-grade collaborative project management and team operations platform built specifically for high-security, compliance-driven environments like banking, fintech, and critical infrastructure.
+
+Unlike fragmented toolsets that require separate subscriptions for sprint tracking, team messaging, video calling, and access control, SyncFlow integrates the complete team lifecycle under a unified **Bank-Grade Emerald Reserve (`#006022`) & Champagne Gold Design System**:
+
+* **Sprint Board with Live STOMP Synchronization**: Drag-and-drop Kanban workflow with sub-millisecond multi-client synchronization.
+* **Granular RBAC Permission Matrix & Staff Role Assignment**: Dynamic role creation, permission toggles per functional module, and instant bank member role reassignment.
+* **Multi-Project Workspace Orchestration**: Instant project provisioning with automatic workflow stage pipeline creation.
+* **Slide-Over Task Details & Real-Time Comment Threads**: Inline assignee reassignment, due date tracking, priority tags, blocker alerts, and team comments.
+* **Daily Standup & EOD Work Log System**: Individual work log submissions, auto-calculated daily task completion metrics, and real-time team activity logs.
+* **Integrated In-App Video Conferencing**: One-click Jitsi Meet audio/video conference rooms embedded seamlessly without external tools.
+* **Enterprise Team Discussions**: Channel-based persistent messaging and team communication.
+
+---
+
+## 2. Architectural Highlights & Clean Architecture
+
+SyncFlow is engineered from the ground up adhering to **Clean Architecture (Hexagonal / Ports and Adapters)** across both backend and frontend layers:
+
+```
+[ External Clients / Web UI ]
+             │
+             ▼ (HTTP / STOMP)
+┌─────────────────────────────────────────────────────────────┐
+│                       WEB ADAPTERS                          │
+│          REST Controllers  •  WebSocket Endpoints           │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼ (Inbound Ports)
+┌─────────────────────────────────────────────────────────────┐
+│                    APPLICATION LAYER                        │
+│          Use Cases (Ports In)  •  Domain Services           │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+                             ▼ (Outbound Ports)
+┌─────────────────────────────────────────────────────────────┐
+│                   PERSISTENCE ADAPTERS                      │
+│         Spring Data JPA Repositories  •  MSSQL DB           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Architectural Principles:
+1. **Domain Independence**: Business entities and core workflow logic have zero dependencies on frameworks, databases, or transport protocols.
+2. **Ports and Adapters**: Inbound ports (`*UseCase`) govern application input; outbound ports define persistence contracts.
+3. **Frontend Facade Pattern**: The Angular frontend coordinates state, signals, and asynchronous data through domain Facades (`BoardFacade`, `RbacFacade`, `ChatFacade`), completely decoupling presentation components from transport services.
+4. **Relational Integrity on MSSQL**: Full transactional consistency with strict foreign key constraints, cascading lifecycle hooks, and audit logging on Microsoft SQL Server.
+
+---
+
+## 3. Core Enterprise Features
+
+### 🎯 1. Interactive Sprint Kanban Board
+* Multi-stage customizable columns (*Backlog*, *In Development*, *Code Review & QA*, *Done & Verified*).
+* Real-time drag-and-drop task progression synchronized across all connected browsers over STOMP WebSocket topics (`/topic/board/{projectId}`).
+* Multi-criteria filtering: Quick filters for *My Assigned*, *Blocked Only*, and *Critical & High Priority*, alongside real-time search by task title or code.
+* Blocker flags with custom blocker reason modals and visual warnings.
+
+### 🛡️ 2. Dynamic RBAC Matrix & Staff Role Reassignment
+* **Custom Role Creator**: Create arbitrary custom roles on the fly (e.g. `AUDIT_COMPLIANCE_OFFICER`, `RELEASE_MANAGER`).
+* **Granular Permission Matrix**: Module-level permission toggles across `KANBAN_BOARD`, `PROJECT_MANAGEMENT`, `TEAM_CHAT`, `VIDEO_CONFERENCE`, `SPRINT_CYCLE`, `FINANCE_BUDGET`, `RELEASE_DEPLOY`, `ANALYTICS_REPORTS`, and `AUDIT_LOGS`.
+* **Bank Member Roles Sub-Tab**: Dedicated member grid displaying staff avatars, emails, and interactive dropdown selectors to reassign roles with immediate persistence to MSSQL `users` table.
+
+### 🏢 3. Enterprise Project Orchestration
+* Top-header and sidebar `+ New Project` creation modal.
+* Automated stage bootstrapping: New projects automatically initialize with the canonical 4-stage pipeline for instant developer productivity.
+* Dynamic workspace switching with responsive progress tracking.
+
+### 📝 4. Slide-Over Task Details Drawer
+* Deep inspection of task metadata without leaving the board view.
+* Inline dropdown to reassign task ownership to any active bank member.
+* Native HTML5 date picker for strict sprint deadline enforcement.
+* Real-time threaded task comments with author initials, timestamps, and STOMP broadcast.
+
+### ⏱️ 5. Daily Standup & EOD Work Log System
+* Dedicated slide-over drawer accessible directly from the header navigation.
+* Automatic calculation of tasks moved to *Done* on the selected date.
+* EOD notes composer for blockers, architectural decisions, and next-day priorities.
+* **Team Activity Logs Tab**: Unified chronological feed of all team members' daily submissions.
+
+### 🎥 6. Integrated In-App Video Conferencing
+* Direct integration with Jitsi Meet embedded frame.
+* Instant meeting room provisioning with secure room identifiers matching project codes.
+* Full audio, HD video, screen sharing, and participant controls directly inside the dashboard.
+
+### 💬 7. Team Discussion Channels
+* Persistent channels (`#general`, `#core-banking-api`, `#design-tokens`, `#database-migration`).
+* Real-time message broadcast with author tags and timestamps.
+
+---
+
+## 4. Technology Stack
+
+### Backend
+* **Language & Runtime**: Java 21 (LTS)
+* **Framework**: Spring Boot 3.4.1
+* **Security**: Spring Security 6, Stateless JWT Authentication, BCrypt Password Encoding
+* **Real-Time Communication**: Spring WebSocket with STOMP broker and SockJS fallback
+* **ORM & Persistence**: Spring Data JPA, Hibernate Core
+* **Database Driver**: Microsoft JDBC Driver for SQL Server (`mssql-jdbc`)
+* **Build System**: Apache Maven 3.9+
+
+### Frontend
+* **Framework**: Angular 19 (Standalone Components, Signals API)
+* **Reactive Engine**: RxJS 7.8, Angular Signals
+* **Real-Time Client**: `@stomp/rx-stomp`, `sockjs-client`
+* **Styling**: SCSS Design System with Bank-Grade Palette, Glassmorphism, and Fluid Transitions
+* **Icons**: Inline SVG Design System (Zero external font dependencies)
+* **Video SDK**: Jitsi Meet External API
+
+### Database & Infrastructure
+* **Database**: Microsoft SQL Server 2022 / Express (`syncflow_db`)
+* **Host OS Support**: Windows 11 / Windows Server, Linux (Ubuntu 22.04+), macOS
+* **Web Server / Reverse Proxy**: Nginx (Production ready)
+
+---
+
+## 5. System Architecture & Component Flow
 
 ```mermaid
-flowchart TD
-    subgraph Clients["Clients Layer"]
-        WebBrowser["Desktop Browser (Web / PWA)"]
-        MobileApp["Android Mobile App (Capacitor / Ionic)"]
+flowchart TB
+    subgraph BrowserClients["Frontend Client Layer (Angular 19 Standalone)"]
+        Dashboard["DashboardComponent"]
+        BoardFac["BoardFacade (Signals)"]
+        RbacFac["RbacFacade (Signals)"]
+        ChatFac["ChatFacade (Signals)"]
+        ProjectSvc["ProjectService (HTTP Adapter)"]
+        TaskSvc["TaskService (HTTP Adapter)"]
+        RbacSvc["RbacService (HTTP Adapter)"]
+        StompSvc["RxStompService (WebSocket Adapter)"]
     end
 
-    subgraph Gateway["Public Gateway & Security (Free)"]
-        CF["Cloudflare Tunnel / DuckDNS + SSL"]
-        Nginx["Nginx Reverse Proxy (Windows Server)"]
+    subgraph BackendAPI["Backend Layer (Spring Boot 3.4.1 - Port 9090)"]
+        subgraph AdaptersWeb["Web Adapters (REST & STOMP)"]
+            AuthCtrl["AuthController"]
+            ProjCtrl["ProjectController"]
+            TaskCtrl["TaskController"]
+            RoleCtrl["RoleController"]
+            LogCtrl["WorkLogController"]
+            ChatWS["ChatWebSocketController"]
+        end
+
+        subgraph ApplicationCore["Application Core (Clean Architecture)"]
+            AuthService["AuthApplicationService"]
+            ProjService["ProjectApplicationService"]
+            TaskService["TaskApplicationService"]
+            RoleService["RoleApplicationService"]
+            LogService["WorkLogApplicationService"]
+        end
+
+        subgraph PortsIn["Inbound Ports (Use Cases)"]
+            AuthPort["AuthUseCase"]
+            ProjPort["ProjectUseCase"]
+            TaskPort["TaskUseCase"]
+            RolePort["RoleUseCase"]
+            LogPort["WorkLogUseCase"]
+        end
+
+        subgraph AdaptersPersist["Persistence Adapters (Spring Data JPA)"]
+            UserRepo["UserRepository"]
+            ProjRepo["ProjectRepository"]
+            StageRepo["StageRepository"]
+            TaskRepo["TaskRepository"]
+            CommentRepo["TaskCommentRepository"]
+            RoleRepo["RoleRepository"]
+            PermRepo["PermissionRepository"]
+            LogRepo["DailyWorkLogRepository"]
+        end
     end
 
-    subgraph BackendCluster["Spring Boot 3.x (Java 21 Virtual Threads)"]
-        Sec["Spring Security 6 + JWT + PermissionEvaluator"]
-        RestAPI["REST Controllers (Projects, Tasks, Analytics)"]
-        WSEngine["WebSocket Engine (STOMP/SockJS Live Chat & Seen)"]
-        FCMService["FCM Push Notification Service"]
-        Cache["Caffeine In-Memory Cache (Roles & Permissions)"]
+    subgraph DatabaseLayer["Database Layer"]
+        MSSQL[("Microsoft SQL Server 2022\n(syncflow_db)")]
     end
 
-    subgraph Storage["Data & External Services"]
-        PG[(PostgreSQL 16 Database)]
-        Jitsi["Jitsi Meet Server (Audio/Video Engine)"]
-        FCMServer["Firebase Cloud Messaging (Google)"]
-    end
+    Dashboard --> BoardFac
+    Dashboard --> RbacFac
+    Dashboard --> ChatFac
 
-    WebBrowser -->|HTTPS / WSS| CF
-    MobileApp -->|HTTPS / WSS| CF
-    CF --> Nginx
-    Nginx -->|Proxy localhost:8080| Sec
-    Sec --> RestAPI
-    Sec --> WSEngine
-    RestAPI --> Cache
-    RestAPI --> PG
-    WSEngine --> PG
-    RestAPI --> FCMService
-    FCMService --> FCMServer
-    MobileApp -.->|Listen Push| FCMServer
-    WebBrowser -.->|IFrame Embed| Jitsi
-    MobileApp -.->|SDK Call| Jitsi
+    BoardFac --> ProjectSvc
+    BoardFac --> TaskSvc
+    BoardFac --> StompSvc
+    RbacFac --> RbacSvc
+
+    ProjectSvc -->|REST /v1/projects| ProjCtrl
+    TaskSvc -->|REST /v1/tasks| TaskCtrl
+    RbacSvc -->|REST /v1/roles, /v1/auth| RoleCtrl
+    RbacSvc --> AuthCtrl
+    StompSvc -->|STOMP /ws| ChatWS
+
+    ProjCtrl --> ProjPort
+    TaskCtrl --> TaskPort
+    RoleCtrl --> RolePort
+    AuthCtrl --> AuthPort
+    LogCtrl --> LogPort
+
+    ProjPort -.-> ProjService
+    TaskPort -.-> TaskService
+    RolePort -.-> RoleService
+    AuthPort -.-> AuthService
+    LogPort -.-> LogService
+
+    ProjService --> ProjRepo
+    ProjService --> StageRepo
+    TaskService --> TaskRepo
+    TaskService --> CommentRepo
+    RoleService --> RoleRepo
+    RoleService --> PermRepo
+    AuthService --> UserRepo
+    LogService --> LogRepo
+
+    UserRepo --> MSSQL
+    ProjRepo --> MSSQL
+    StageRepo --> MSSQL
+    TaskRepo --> MSSQL
+    CommentRepo --> MSSQL
+    RoleRepo --> MSSQL
+    PermRepo --> MSSQL
+    LogRepo --> MSSQL
 ```
 
 ---
 
-## ৪. ডাইনামিক রোল ও গ্র্যানুলার পারমিশন ইঞ্জিন (RBAC)
+## 6. Database Architecture & ER Diagram
 
-1. **Custom Role Creator**:
-   - অ্যাডমিন প্যানেল থেকে যেকোনো সময় নতুন রোল তৈরি করা যাবে (যেমন: `Reporting Manager`, `Team Lead`, `Senior Dev`, `Junior Dev`, `SQA`, `Observer`)।
-2. **Granular Permission Matrix**:
-   - প্রতিটি রোলের জন্য মডিউল ভিত্তিক আলাদা চেকবক্স গ্রিড থাকবে:
-     - **Modules**: `Project`, `Task`, `Pipeline Stages`, `Chat Channels`, `Meetings`, `User Management`, `Performance Reports`.
-     - **Operations**: `Create`, `View`, `Edit`, `Delete`, `Approve`, `Assign`, `Host Meeting`.
-3. **User-Level Permission Override**:
-   - ইউজারের গ্লোবাল রোল অক্ষুণ্ণ রেখেই কোনো নির্দিষ্ট প্রজেক্ট বা কাজের জন্য স্পেশাল পারমিশন যোগ বা প্রত্যাহার করা যাবে।
-4. **Invite-Only Authentication**:
-   - উন্মুক্ত পাবলিক রেজিস্ট্রেশন নেই। শুধুমাত্র অ্যাডমিন বা অনুমোদিত ম্যানেজার অ্যাকাউন্ট তৈরি বা ইনভাইট লিংক পাঠাতে পারবেন। প্রথমবার লগইনে পাসওয়ার্ড চেঞ্জ ও 2FA অপশন থাকবে।
+```mermaid
+erDiagram
+    USERS ||--o{ DAILY_WORK_LOGS : "logs"
+    USERS ||--o{ TASK_COMMENTS : "authors"
+    USERS }o--|| ROLES : "has"
+    ROLES ||--o{ ROLE_PERMISSIONS : "defines"
+    PERMISSIONS ||--o{ ROLE_PERMISSIONS : "granted_to"
+    PROJECTS ||--o{ STAGES : "contains"
+    PROJECTS ||--o{ TASKS : "tracks"
+    STAGES ||--o{ TASKS : "groups"
+    TASKS ||--o{ TASK_COMMENTS : "receives"
+    USERS ||--o{ TASKS : "assigned_to"
+
+    USERS {
+        uuid id PK
+        string email UK
+        string password_hash
+        string full_name
+        string avatar_initials
+        bigint role_id FK
+        datetime created_at
+    }
+
+    ROLES {
+        bigint id PK
+        string name UK
+        string description
+        datetime created_at
+    }
+
+    PERMISSIONS {
+        bigint id PK
+        string module
+        string action UK
+        string description
+    }
+
+    PROJECTS {
+        bigint id PK
+        string name
+        string description
+        string status
+        datetime created_at
+    }
+
+    STAGES {
+        bigint id PK
+        bigint project_id FK
+        string name
+        int order_index
+    }
+
+    TASKS {
+        bigint id PK
+        bigint project_id FK
+        bigint stage_id FK
+        string title
+        string description
+        string priority
+        uuid assignee_id FK
+        date due_date
+        int progress_percentage
+        boolean is_blocked
+        string blocker_reason
+        datetime created_at
+        datetime updated_at
+    }
+
+    TASK_COMMENTS {
+        bigint id PK
+        bigint task_id FK
+        uuid user_id FK
+        string user_name
+        string content
+        datetime created_at
+    }
+
+    DAILY_WORK_LOGS {
+        bigint id PK
+        uuid user_id FK
+        string user_full_name
+        string user_role
+        date log_date
+        int completed_tasks_count
+        string summary_text
+        datetime created_at
+        datetime updated_at
+    }
+```
 
 ---
 
-## ৫. রোল ভিত্তিক কোর ওয়ার্কফ্লো
-
-### ক. Reporting Manager (Executive Control & Analytics)
-- **Project & Lifecycle Management**: নতুন প্রজেক্ট তৈরি, স্টার্ট/এন্ড ডেট নির্ধারণ এবং লাইফসাইকেল স্ট্যাটাস (`Active`, `On Hold`, `Completed`) নিয়ন্ত্রণ।
-- **Team & Leadership Setup**: বিভাগ অনুযায়ী স্কোয়াড তৈরি, মেম্বার যুক্ত করা এবং টিম লিড নমিনেশন।
-- **Full Override Control**: প্রয়োজনবোধে টিম লিডের সাজানো স্টেজ রদবদল বা সরাসরি যেকোনো ডেভেলপারকে স্পেশাল প্রায়োরিটি টাস্ক অ্যাসাইন করা।
-- **360° Live Executive Dashboard**:
-  - সব প্রজেক্টের লাইভ প্রগ্রেস (%) ও স্টেজ ভিউ।
-  - প্রজেক্ট হেলথ মেট্রিক্স (On-Track vs At-Risk vs Delayed)।
-- **Developer Performance Analytics**:
-  - **On-Time Delivery Rate**: ডেডলাইনের মধ্যে টাস্ক কমপ্লিট হওয়ার হার।
-  - **Quality / Approval Score**: রিভিউ বা QA স্টেজে কাজ রিজেক্ট/রিভিশনে যাওয়ার হার (যত কম, স্কোর তত বেশি)।
-  - **Workload Heatmap**: কার হাতে বর্তমানে কয়টি Active টাস্ক আছে (ব্যালান্সড, ওভারলোডেড নাকি আইডিয়াল)।
-- **Comment & Review Authority**: যেকোনো টাস্ক বা প্রজেক্টে হাই-লেভেল ইনস্ট্রাকশন, কমেন্ট এবং ফাইনাল এপ্রুভাল দেওয়া।
-- **Global & Team Meetings**: এক ক্লিকে পুরো ডিপার্টমেন্ট বা নির্দিষ্ট টিমের সাথে ইনস্ট্যান্ট অডিও/ভিডিও মিটিং শুরু করা।
-
----
-
-### খ. Team Lead (Project Architecture & Squad Execution)
-- **Custom Stage / Pipeline Builder**: প্রতিটি প্রজেক্টের ধরন অনুযায়ী কাস্টম স্টেজ ডিফাইন করা:
-  $$\text{Backlog} \longrightarrow \text{DB Design} \longrightarrow \text{API} \longrightarrow \text{UI} \longrightarrow \text{Review} \longrightarrow \text{Done}$$
-- **Task Breakdown & Assignment**: মূল ফিচারকে ছোট ছোট টাস্ক ও সাব-টাস্কে ভাগ করে প্রায়োরিটি (`Low`, `Medium`, `High`, `Critical`) ও ডেডলাইনসহ ডেভেলপারদের অ্যাসাইন করা।
-- **Review & Approval Queue**: ডেভেলপাররা রিভিউতে পাঠালে পুল-রিকোয়েস্টের মতো টাস্ক চেক করা, ফিডব্যাক কমেন্ট দেওয়া, এপ্রুভ করে পরের স্টেজে পাঠানো বা রিভিশনে ব্যাক পাঠানো।
-- **Discord-Style Channel Creation**: প্রজেক্ট বা মডিউল ভিত্তিক আলাদা ডিসকাশন চ্যানেল খোলা (যেমন: `#api-discussion`, `#ui-bugs`, `#release-1.0`)।
-- **Team Meeting Host**: নিজের স্কোয়াডের সদস্যদের নিয়ে ডেইলি স্ট্যান্ডআপ বা বাগ সলভিং মিটিং হোস্ট করা।
-
----
-
-### গ. Developer (Focused Workspace & Collaboration)
-- **Personal Workspace & Kanban Board**: শুধুমাত্র নিজের অ্যাসাইন করা কাজগুলো প্রায়োরিটি ও ডেডলাইন অনুসারে সাজানো দেখা। ড্র্যাগ-অ্যান্ড-ড্রপ করে স্ট্যাটাস পরিবর্তন (`To-Do` $\rightarrow$ `In Progress` $\rightarrow$ `Review`)।
-- **Progress Slider & Activity Logs**: টাস্কের অগ্রগতি স্লাইডার ($0\%$ - $100\%$) ড্র্যাগ করে আপডেট করা, কোড স্নিপেট বা স্ক্রিনশট অ্যাটাচমেন্ট সহ কমেন্ট পোস্ট করা।
-- **Discord-Style Chat & Seen Status**:
-  - `#general` গ্লোবাল কমিউনিকেশন।
-  - প্রজেক্ট-স্পেসিফিক চ্যানেলে ডিসকাশন, রিচ টেক্সট ও ফাইল শেয়ার।
-  - **Read Receipts ("Seen by...")**: সেন্ট মেসেজে ক্লিক বা হোভার করলে কে কে কখন দেখেছে তা রিয়েল-টাইমে দেখা।
-- **One-Tap Meeting Join**: ইন-অ্যাপ নোটিফিকেশন বা চ্যানেলের মিটিং কার্ডে এক ট্যাপে সরাসরি ভিডিও কলে সংযুক্ত হওয়া।
-
----
-
-## ৬. স্মার্ট প্রোডাক্টিভিটি ও ভ্যালু-অ্যাডেড ফিচারসমূহ
-
-| ফিচার | বিবরণ | ইমপ্যাক্ট |
-| :--- | :--- | :--- |
-| **"Raise a Blocker" Alert** | ডেভেলপার কোডিং, লজিক বা সার্ভার সমস্যায় আটকে গেলে টাস্কে `Blocked` ফ্ল্যাগ অন করে কারণ লিখবে। সাথে সাথে ম্যানেজার ও লিডের ড্যাশবোর্ডে লাল ওয়ার্নিং ফ্ল্যাশ করবে। | কাজের অচলাবস্থা তৎক্ষণাৎ সমাধান হয়। |
-| **Leave & Availability Status** | কোনো মেম্বার `On Leave` দিলে তার প্রোফাইল ব্যাজে ছুটির স্ট্যাটাস দেখাবে। ছুটিতে থাকা অবস্থায় সে মেসেজ পড়তে পারলেও তাকে নতুন টাস্ক অ্যাসাইন করতে গেলে ম্যানেজারকে ওয়ার্নিং ডায়ালগ দেখাবে। | ভুল অ্যাসাইনমেন্ট ও ওভারবার্ডেন রোধ। |
-| **Task Dependency Trigger** | টাস্ক-B যদি টাস্ক-A এর ওপর নির্ভরশীল হয়, তবে টাস্ক-A কমপ্লিট হওয়া মাত্রই টাস্ক-B এর ডেভেলপারের কাছে অটো-নোটিফিকেশন যাবে ("Your dependent task is ready!")। | হ্যান্ডঅফ টাইম শূন্যে নামিয়ে আনা। |
-| **Daily Work Log Summary** | দিনশেষে ডেভেলপারদের সম্পন্ন কাজ, ইন-প্রগ্রেস অ্যাক্টিভিটি ও স্লাইডার আপডেটের ওপর ভিত্তি করে স্বয়ংক্রিয় সারাংশ প্রস্তুত হবে, যা ম্যানেজারের ড্যাশবোর্ডে শো করবে। | প্রতিদিন ম্যানুয়াল রিপোর্টিংয়ের ঝামেলা দূর। |
-| **Smart Push Notifications** | Firebase Cloud Messaging (FCM) ব্যবহারের মাধ্যমে অ্যাপ বন্ধ থাকলেও মোবাইলের নোটিফিকেশন ট্রে-তে ইনস্ট্যান্ট কল অ্যালার্ট, টাস্ক অ্যালার্ট ও চ্যাট নোটিফিকেশন আসবে। | অলওয়েজ-অন কানেক্টিভিটি। |
-
----
-
-## ৭. রিকমেন্ডেড রিপোজিটরি ও ফোল্ডার স্ট্রাকচার
+## 7. Directory & Package Structure
 
 ```
 SyncFlow/
-├── README.md                      # এই মূল ব্লু-প্রিন্ট ডকুমেন্টেশন
-├── docs/                          # আর্কিটেকচার, এপিআই ও স্কিমা স্পেসিফিকেশন
-│   ├── ARCHITECTURE.md            # বিস্তারিত আর্কিটেকচার ও ডেটাফ্লো
-│   ├── DATABASE_SCHEMA.md         # পোস্টগ্রেস ইআরডি এবং টেবিল স্ট্রাকচার
-│   └── RBAC_MATRIX.md             # রোল ও পারমিশন মেথডলজি
+├── backend/
+│   ├── src/main/java/com/syncflow/
+│   │   ├── auth/
+│   │   │   ├── adapter/web/AuthController.java
+│   │   │   ├── application/port/in/AuthUseCase.java
+│   │   │   ├── application/service/AuthApplicationService.java
+│   │   │   └── domain/model/User.java
+│   │   ├── project/
+│   │   │   ├── adapter/web/ProjectController.java
+│   │   │   ├── application/port/in/ProjectUseCase.java
+│   │   │   └── application/service/ProjectApplicationService.java
+│   │   ├── task/
+│   │   │   ├── adapter/web/TaskController.java
+│   │   │   ├── application/port/in/TaskUseCase.java
+│   │   │   └── application/service/TaskApplicationService.java
+│   │   ├── rbac/
+│   │   │   ├── adapter/web/RoleController.java
+│   │   │   ├── application/port/in/RoleUseCase.java
+│   │   │   └── application/service/RoleApplicationService.java
+│   │   ├── worklog/
+│   │   │   ├── adapter/web/DailyWorkLogController.java
+│   │   │   ├── application/port/in/DailyWorkLogUseCase.java
+│   │   │   └── application/service/DailyWorkLogApplicationService.java
+│   │   ├── config/
+│   │   │   ├── SecurityConfig.java
+│   │   │   ├── WebSocketConfig.java
+│   │   │   └── DataInitializer.java
+│   │   └── SyncFlowApplication.java
+│   └── pom.xml
 │
-├── backend/                       # Spring Boot 3.x (Java 21) অ্যাপ্লিকেশন
-│   ├── pom.xml (or build.gradle)
-│   └── src/
-│       ├── main/java/com/syncflow/
-│       │   ├── config/            # Security, WebSocket, Caffeine, Jitsi Config
-│       │   ├── security/          # JWT Filters, CustomPermissionEvaluator
-│       │   ├── controller/        # REST & WebSocket STOMP Controllers
-│       │   ├── service/           # Business Logic, FCM Service, Analytics
-│       │   ├── repository/        # Spring Data JPA Repositories
-│       │   └── model/             # Entities & DTOs
-│       └── main/resources/
-│           ├── application.yml
-│           └── db/migration/      # Flyway / Liquibase SQL স্কিমা
+├── frontend/
+│   ├── src/app/
+│   │   ├── core/
+│   │   │   ├── ports/
+│   │   │   │   ├── auth.port.ts
+│   │   │   │   ├── project.port.ts
+│   │   │   │   ├── task.port.ts
+│   │   │   │   ├── rbac.port.ts
+│   │   │   │   └── worklog.port.ts
+│   │   │   └── services/
+│   │   │       ├── auth.service.ts
+│   │   │       ├── project.service.ts
+│   │   │       ├── task.service.ts
+│   │   │       ├── rbac.service.ts
+│   │   │       ├── rx-stomp.service.ts
+│   │   │       └── worklog.service.ts
+│   │   ├── features/
+│   │   │   ├── board/application/board.facade.ts
+│   │   │   ├── rbac/application/rbac.facade.ts
+│   │   │   └── chat/application/chat.facade.ts
+│   │   └── pages/
+│   │       ├── dashboard/
+│   │       │   ├── dashboard.component.ts
+│   │       │   ├── dashboard.component.html
+│   │       │   └── dashboard.component.scss
+│   │       └── login/
+│   │           ├── login.component.ts
+│   │           ├── login.component.html
+│   │           └── login.component.scss
+│   ├── angular.json
+│   └── package.json
 │
-├── frontend/                      # Angular 18+ + Ionic UI + Capacitor
-│   ├── package.json
-│   ├── capacitor.config.ts        # Android build configuration
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── core/              # Auth Guards, JWT Interceptors, Services
-│   │   │   ├── shared/            # Reusable UI Components, Directives
-│   │   │   └── modules/
-│   │   │       ├── auth/          # Login, Reset Password
-│   │   │       ├── dashboard/     # Executive 360 & Analytics
-│   │   │       ├── projects/      # Project & Pipeline Stage Builder
-│   │   │       ├── kanban/        # Drag & Drop Kanban & Blocker Alert
-│   │   │       ├── chat/          # Discord-style Channels & Seen Status
-│   │   │       ├── meeting/       # Jitsi Meet Integration
-│   │   │       └── admin/         # Dynamic RBAC & User Management
-│   │   └── environments/
-│   └── android/                   # Generated Android Studio Project
-│
-└── deploy/                        # Windows Server Deployment Scripts
-    ├── nginx/                     # nginx.conf (Reverse Proxy + WebSocket)
-    ├── winsw/                     # WinSW.xml for Spring Boot Windows Service
-    └── cloudflare/                # cloudflared tunnel setup guide
+├── README.md
+└── .gitignore
 ```
 
 ---
 
-## ৮. উইন্ডোজ সার্ভার হোস্টিং ও জিরো-কস্ট ডিপ্লয়মেন্ট গাইড
+## 8. Getting Started & Installation Guide
 
-1. **WinSW দিয়ে Spring Boot সার্ভিস বানানো**:
-   - `SyncFlowService.xml` তৈরি করে `WinSW.exe install` চালালে উইন্ডোজ রিবুট হলেও স্বয়ংক্রিয়ভাবে ব্যাকগ্রাউন্ডে স্প্রিং বুট সার্ভিস চালু থাকবে।
-2. **Nginx Reverse Proxy**:
-   - Nginx দিয়ে `80` / `443` থেকে ট্রাফিক `localhost:8080` (Spring Boot API) এবং `localhost:4200` (Angular Web Build) এ রাউট করা।
-   - WebSocket হ্যান্ডশেক (`Upgrade`, `Connection: Upgrade`) কনফিগারেশন।
-3. **Cloudflare Tunnel (Free HTTPS & Zero Port Forwarding)**:
-   - কোনো রিয়েল আইপি বা রাউটার কনফিগারেশন ছাড়াই `cloudflared.exe tunnel run` কমান্ড দিয়ে আপনার লোকাল সার্ভারকে গ্লোবাল ইন্টারনেট ডোমেইনে (যেমন: `syncflow.yourdomain.com`) নিরাপদ HTTPS কানেকশনে নিয়ে আসা।
+### Prerequisites
+* **Java Development Kit**: JDK 21+
+* **Node.js**: v20.x or v22.x LTS (with npm 10+)
+* **Database**: Microsoft SQL Server 2022 (Developer / Express edition)
+* **Build Tool**: Maven 3.9+
+
+---
+
+### Step 1: Microsoft SQL Server Database Setup
+Open SQL Server Management Studio (SSMS) or `sqlcmd` and execute:
+
+```sql
+-- Create the dedicated SyncFlow database
+CREATE DATABASE syncflow_db;
+GO
+
+-- Create the dedicated SQL Server login
+USE master;
+GO
+CREATE LOGIN syncflow_user WITH PASSWORD = 'SyncFlow@2026!', CHECK_POLICY = OFF;
+GO
+
+-- Grant database owner privileges
+USE syncflow_db;
+GO
+CREATE USER syncflow_user FOR LOGIN syncflow_user;
+GO
+ALTER ROLE db_owner ADD MEMBER syncflow_user;
+GO
+```
+
+---
+
+### Step 2: Backend Configuration & Launch
+Verify the connection string in `backend/src/main/resources/application.yml`:
+
+```yaml
+server:
+  port: 9090
+  servlet:
+    context-path: /api
+
+spring:
+  datasource:
+    url: jdbc:sqlserver://localhost:1433;databaseName=syncflow_db;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=false
+    username: syncflow_user
+    password: SyncFlow@2026!
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+```
+
+Start the Spring Boot backend service:
+```bash
+cd backend
+./mvnw clean spring-boot:run
+```
+* The backend will start on port `9090`.
+* The `DataInitializer` will automatically seed default roles, permissions, enterprise projects, Kanban stages, and users if tables are empty.
+
+---
+
+### Step 3: Frontend Installation & Launch
+```bash
+cd frontend
+npm install
+npm start
+```
+* The Angular dev server will launch at `http://localhost:4200`.
+* All API calls route automatically to `http://localhost:9090/api`.
+
+---
+
+## 9. Default Seed Accounts & Security Matrix
+
+Upon initial database initialization, the following pre-configured enterprise accounts are available:
+
+| Full Name | Email Address | Password | Role | Primary Permissions |
+| :--- | :--- | :--- | :--- | :--- |
+| **Girish Admin** | `admin@syncflow.bank` | `Admin@123` | `ADMIN` | Full System Access, RBAC Matrix, All Modules |
+| **Tariq Manager** | `manager@syncflow.bank` | `Manager@123` | `REPORTING_MANAGER` | Analytics, Sprint Health, Sprints, Team |
+| **Arman Lead** | `lead@syncflow.bank` | `Lead@123` | `TECH_LEAD` | Architecture, Code Review, Sprint Execution |
+| **Farhan Senior Dev** | `dev@syncflow.bank` | `Dev@123` | `DEVELOPER` | Task Management, Comments, Standup Logs |
+| **Sarah SQA** | `sqa@syncflow.bank` | `Sqa@123` | `SQA_ENGINEER` | QA Verification, Bug Tracking, Release Sign-off |
+
+---
+
+## 10. REST API & WebSocket Documentation
+
+### Authentication & RBAC
+* `POST /api/v1/auth/login` — Authenticate user and issue JWT bearer token.
+* `GET  /api/v1/auth/users` — Fetch all registered bank staff members.
+* `PUT  /api/v1/auth/users/{userId}/role` — Reassign bank member's active role.
+* `GET  /api/v1/roles` — Fetch all system roles and their granted permissions.
+* `POST /api/v1/roles` — Create a new custom role with description.
+* `PUT  /api/v1/roles/{roleId}/permissions` — Update permission matrix checkboxes for a role.
+
+### Projects & Stages
+* `GET  /api/v1/projects` — Retrieve all enterprise projects with stage metadata.
+* `POST /api/v1/projects` — Provision a new project and initialize canonical workflow stages.
+* `GET  /api/v1/projects/{projectId}/stages` — List pipeline stages for a project.
+
+### Tasks & Comments
+* `GET  /api/v1/tasks?projectId={id}` — Retrieve all tasks for a project.
+* `POST /api/v1/tasks` — Create a new task in a specific stage.
+* `PUT  /api/v1/tasks/{id}/move` — Move task across stages (triggers WebSocket broadcast).
+* `PUT  /api/v1/tasks/{id}/details` — Update title, description, priority, assignee, due date.
+* `PUT  /api/v1/tasks/{id}/blocker` — Toggle blocker flag and set blocker explanation.
+* `GET  /api/v1/tasks/{taskId}/comments` — Retrieve threaded comment discussion.
+* `POST /api/v1/tasks/{taskId}/comments` — Post a comment (broadcasted in real time).
+
+### Daily Standup & Work Logs
+* `GET  /api/v1/worklogs/my?date=YYYY-MM-DD` — Retrieve authenticated user's log for date.
+* `POST /api/v1/worklogs` — Submit or update standup notes and completed task count.
+* `GET  /api/v1/worklogs/team?date=YYYY-MM-DD` — Retrieve all team activity logs for date.
+
+### WebSocket STOMP Broker Topics
+* `CONNECT /ws` — WebSocket STOMP endpoint with SockJS fallback.
+* `SUBSCRIBE /topic/board/{projectId}` — Real-time Kanban task movements, creations, and edits.
+* `SUBSCRIBE /topic/channel/{channelId}` — Real-time team discussion messages.
+* `SUBSCRIBE /topic/task/{taskId}/comments` — Live task comment stream.
+* `SEND /app/chat.send` — Dispatch message payload to channel.
+
+---
+
+## 11. Contributing & Author
+
+Developed and maintained by **Girish Mondal** as a modern, high-performance, and secure project operations system for enterprise engineering squads.
+
+* **GitHub Repository**: [https://github.com/Girishiam/SyncFlow](https://github.com/Girishiam/SyncFlow)
+* **Author**: Girish Mondal
+* **License**: This project is licensed under the **MIT License** — feel free to customize and deploy.
