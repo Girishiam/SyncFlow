@@ -29,6 +29,10 @@ public class Role {
     @Builder.Default
     private Boolean isSystemRole = false;
 
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private Boolean status = true;
+
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
         name = "role_permissions",

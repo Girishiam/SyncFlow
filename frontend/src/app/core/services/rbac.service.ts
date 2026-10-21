@@ -27,6 +27,14 @@ export class RbacService implements IRbacPort {
     return this.http.post<Role>(`${this.apiUrl}/roles`, { name, description, permissionIds });
   }
 
+  toggleRoleStatus(roleId: number): Observable<Role> {
+    return this.http.put<Role>(`${this.apiUrl}/roles/${roleId}/toggle-status`, {});
+  }
+
+  deleteRole(roleId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/roles/${roleId}`);
+  }
+
   getAllUsers(): Observable<any[]> {
     return this.http.get<any[]>('http://localhost:9090/api/v1/auth/users');
   }

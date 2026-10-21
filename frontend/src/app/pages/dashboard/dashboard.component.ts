@@ -1,6 +1,7 @@
 import { Component, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { AuthService } from '../../core/services/auth.service';
 import { WebSocketService } from '../../core/services/websocket.service';
@@ -22,6 +23,7 @@ export class DashboardComponent implements OnInit {
   public chatFacade = inject(ChatFacade);
   public rbacFacade = inject(RbacFacade);
   public wsService = inject(WebSocketService);
+  private route = inject(ActivatedRoute);
 
   currentUser = computed(() => this.authService.currentUserSignal());
 
@@ -98,6 +100,15 @@ export class DashboardComponent implements OnInit {
   isSavingRbac = this.rbacFacade.isSaving;
   rbacSuccessMsg = this.rbacFacade.saveSuccessMessage;
 
+  // RBAC Search, Filter & KPI Delegates
+  rbacSearchQuery = this.rbacFacade.searchQuery;
+  rbacStatusFilter = this.rbacFacade.statusFilter;
+  filteredRoles = this.rbacFacade.filteredRoles;
+  totalRolesCount = this.rbacFacade.totalRolesCount;
+  activeRolesCount = this.rbacFacade.activeRolesCount;
+  deactivatedRolesCount = this.rbacFacade.deactivatedRolesCount;
+  totalAssignedUsersCount = this.rbacFacade.totalAssignedUsersCount;
+
   // Custom Role Modal Delegates
   isCreateRoleModalOpen = this.rbacFacade.isCreateRoleModalOpen;
   newRoleName = this.rbacFacade.newRoleName;
@@ -105,11 +116,24 @@ export class DashboardComponent implements OnInit {
   rbacBankUsers = this.rbacFacade.bankUsers;
   activeRbacTab = signal<'MATRIX' | 'MEMBERS'>('MATRIX');
 
+  // Delete Role Modal Delegates
+  isDeleteRoleModalOpen = this.rbacFacade.isDeleteModalOpen;
+  roleToDelete = this.rbacFacade.roleToDelete;
+  deleteConfirmText = this.rbacFacade.deleteConfirmText;
+  deleteErrorMessage = this.rbacFacade.deleteErrorMessage;
+
   // Meeting state
   isMeetingOpen = signal(false);
   meetingRoom = signal('syncflow-sprint-room');
 
   ngOnInit(): void {
+    this.route.queryParams.subscribe(params => {
+      const tab = params['tab'];
+      if (tab === 'rbac' || tab === 'discussions' || tab === 'analytics' || tab === 'board') {
+        this.activeNav.set(tab);
+      }
+    });
+
     this.boardFacade.init();
     this.chatFacade.init();
     this.rbacFacade.init();
@@ -252,6 +276,52 @@ export class DashboardComponent implements OnInit {
 
   submitCreateRole(): void {
     this.rbacFacade.submitCreateRole();
+  }
+
+  // Batch Permission Controls
+  selectAllPermissions(): void {
+    this.rbacFacade.selectAllPermissions();
+  }
+
+  clearAllPermissions(): void {
+    this.rbacFacade.clearAllPermissions();
+  }
+
+  isModuleAllSelected(moduleName: string): boolean {
+    return this.rbacFacade.isModuleAllSelected(moduleName);
+  }
+
+  toggleModulePermissions(moduleName: string): void {
+    this.rbacFacade.toggleModulePermissions(moduleName);
+  }
+
+  // Role Status & Delete Operations
+  toggleRoleStatus(roleId: number): void {
+    this.rbacFacade.toggleRoleStatus(roleId);
+  }
+
+  openDeleteRoleModal(role: any): void {
+    this.rbacFacade.openDeleteModal(role);
+  }
+
+  closeDeleteRoleModal(): void {
+    this.rbacFacade.closeDeleteModal();
+  }
+
+  confirmDeleteRole(): void {
+    this.rbacFacade.confirmDeleteRole();
+  }
+
+  getModuleIcon(module: string): string {
+    return this.rbacFacade.getModuleIcon(module);
+  }
+
+  getModuleDescription(module: string): string {
+    return this.rbacFacade.getModuleDescription(module);
+  }
+
+  setRbacStatusFilter(filter: 'ALL' | 'ACTIVE' | 'INACTIVE'): void {
+    this.rbacFacade.statusFilter.set(filter);
   }
 
   onMemberRoleChange(userId: string, event: Event): void {

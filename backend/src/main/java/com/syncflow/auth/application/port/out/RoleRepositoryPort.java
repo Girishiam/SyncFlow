@@ -9,4 +9,5 @@ public interface RoleRepositoryPort {
     Optional<Role> findById(Long id);
     Optional<Role> findByName(String name);
     Role save(Role role);
+    void deleteById(Long id);
 }

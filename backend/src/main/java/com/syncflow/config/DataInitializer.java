@@ -227,6 +227,7 @@ public class DataInitializer implements CommandLineRunner {
                                 .name(name)
                                 .description(description)
                                 .isSystemRole(isSystemRole)
+                                .status(true)
                                 .permissions(new HashSet<>())
                                 .build()
                         ));

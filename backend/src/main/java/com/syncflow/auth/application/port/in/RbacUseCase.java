@@ -12,4 +12,6 @@ public interface RbacUseCase {
     List<PermissionDTO> getAllPermissions();
     RoleDTO updateRolePermissions(Long roleId, UpdateRolePermissionsRequest request);
     RoleDTO createCustomRole(CreateRoleRequest request);
+    RoleDTO toggleRoleStatus(Long roleId);
+    void deleteRole(Long roleId);
 }

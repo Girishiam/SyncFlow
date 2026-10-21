@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.syncflow.repository.UserRepository;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,6 +27,7 @@ public class RbacApplicationService implements RbacUseCase {
 
     private final RoleRepositoryPort roleRepositoryPort;
     private final PermissionRepositoryPort permissionRepositoryPort;
+    private final UserRepository userRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -89,15 +91,50 @@ public class RbacApplicationService implements RbacUseCase {
         return toRoleDTO(saved);
     }
 
+    @Override
+    @Transactional
+    public RoleDTO toggleRoleStatus(Long roleId) {
+        Role role = roleRepositoryPort.findById(roleId)
+                .orElseThrow(() -> new DomainException("Role not found with ID: " + roleId));
+
+        boolean newStatus = role.getStatus() == null || !role.getStatus();
+        role.setStatus(newStatus);
+        Role saved = roleRepositoryPort.save(role);
+        log.info("Toggled status for Role: {} to {}", saved.getName(), newStatus ? "ACTIVE" : "DEACTIVATED");
+        return toRoleDTO(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteRole(Long roleId) {
+        Role role = roleRepositoryPort.findById(roleId)
+                .orElseThrow(() -> new DomainException("Role not found with ID: " + roleId));
+
+        if (Boolean.TRUE.equals(role.getIsSystemRole())) {
+            throw new DomainException("System roles cannot be deleted.");
+        }
+
+        long assignedUsers = userRepository.countByRoleId(roleId);
+        if (assignedUsers > 0) {
+            throw new DomainException("Cannot delete role '" + role.getName() + "' because " + assignedUsers + " bank member(s) are currently assigned to it. Please reassign those members first.");
+        }
+
+        roleRepositoryPort.deleteById(roleId);
+        log.info("Permanently deleted custom role: {}", role.getName());
+    }
+
     private RoleDTO toRoleDTO(Role role) {
         List<Long> pIds = role.getPermissions().stream().map(Permission::getId).toList();
         List<String> pAuths = role.getPermissions().stream().map(Permission::getAuthorityString).toList();
+        long usersCount = userRepository.countByRoleId(role.getId());
 
         return RoleDTO.builder()
                 .id(role.getId())
                 .name(role.getName())
                 .description(role.getDescription())
                 .isSystemRole(role.getIsSystemRole())
+                .status(role.getStatus() != null ? role.getStatus() : true)
+                .assignedUsersCount(usersCount)
                 .permissionIds(pIds)
                 .permissionAuthorities(pAuths)
                 .build();

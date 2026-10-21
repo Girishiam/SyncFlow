@@ -43,4 +43,15 @@ public class RbacController {
     public ResponseEntity<RoleDTO> createCustomRole(@Valid @RequestBody CreateRoleRequest request) {
         return ResponseEntity.ok(rbacUseCase.createCustomRole(request));
     }
+
+    @PutMapping("/roles/{id}/toggle-status")
+    public ResponseEntity<RoleDTO> toggleRoleStatus(@PathVariable Long id) {
+        return ResponseEntity.ok(rbacUseCase.toggleRoleStatus(id));
+    }
+
+    @DeleteMapping("/roles/{id}")
+    public ResponseEntity<Void> deleteRole(@PathVariable Long id) {
+        rbacUseCase.deleteRole(id);
+        return ResponseEntity.noContent().build();
+    }
 }

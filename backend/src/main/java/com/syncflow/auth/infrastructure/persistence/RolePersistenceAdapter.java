@@ -34,4 +34,9 @@ public class RolePersistenceAdapter implements RoleRepositoryPort {
     public Role save(Role role) {
         return roleRepository.save(role);
     }
+
+    @Override
+    public void deleteById(Long id) {
+        roleRepository.deleteById(id);
+    }
 }

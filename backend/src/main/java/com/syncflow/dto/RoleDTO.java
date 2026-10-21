@@ -13,6 +13,8 @@ public class RoleDTO {
     private String name;
     private String description;
     private Boolean isSystemRole;
+    private Boolean status;
+    private Long assignedUsersCount;
     private List<Long> permissionIds;
     private List<String> permissionAuthorities;
 }

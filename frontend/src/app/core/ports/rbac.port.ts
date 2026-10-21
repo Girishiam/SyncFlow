@@ -5,6 +5,8 @@ export interface Role {
   name: string;
   description?: string;
   isSystemRole: boolean;
+  status?: boolean;
+  assignedUsersCount?: number;
   permissionIds: number[];
   permissionAuthorities: string[];
 }
@@ -22,6 +24,8 @@ export interface IRbacPort {
   getAllPermissions(): Observable<Permission[]>;
   updateRolePermissions(roleId: number, permissionIds: number[]): Observable<Role>;
   createCustomRole(name: string, description: string, permissionIds: number[]): Observable<Role>;
+  toggleRoleStatus(roleId: number): Observable<Role>;
+  deleteRole(roleId: number): Observable<void>;
   getAllUsers(): Observable<any[]>;
   updateUserRole(userId: string, roleId: number): Observable<any>;
 }
