@@ -3,7 +3,8 @@ import { Subscription } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
 import { TaskService } from '../../../core/services/task.service';
 import { WebSocketService } from '../../../core/services/websocket.service';
-import { Project, KanbanColumn, TaskCard, BankUser } from '../../../core/models/project.models';
+import { WorkLogService } from '../../../core/services/worklog.service';
+import { Project, KanbanColumn, TaskCard, BankUser, DailyWorkLog, SubmitWorkLogPayload } from '../../../core/models/project.models';
 import { TaskComment } from '../../../core/ports/task.port';
 import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 
@@ -56,6 +57,17 @@ export class BoardFacade implements OnDestroy {
   public newStageName = signal('');
   public newStageIsDone = signal(false);
 
+  // Daily Standup & EOD Work Log State
+  public isWorkLogDrawerOpen = signal(false);
+  public myTodayLog = signal<DailyWorkLog | null>(null);
+  public teamLogs = signal<DailyWorkLog[]>([]);
+  public workLogSummary = signal('');
+  public workLogCompletedCount = signal<number>(0);
+  public workLogDate = signal<string>(new Date().toISOString().substring(0, 10));
+  public workLogActiveTab = signal<'MY_LOG' | 'TEAM_LOGS'>('MY_LOG');
+  public isSavingWorkLog = signal(false);
+  public workLogSaveSuccess = signal(false);
+
   // Computed Filtered Columns
   public filteredColumns = computed(() => {
     const query = this.searchQuery().trim().toLowerCase();
@@ -97,7 +109,8 @@ export class BoardFacade implements OnDestroy {
   constructor(
     private projectService: ProjectService,
     private taskService: TaskService,
-    private wsService: WebSocketService
+    private wsService: WebSocketService,
+    private workLogService: WorkLogService
   ) {
     this.initWebSocketListeners();
   }
@@ -422,4 +435,71 @@ export class BoardFacade implements OnDestroy {
       error: (err) => console.error('BoardFacade: Failed to create stage', err)
     });
   }
+
+  // Work Log Actions
+  public openWorkLogDrawer(): void {
+    this.isWorkLogDrawerOpen.set(true);
+    this.workLogSaveSuccess.set(false);
+    const today = this.workLogDate();
+    this.workLogService.getMyWorkLog(today).subscribe({
+      next: (log) => {
+        this.myTodayLog.set(log);
+        if (log) {
+          this.workLogSummary.set(log.summaryText);
+          this.workLogCompletedCount.set(log.completedTasksCount);
+        } else {
+          this.workLogSummary.set('');
+          this.workLogCompletedCount.set(0);
+        }
+      },
+      error: (err) => console.error('BoardFacade: Failed to load my work log', err)
+    });
+
+    this.loadTeamWorkLogs();
+  }
+
+  public closeWorkLogDrawer(): void {
+    this.isWorkLogDrawerOpen.set(false);
+  }
+
+  public setWorkLogTab(tab: 'MY_LOG' | 'TEAM_LOGS'): void {
+    this.workLogActiveTab.set(tab);
+    if (tab === 'TEAM_LOGS') {
+      this.loadTeamWorkLogs();
+    }
+  }
+
+  public loadTeamWorkLogs(): void {
+    this.workLogService.getRecentLogs().subscribe({
+      next: (logs) => this.teamLogs.set(logs),
+      error: (err) => console.error('BoardFacade: Failed to load team work logs', err)
+    });
+  }
+
+  public submitDailyWorkLog(): void {
+    const text = this.workLogSummary().trim();
+    if (!text) return;
+
+    this.isSavingWorkLog.set(true);
+    const payload: SubmitWorkLogPayload = {
+      logDate: this.workLogDate(),
+      summaryText: text,
+      completedTasksCount: this.workLogCompletedCount()
+    };
+
+    this.workLogService.submitWorkLog(payload).subscribe({
+      next: (savedLog) => {
+        this.isSavingWorkLog.set(false);
+        this.myTodayLog.set(savedLog);
+        this.workLogSaveSuccess.set(true);
+        this.loadTeamWorkLogs();
+        setTimeout(() => this.workLogSaveSuccess.set(false), 3000);
+      },
+      error: (err) => {
+        this.isSavingWorkLog.set(false);
+        console.error('BoardFacade: Failed to submit work log', err);
+      }
+    });
+  }
 }
+

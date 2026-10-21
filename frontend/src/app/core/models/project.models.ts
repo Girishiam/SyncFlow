@@ -77,3 +77,22 @@ export interface ChatMessage {
   time: string;
   seenBy: string[];
 }
+
+export interface DailyWorkLog {
+  id: number;
+  userId: string;
+  userFullName: string;
+  userEmail: string;
+  userRole: string;
+  logDate: string; // YYYY-MM-DD
+  summaryText: string;
+  completedTasksCount: number;
+  createdAt: string;
+}
+
+export interface SubmitWorkLogPayload {
+  logDate?: string;
+  summaryText: string;
+  completedTasksCount?: number;
+}
+

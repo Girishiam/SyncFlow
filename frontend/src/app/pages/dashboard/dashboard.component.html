@@ -82,6 +82,20 @@
         <span>Roles & RBAC</span>
       </button>
 
+      <button
+        class="nav-item"
+        (click)="openWorkLogDrawer()"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span>Daily Work Log</span>
+      </button>
+
       <!-- Channels Group -->
       <div class="nav-section-title">CHANNELS</div>
       <div class="channel-list">
@@ -159,6 +173,17 @@
           </svg>
           <input type="text" [(ngModel)]="searchQuery" placeholder="Search tasks, assignees..." />
         </div>
+
+        <button class="header-action-btn log-action-btn" (click)="openWorkLogDrawer()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          <span>Daily Work Log</span>
+        </button>
 
         <button class="header-action-btn" (click)="isMeetingOpen.set(true)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -812,6 +837,144 @@
             <button class="btn-post-comment" (click)="submitComment()" [disabled]="!commentInput().trim()">
               Post Comment
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Standup & EOD Work Log Drawer -->
+  <div *ngIf="isWorkLogDrawerOpen()" class="drawer-backdrop" (click)="closeWorkLogDrawer()">
+    <div class="task-detail-drawer worklog-drawer" (click)="$event.stopPropagation()">
+      <div class="drawer-header">
+        <div class="drawer-header-left">
+          <div class="worklog-icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <div>
+            <h3>Daily Standup & Work Log</h3>
+            <span class="drawer-task-id">Date: {{ workLogDate() }}</span>
+          </div>
+        </div>
+        <button class="drawer-close-btn" (click)="closeWorkLogDrawer()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Navigation Tabs: My Work Log vs Team Logs -->
+      <div class="worklog-tabs">
+        <button
+          class="worklog-tab"
+          [class.active]="workLogActiveTab() === 'MY_LOG'"
+          (click)="setWorkLogTab('MY_LOG')"
+        >
+          My Daily Log
+        </button>
+        <button
+          class="worklog-tab"
+          [class.active]="workLogActiveTab() === 'TEAM_LOGS'"
+          (click)="setWorkLogTab('TEAM_LOGS')"
+        >
+          Team Activity Logs ({{ teamLogs().length }})
+        </button>
+      </div>
+
+      <!-- Tab 1: My Daily Work Log -->
+      <div *ngIf="workLogActiveTab() === 'MY_LOG'" class="worklog-pane">
+        <div class="worklog-status-banner" *ngIf="myTodayLog()">
+          <span class="status-indicator-green"></span>
+          <span>Logged for {{ myTodayLog()!.logDate }} &bull; {{ myTodayLog()!.completedTasksCount }} completed tasks</span>
+        </div>
+
+        <div class="form-group">
+          <label>Work Log Date</label>
+          <input
+            type="date"
+            class="form-control"
+            [(ngModel)]="workLogDate"
+            (change)="openWorkLogDrawer()"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Tasks Completed Today</label>
+          <div class="metric-counter-row">
+            <input
+              type="number"
+              min="0"
+              class="form-control metric-input"
+              [(ngModel)]="workLogCompletedCount"
+            />
+            <span class="metric-helper">Auto-calculated from Done tasks or set manually</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Today's Summary & Standup Notes</label>
+          <textarea
+            class="form-control worklog-textarea"
+            rows="6"
+            [(ngModel)]="workLogSummary"
+            placeholder="What did you accomplish today? Any blockers, key commits, or tomorrow's priorities?"
+          ></textarea>
+        </div>
+
+        <div *ngIf="workLogSaveSuccess()" class="alert-success-banner">
+          Work log saved successfully to MSSQL database!
+        </div>
+
+        <div class="worklog-actions">
+          <button
+            class="btn-primary-emerald"
+            (click)="submitDailyWorkLog()"
+            [disabled]="isSavingWorkLog() || !workLogSummary().trim()"
+          >
+            {{ isSavingWorkLog() ? 'Saving to Database...' : (myTodayLog() ? 'Update Work Log' : 'Submit Daily Work Log') }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab 2: Team Logs -->
+      <div *ngIf="workLogActiveTab() === 'TEAM_LOGS'" class="worklog-pane">
+        <div class="team-logs-list">
+          <div *ngIf="teamLogs().length === 0" class="no-logs">
+            <p>No team logs recorded yet today.</p>
+          </div>
+
+          <div *ngFor="let log of teamLogs()" class="team-log-card">
+            <div class="team-log-header">
+              <div class="team-log-user">
+                <span class="user-avatar">{{ log.userFullName.slice(0, 2).toUpperCase() }}</span>
+                <div>
+                  <span class="user-name">{{ log.userFullName }}</span>
+                  <span class="user-role-badge">{{ log.userRole }}</span>
+                </div>
+              </div>
+              <div class="team-log-date-badge">
+                <span>{{ log.logDate }}</span>
+              </div>
+            </div>
+
+            <p class="team-log-body">{{ log.summaryText }}</p>
+
+            <div class="team-log-footer">
+              <span class="completed-metric">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                {{ log.completedTasksCount }} completed tasks
+              </span>
+              <span class="timestamp">{{ log.createdAt | date:'short' }}</span>
+            </div>
           </div>
         </div>
       </div>

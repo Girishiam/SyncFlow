@@ -36,6 +36,11 @@ public class TaskPersistenceAdapter implements TaskRepositoryPort {
     }
 
     @Override
+    public List<Task> findByAssigneeId(java.util.UUID assigneeId) {
+        return taskRepository.findByAssigneeId(assigneeId);
+    }
+
+    @Override
     public void deleteById(Long id) {
         taskRepository.deleteById(id);
     }

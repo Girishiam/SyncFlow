@@ -65,6 +65,17 @@ export class DashboardComponent implements OnInit {
   newStageName = this.boardFacade.newStageName;
   newStageIsDone = this.boardFacade.newStageIsDone;
 
+  // Daily Work Log Delegates
+  isWorkLogDrawerOpen = this.boardFacade.isWorkLogDrawerOpen;
+  myTodayLog = this.boardFacade.myTodayLog;
+  teamLogs = this.boardFacade.teamLogs;
+  workLogSummary = this.boardFacade.workLogSummary;
+  workLogCompletedCount = this.boardFacade.workLogCompletedCount;
+  workLogDate = this.boardFacade.workLogDate;
+  workLogActiveTab = this.boardFacade.workLogActiveTab;
+  isSavingWorkLog = this.boardFacade.isSavingWorkLog;
+  workLogSaveSuccess = this.boardFacade.workLogSaveSuccess;
+
   // Chat Facade State Delegates
   channels = this.chatFacade.channels;
   activeChannel = this.chatFacade.activeChannel;
@@ -174,6 +185,23 @@ export class DashboardComponent implements OnInit {
 
   submitCreateStage(): void {
     this.boardFacade.submitCreateStage();
+  }
+
+  // Daily Work Log Operations
+  openWorkLogDrawer(): void {
+    this.boardFacade.openWorkLogDrawer();
+  }
+
+  closeWorkLogDrawer(): void {
+    this.boardFacade.closeWorkLogDrawer();
+  }
+
+  setWorkLogTab(tab: 'MY_LOG' | 'TEAM_LOGS'): void {
+    this.boardFacade.setWorkLogTab(tab);
+  }
+
+  submitDailyWorkLog(): void {
+    this.boardFacade.submitDailyWorkLog();
   }
 
   // Chat Operations
