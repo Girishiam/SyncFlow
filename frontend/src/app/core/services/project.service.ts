@@ -31,4 +31,8 @@ export class ProjectService implements IProjectPort {
   reorderStages(projectId: number, stageIds: number[]): Observable<void> {
     return this.http.put<void>(`${this.apiUrl}/${projectId}/stages/reorder`, { stageIds });
   }
+
+  getBurndownAnalytics(projectId: number): Observable<import('../models/project.models').BurndownAnalytics> {
+    return this.http.get<import('../models/project.models').BurndownAnalytics>(`${this.apiUrl}/${projectId}/analytics/burndown`);
+  }
 }

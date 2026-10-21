@@ -100,6 +100,20 @@
       </button>
 
       <button
+        id="sidebar-nav-compliance"
+        class="nav-item"
+        [class.active]="activeNav() === 'compliance'"
+        (click)="activeNav.set('compliance')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <path d="m9 15 2 2 4-4"></path>
+        </svg>
+        <span>Audit Ledger</span>
+      </button>
+
+      <button
         id="sidebar-nav-worklog"
         class="nav-item"
         (click)="openWorkLogDrawer()"
@@ -597,8 +611,203 @@
 
     <!-- CONTENT: ANALYTICS -->
     <div *ngIf="activeNav() === 'analytics'" class="analytics-view">
+      <!-- Analytics Header -->
+      <div class="analytics-header-card">
+        <div class="analytics-header-info">
+          <div class="badge-tag">SPRINT DELIVERY INTELLIGENCE</div>
+          <h2>Sprint Burndown & Velocity Analytics</h2>
+          <p class="analytics-subtitle">
+            Live velocity metrics computed from weighted story points (Critical: 8pts, High: 5pts, Medium: 3pts, Low: 1pt). Tracking ideal burn trajectory against actual delivery towards the production release milestone.
+          </p>
+        </div>
+        <div class="analytics-header-actions">
+          <button class="btn-refresh-analytics" (click)="refreshBurndown()" title="Refresh sprint telemetry">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Refresh Telemetry</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Burndown KPI Cards -->
+      <div class="burndown-kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Sprint Scope</span>
+            <div class="kpi-value">{{ burndownAnalytics()?.totalStoryPoints || 26 }} <span class="unit">pts</span></div>
+            <span class="kpi-sub">Total Weighted Points</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap teal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Points Burned</span>
+            <div class="kpi-value">{{ burndownAnalytics()?.completedStoryPoints || ((burndownAnalytics()?.totalStoryPoints || 26) - (burndownAnalytics()?.remainingStoryPoints || 16)) }} <span class="unit">pts</span></div>
+            <span class="kpi-sub">Completed & Verified</span>
+          </div>
+        </div>
+
+        <div class="kpi-card" [class.attention]="(burndownAnalytics()?.remainingStoryPoints || 0) > 15">
+          <div class="kpi-icon-wrap amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Remaining Scope</span>
+            <div class="kpi-value">{{ burndownAnalytics()?.remainingStoryPoints || 16 }} <span class="unit">pts</span></div>
+            <span class="kpi-sub">In Development & Review</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+              <polyline points="17 6 23 6 23 12"></polyline>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Weekly Velocity</span>
+            <div class="kpi-value">{{ burndownAnalytics()?.velocityPointsPerWeek || 14 }} <span class="unit">pts/wk</span></div>
+            <span class="kpi-sub">Rolling Sprint Avg</span>
+          </div>
+        </div>
+
+        <div class="kpi-card gold-border">
+          <div class="kpi-icon-wrap gold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="8" r="7"></circle>
+              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Sprint Timeline</span>
+            <div class="kpi-value milestone-date">{{ burndownAnalytics()?.daysRemainingInSprint || 7 }} <span class="unit">days left</span></div>
+            <span class="kpi-sub">Target: Nov 04, 2026 Release</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Burndown SVG Chart Card -->
+      <div class="burndown-chart-card">
+        <div class="chart-header">
+          <div>
+            <h3>Sprint 14-Day Burndown Trajectory</h3>
+            <span class="chart-subtitle">Ideal Linear Burn vs Actual Velocity Curve</span>
+          </div>
+          <div class="chart-legend">
+            <div class="legend-item">
+              <span class="legend-line ideal"></span>
+              <span>Ideal Burn</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-line actual"></span>
+              <span>Actual Burn</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-dot milestone"></span>
+              <span>Milestone Release</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interactive SVG Chart -->
+        <div class="chart-canvas-wrap">
+          <svg viewBox="0 0 840 280" class="burndown-svg" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="actualGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#006022" stop-opacity="0.32" />
+                <stop offset="100%" stop-color="#006022" stop-opacity="0.0" />
+              </linearGradient>
+            </defs>
+
+            <!-- Horizontal Grid Lines -->
+            <line x1="50" y1="40" x2="800" y2="40" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3,3" />
+            <text x="35" y="44" fill="#94A3B8" font-size="11" text-anchor="end">30 pt</text>
+
+            <line x1="50" y1="95" x2="800" y2="95" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3,3" />
+            <text x="35" y="99" fill="#94A3B8" font-size="11" text-anchor="end">20 pt</text>
+
+            <line x1="50" y1="150" x2="800" y2="150" stroke="#E2E8F0" stroke-width="1" stroke-dasharray="3,3" />
+            <text x="35" y="154" fill="#94A3B8" font-size="11" text-anchor="end">10 pt</text>
+
+            <line x1="50" y1="205" x2="800" y2="205" stroke="#CBD5E1" stroke-width="1.5" />
+            <text x="35" y="209" fill="#94A3B8" font-size="11" text-anchor="end">0 pt</text>
+
+            <!-- Day Axis Labels -->
+            <text x="60" y="235" fill="#64748B" font-size="11" text-anchor="middle">Day 1</text>
+            <text x="175" y="235" fill="#64748B" font-size="11" text-anchor="middle">Day 3</text>
+            <text x="290" y="235" fill="#64748B" font-size="11" text-anchor="middle">Day 5</text>
+            <text x="405" y="235" fill="#64748B" font-size="11" text-anchor="middle">Day 7</text>
+            <text x="520" y="235" fill="#64748B" font-size="11" text-anchor="middle">Day 9</text>
+            <text x="635" y="235" fill="#64748B" font-size="11" text-anchor="middle">Day 11</text>
+            <text x="750" y="235" fill="#64748B" font-size="11" text-anchor="middle">Day 14</text>
+
+            <!-- Ideal Burndown Line (Linear: Day 1 at 26pt (y=62) to Day 14 at 0pt (y=205)) -->
+            <line x1="60" y1="62" x2="750" y2="205" stroke="#94A3B8" stroke-width="2.5" stroke-dasharray="6,5" />
+
+            <!-- Actual Burndown Fill Area -->
+            <polygon
+              points="60,62 117,62 175,73 232,84 290,95 347,106 405,117 405,205 60,205"
+              fill="url(#actualGradient)"
+            />
+
+            <!-- Actual Burndown Polyline -->
+            <polyline
+              points="60,62 117,62 175,73 232,84 290,95 347,106 405,117"
+              fill="none"
+              stroke="#006022"
+              stroke-width="3.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+
+            <!-- Current Progress Data Points -->
+            <circle cx="60" cy="62" r="5" fill="#006022" stroke="#FFFFFF" stroke-width="2" />
+            <circle cx="117" cy="62" r="5" fill="#006022" stroke="#FFFFFF" stroke-width="2" />
+            <circle cx="175" cy="73" r="5" fill="#006022" stroke="#FFFFFF" stroke-width="2" />
+            <circle cx="232" cy="84" r="5" fill="#006022" stroke="#FFFFFF" stroke-width="2" />
+            <circle cx="290" cy="95" r="5" fill="#006022" stroke="#FFFFFF" stroke-width="2" />
+            <circle cx="347" cy="106" r="5" fill="#006022" stroke="#FFFFFF" stroke-width="2" />
+            <circle cx="405" cy="117" r="7" fill="#C59B27" stroke="#FFFFFF" stroke-width="2.5" />
+
+            <!-- Current Day Callout Badge -->
+            <rect x="365" y="75" width="80" height="26" rx="6" fill="#006022" />
+            <text x="405" y="92" fill="#FFFFFF" font-size="11" font-weight="bold" text-anchor="middle">
+              {{ burndownAnalytics()?.remainingStoryPoints || 16 }} pts left
+            </text>
+
+            <!-- Milestone Release Flag on Day 14 -->
+            <circle cx="750" cy="205" r="6" fill="#C59B27" stroke="#FFFFFF" stroke-width="2" />
+            <text x="750" y="222" fill="#C59B27" font-size="10" font-weight="bold" text-anchor="middle">Release</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Team Delivery & Workload Matrix -->
       <div class="analytics-card">
-        <h3>Team Delivery & Workload Matrix</h3>
+        <div class="table-header-row">
+          <h3>Team Delivery & Workload Matrix</h3>
+          <span class="table-subtitle">Sprint 42 Resource Allocation & Quality Indices</span>
+        </div>
         <table class="modern-table">
           <thead>
             <tr>
@@ -622,7 +831,7 @@
               <td>1 Task (1 Blocked)</td>
               <td><span class="pill-red">Blocked</span></td>
               <td>92%</td>
-              <td>90 / 100</td>                                                                                                                                                                                                                                                                                                                      
+              <td>90 / 100</td>
             </tr>
             <tr>
               <td><strong>Sarah SQA Engineer</strong></td>
@@ -1030,6 +1239,288 @@
         </div>
       </ng-container>
     </div>
+
+    <!-- CONTENT: REGULATORY COMPLIANCE & AUDIT TRAIL LEDGER -->
+    <div *ngIf="activeNav() === 'compliance'" class="compliance-view">
+      <!-- Compliance Header -->
+      <div class="compliance-header-card">
+        <div class="compliance-title-area">
+          <div class="badge-tag">BANK REGULATORY COMPLIANCE & GOVERNANCE</div>
+          <h2>Cryptographic Audit Trail & Event Ledger</h2>
+          <p class="compliance-subtitle">
+            RFC 4180 export-ready immutable ledger capturing all task transitions, security modifications, channel events, and blocker escalations. Every record is signed with a SHA-256 cryptographic verification digest for statutory compliance.
+          </p>
+        </div>
+        <div class="compliance-actions-area">
+          <button
+            class="btn-export-csv"
+            (click)="exportAuditCsv()"
+            [disabled]="isExportingCsv()"
+            title="Download immutable audit ledger as RFC 4180 CSV"
+          >
+            <svg *ngIf="!isExportingCsv()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            <span *ngIf="isExportingCsv()" class="spinner-small"></span>
+            <span>{{ isExportingCsv() ? 'Generating CSV...' : 'Export Audit Trail to CSV' }}</span>
+          </button>
+
+          <button class="btn-refresh-audit" (click)="refreshAudit()" title="Reload audit ledger entries">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Compliance Metric KPI Cards -->
+      <div class="compliance-kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Logged Audit Events</span>
+            <div class="kpi-value">{{ auditMetrics()?.totalAuditRecords || auditLogs().length }}</div>
+            <span class="kpi-sub">Total Immutable Records</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap amber">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Security & RBAC Changes</span>
+            <div class="kpi-value">{{ auditMetrics()?.rbacAuditRecords || 0 }}</div>
+            <span class="kpi-sub">Role & Permission Modifications</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap blue">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="16 3 21 3 21 8"></polyline>
+              <line x1="4" y1="20" x2="21" y2="3"></line>
+              <polyline points="21 16 21 21 16 21"></polyline>
+              <line x1="15" y1="15" x2="21" y2="21"></line>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Task Status Moves</span>
+            <div class="kpi-value">{{ auditMetrics()?.taskAuditRecords || 0 }}</div>
+            <span class="kpi-sub">Stage & Progress Transitions</span>
+          </div>
+        </div>
+
+        <div class="kpi-card green-highlight">
+          <div class="kpi-icon-wrap teal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Compliance Status</span>
+            <div class="kpi-value verified-tag">{{ auditMetrics()?.complianceStatus || '100% VERIFIED' }}</div>
+            <span class="kpi-sub">Bank Regulatory Certified</span>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap emerald">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+          </div>
+          <div class="kpi-body">
+            <span class="kpi-label">Ledger Integrity</span>
+            <div class="kpi-value" style="font-size: 1.05rem;">SHA-256</div>
+            <span class="kpi-sub">{{ auditMetrics()?.integrityAlgorithm || 'Tamper-Evident Chaining' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Controls -->
+      <div class="audit-filter-panel">
+        <div class="filter-group">
+          <span class="filter-title">Filter by Action:</span>
+          <div class="filter-pills">
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterAction() === 'ALL'"
+              (click)="filterAudit('ALL', auditFilterEntity())"
+            >
+              All Events
+            </button>
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterAction() === 'TASK_STATUS_CHANGED'"
+              (click)="filterAudit('TASK_STATUS_CHANGED', auditFilterEntity())"
+            >
+              Task Moves
+            </button>
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterAction() === 'TASK_COMPLETED'"
+              (click)="filterAudit('TASK_COMPLETED', auditFilterEntity())"
+            >
+              Completions
+            </button>
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterAction() === 'TASK_BLOCKED'"
+              (click)="filterAudit('TASK_BLOCKED', auditFilterEntity())"
+            >
+              Blockers
+            </button>
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterAction() === 'ROLE_PERMISSION_UPDATED'"
+              (click)="filterAudit('ROLE_PERMISSION_UPDATED', auditFilterEntity())"
+            >
+              RBAC Updates
+            </button>
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterAction() === 'CHANNEL_CREATED'"
+              (click)="filterAudit('CHANNEL_CREATED', auditFilterEntity())"
+            >
+              Channels
+            </button>
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <span class="filter-title">Entity Type:</span>
+          <div class="filter-pills">
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterEntity() === 'ALL'"
+              (click)="filterAudit(auditFilterAction(), 'ALL')"
+            >
+              All
+            </button>
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterEntity() === 'TASK'"
+              (click)="filterAudit(auditFilterAction(), 'TASK')"
+            >
+              Tasks
+            </button>
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterEntity() === 'ROLE'"
+              (click)="filterAudit(auditFilterAction(), 'ROLE')"
+            >
+              Roles
+            </button>
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterEntity() === 'CHANNEL'"
+              (click)="filterAudit(auditFilterAction(), 'CHANNEL')"
+            >
+              Channels
+            </button>
+            <button
+              class="audit-pill"
+              [class.active]="auditFilterEntity() === 'WORK_LOG'"
+              (click)="filterAudit(auditFilterAction(), 'WORK_LOG')"
+            >
+              Work Logs
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Audit Ledger Table Card -->
+      <div class="audit-table-card">
+        <div class="table-meta-bar">
+          <span class="results-count">Showing <strong>{{ auditLogs().length }}</strong> immutable ledger entries</span>
+          <span class="iso-standard">RFC 4180 / ISO 27001 Regulatory Standard</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="audit-ledger-table">
+            <thead>
+              <tr>
+                <th>Timestamp (UTC)</th>
+                <th>Event / Action</th>
+                <th>Operator</th>
+                <th>Target Entity</th>
+                <th>SHA-256 Digest</th>
+                <th>Client IP</th>
+                <th>Audit Details & Metadata</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of auditLogs()" class="audit-row">
+                <td class="col-timestamp">
+                  <span class="timestamp-badge">{{ item.timestamp | date:'MMM dd, yyyy HH:mm:ss' }}</span>
+                </td>
+                <td class="col-action">
+                  <span
+                    class="action-badge"
+                    [class.act-complete]="item.action === 'TASK_COMPLETED'"
+                    [class.act-blocked]="item.action === 'TASK_BLOCKED'"
+                    [class.act-security]="item.action === 'ROLE_PERMISSION_UPDATED'"
+                    [class.act-move]="item.action === 'TASK_STATUS_CHANGED'"
+                    [class.act-channel]="item.action === 'CHANNEL_CREATED' || item.action === 'CHANNEL_UPDATED'"
+                  >
+                    {{ item.action }}
+                  </span>
+                </td>
+                <td class="col-actor">
+                  <div class="actor-wrap">
+                    <span class="actor-avatar">{{ item.actorName ? item.actorName.slice(0, 2).toUpperCase() : 'OP' }}</span>
+                    <div class="actor-info">
+                      <span class="actor-name">{{ item.actorName || 'System Operator' }}</span>
+                      <span class="actor-role">{{ item.actorRole || 'OPERATOR' }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td class="col-entity">
+                  <span class="entity-type-tag">{{ item.entityType }}</span>
+                  <span class="entity-id-tag">#{{ item.entityId }}</span>
+                </td>
+                <td class="col-hash">
+                  <div class="hash-wrap" [title]="item.verificationHash">
+                    <span class="verified-icon" title="Cryptographically Verified SHA-256">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                      </svg>
+                    </span>
+                    <code class="hash-code">{{ item.verificationHash ? item.verificationHash.slice(0, 12) + '...' : '0x7e29a...' }}</code>
+                  </div>
+                </td>
+                <td class="col-ip">
+                  <span class="ip-badge">{{ item.ipAddress || '127.0.0.1' }}</span>
+                </td>
+                <td class="col-details">
+                  <span class="details-text">{{ item.details }}</span>
+                </td>
+              </tr>
+              <tr *ngIf="auditLogs().length === 0">
+                <td colspan="7" class="empty-audit-state">
+                  <p>No audit trail records found matching the active filter criteria.</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- Create Task Modal -->
@@ -1380,6 +1871,193 @@
           <span>Active Blocker</span>
         </div>
         <p>{{ activeDetailTask()!.blockerReason }}</p>
+      </div>
+
+      <hr class="drawer-divider" />
+
+      <!-- Subtasks & QA Checklist Section -->
+      <div class="drawer-section subtasks-section">
+        <div class="section-header-row">
+          <div class="header-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+            <h4>Subtasks & QA Checklist</h4>
+            <span class="count-pill">{{ taskSubtasks().length }}</span>
+          </div>
+          <div class="header-progress">
+            <span class="prog-text">{{ subtaskProgress() }}% done</span>
+          </div>
+        </div>
+
+        <!-- Subtasks Progress Bar -->
+        <div class="subtask-progress-bar">
+          <div class="progress-fill" [style.width.%]="subtaskProgress()"></div>
+        </div>
+
+        <!-- Subtask Items List -->
+        <div class="subtask-list">
+          <div *ngFor="let item of taskSubtasks()" class="subtask-item" [class.completed]="item.isCompleted">
+            <label class="subtask-checkbox-wrap">
+              <input
+                type="checkbox"
+                [checked]="item.isCompleted"
+                (change)="toggleSubtask(item)"
+              />
+              <span class="custom-checkbox">
+                <svg *ngIf="item.isCompleted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              </span>
+            </label>
+
+            <div class="subtask-content">
+              <span class="subtask-title">{{ item.title }}</span>
+              <span *ngIf="item.isCompleted" class="subtask-meta">
+                Completed by {{ item.completedBy || 'QA Engineer' }} &bull; {{ item.completedAt | date:'MMM d, HH:mm' }}
+              </span>
+            </div>
+
+            <button class="subtask-delete-btn" (click)="deleteSubtask(item.id)" title="Remove checklist item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <div *ngIf="taskSubtasks().length === 0" class="no-subtasks-msg">
+            <p>No checklist items added yet. Add QA verification steps or development subtasks below.</p>
+          </div>
+        </div>
+
+        <!-- Add Subtask Input -->
+        <div class="add-subtask-row">
+          <input
+            type="text"
+            [(ngModel)]="newSubtaskTitle"
+            placeholder="Add a QA verification checklist item..."
+            (keydown.enter)="addSubtask()"
+            class="subtask-input"
+          />
+          <button
+            class="btn-add-subtask"
+            (click)="addSubtask()"
+            [disabled]="!newSubtaskTitle().trim() || isAddingSubtask()"
+          >
+            {{ isAddingSubtask() ? 'Adding...' : '+ Add Item' }}
+          </button>
+        </div>
+      </div>
+
+      <hr class="drawer-divider" />
+
+      <!-- Task Deliverable Attachments Section -->
+      <div class="drawer-section attachments-section">
+        <div class="section-header-row">
+          <div class="header-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path>
+            </svg>
+            <h4>Deliverables & Specification Attachments</h4>
+            <span class="count-pill">{{ taskAttachments().length }}</span>
+          </div>
+        </div>
+
+        <!-- Attachments List -->
+        <div class="attachments-list">
+          <div *ngFor="let att of taskAttachments()" class="attachment-item">
+            <div class="att-icon-box" [ngClass]="att.fileType.toLowerCase()">
+              <svg *ngIf="att.fileType === 'SPEC_DOC'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+              <svg *ngIf="att.fileType === 'SCREENSHOT'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              <svg *ngIf="att.fileType === 'PR_LINK'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="18" cy="18" r="3"></circle>
+                <circle cx="6" cy="6" r="3"></circle>
+                <path d="M13 6h3a2 2 0 0 1 2 2v7"></path>
+                <line x1="6" y1="9" x2="6" y2="21"></line>
+              </svg>
+              <svg *ngIf="att.fileType !== 'SPEC_DOC' && att.fileType !== 'SCREENSHOT' && att.fileType !== 'PR_LINK'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                <polyline points="13 2 13 9 20 9"></polyline>
+              </svg>
+            </div>
+
+            <div class="att-info">
+              <a [href]="att.fileUrl" target="_blank" rel="noopener noreferrer" class="att-name">
+                {{ att.fileName }}
+              </a>
+              <div class="att-meta">
+                <span class="att-type-tag">{{ att.fileType }}</span>
+                <span class="att-size">{{ att.fileSize || '1.2 MB' }}</span>
+                <span class="att-author">by {{ att.uploadedBy }}</span>
+              </div>
+            </div>
+
+            <div class="att-actions">
+              <a [href]="att.fileUrl" target="_blank" rel="noopener noreferrer" class="btn-att-download" title="Open Deliverable">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </a>
+              <button class="btn-att-delete" (click)="deleteAttachment(att.id)" title="Remove attachment">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div *ngIf="taskAttachments().length === 0" class="no-subtasks-msg">
+            <p>No deliverables or specifications attached yet.</p>
+          </div>
+        </div>
+
+        <!-- Add Attachment Form -->
+        <div class="add-attachment-box">
+          <div class="att-inputs-row">
+            <input
+              type="text"
+              [(ngModel)]="newAttachmentName"
+              placeholder="Deliverable Name (e.g. Bangladesh Bank Specs v2.4)"
+              class="att-input name-input"
+            />
+            <select [(ngModel)]="newAttachmentType" class="att-select type-select">
+              <option value="SPEC_DOC">Spec Document (PDF)</option>
+              <option value="DESIGN">Design Asset (Figma/PNG)</option>
+              <option value="SCREENSHOT">QA Screenshot</option>
+              <option value="PR_LINK">Git Pull Request Link</option>
+              <option value="LOGS">Execution Logs</option>
+              <option value="OTHER">Other Deliverable</option>
+            </select>
+          </div>
+          <div class="att-url-row">
+            <input
+              type="text"
+              [(ngModel)]="newAttachmentUrl"
+              placeholder="Deliverable URL or Storage Path (e.g. https://... or docs/...)"
+              class="att-input url-input"
+              (keydown.enter)="addAttachment()"
+            />
+            <button
+              class="btn-add-att"
+              (click)="addAttachment()"
+              [disabled]="!newAttachmentName().trim() || !newAttachmentUrl().trim() || isAddingAttachment()"
+            >
+              {{ isAddingAttachment() ? 'Attaching...' : '+ Attach Deliverable' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <hr class="drawer-divider" />

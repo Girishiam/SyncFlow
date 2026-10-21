@@ -31,7 +31,32 @@ export class DashboardComponent implements OnInit {
   currentUser = computed(() => this.authService.currentUserSignal());
 
   // Active navigation view
-  activeNav = signal<'overview' | 'board' | 'discussions' | 'analytics' | 'rbac'>('board');
+  activeNav = signal<'overview' | 'board' | 'discussions' | 'analytics' | 'rbac' | 'compliance'>('board');
+
+  // Subtasks & Deliverables Checklist Delegates
+  taskSubtasks = this.boardFacade.taskSubtasks;
+  newSubtaskTitle = this.boardFacade.newSubtaskTitle;
+  isAddingSubtask = this.boardFacade.isAddingSubtask;
+  subtaskProgress = this.boardFacade.subtaskProgress;
+
+  // Task Deliverable Attachments Delegates
+  taskAttachments = this.boardFacade.taskAttachments;
+  newAttachmentName = this.boardFacade.newAttachmentName;
+  newAttachmentUrl = this.boardFacade.newAttachmentUrl;
+  newAttachmentType = this.boardFacade.newAttachmentType;
+  isAddingAttachment = this.boardFacade.isAddingAttachment;
+
+  // Sprint Burndown & Velocity Analytics Delegates
+  burndownAnalytics = this.boardFacade.burndownAnalytics;
+  isLoadingBurndown = this.boardFacade.isLoadingBurndown;
+
+  // Compliance & Audit Trail Ledger Delegates
+  auditLogs = this.boardFacade.filteredAuditLogs;
+  auditMetrics = this.boardFacade.auditMetrics;
+  isLoadingAudit = this.boardFacade.isLoadingAudit;
+  auditFilterAction = this.boardFacade.auditFilterAction;
+  auditFilterEntity = this.boardFacade.auditFilterEntity;
+  isExportingCsv = this.boardFacade.isExportingCsv;
 
   // Notification State Delegates
   notifications = this.notificationFacade.filteredNotifications;
@@ -207,7 +232,7 @@ export class DashboardComponent implements OnInit {
   ngOnInit(): void {
     this.route.queryParams.subscribe(params => {
       const tab = params['tab'];
-      if (tab === 'rbac' || tab === 'discussions' || tab === 'analytics' || tab === 'board') {
+      if (tab === 'rbac' || tab === 'discussions' || tab === 'analytics' || tab === 'board' || tab === 'compliance') {
         this.activeNav.set(tab);
       }
     });
@@ -598,5 +623,45 @@ export class DashboardComponent implements OnInit {
       this.chatInput.set(`${text}@${user.fullName} `);
     }
     this.showMentionPopup.set(false);
+  }
+
+  // --- Subtasks QA Checklist Actions ---
+  addSubtask(): void {
+    this.boardFacade.addSubtask();
+  }
+
+  toggleSubtask(item: any): void {
+    this.boardFacade.toggleSubtask(item);
+  }
+
+  deleteSubtask(subtaskId: number): void {
+    this.boardFacade.deleteSubtask(subtaskId);
+  }
+
+  // --- Task Deliverable Attachments Actions ---
+  addAttachment(): void {
+    this.boardFacade.addAttachment();
+  }
+
+  deleteAttachment(attachmentId: number): void {
+    this.boardFacade.deleteAttachment(attachmentId);
+  }
+
+  // --- Sprint Burndown & Velocity Analytics Actions ---
+  refreshBurndown(): void {
+    this.boardFacade.loadBurndown();
+  }
+
+  // --- Compliance & Audit Trail Ledger Actions ---
+  refreshAudit(): void {
+    this.boardFacade.loadAuditData();
+  }
+
+  filterAudit(action: string, entity: string): void {
+    this.boardFacade.filterAuditLogs(action, entity);
+  }
+
+  exportAuditCsv(): void {
+    this.boardFacade.exportAuditCsv();
   }
 }

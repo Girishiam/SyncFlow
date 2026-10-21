@@ -4,7 +4,20 @@ import { ProjectService } from '../../../core/services/project.service';
 import { TaskService } from '../../../core/services/task.service';
 import { WebSocketService } from '../../../core/services/websocket.service';
 import { WorkLogService } from '../../../core/services/worklog.service';
-import { Project, KanbanColumn, TaskCard, BankUser, DailyWorkLog, SubmitWorkLogPayload } from '../../../core/models/project.models';
+import { AuditService } from '../../../core/services/audit.service';
+import {
+  Project,
+  KanbanColumn,
+  TaskCard,
+  BankUser,
+  DailyWorkLog,
+  SubmitWorkLogPayload,
+  SubtaskItem,
+  TaskAttachmentItem,
+  BurndownAnalytics,
+  AuditLogItem,
+  AuditMetrics
+} from '../../../core/models/project.models';
 import { TaskComment } from '../../../core/ports/task.port';
 import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 
@@ -76,6 +89,48 @@ export class BoardFacade implements OnDestroy {
   public isSavingWorkLog = signal(false);
   public workLogSaveSuccess = signal(false);
 
+  // Subtasks & QA Checklist State
+  public taskSubtasks = signal<SubtaskItem[]>([]);
+  public newSubtaskTitle = signal<string>('');
+  public isAddingSubtask = signal<boolean>(false);
+
+  public subtaskProgress = computed(() => {
+    const items = this.taskSubtasks();
+    if (!items || items.length === 0) return 0;
+    const completed = items.filter(s => s.isCompleted).length;
+    return Math.round((completed / items.length) * 100);
+  });
+
+  // Task Deliverable Attachments State
+  public taskAttachments = signal<TaskAttachmentItem[]>([]);
+  public newAttachmentName = signal<string>('');
+  public newAttachmentUrl = signal<string>('');
+  public newAttachmentType = signal<'SPEC_DOC' | 'DESIGN' | 'SCREENSHOT' | 'PR_LINK' | 'LOGS' | 'OTHER'>('SPEC_DOC');
+  public isAddingAttachment = signal<boolean>(false);
+
+  // Sprint Burndown & Velocity Analytics State
+  public burndownAnalytics = signal<BurndownAnalytics | null>(null);
+  public isLoadingBurndown = signal<boolean>(false);
+
+  // Compliance & Immutable Audit Trail Ledger State
+  public auditLogs = signal<AuditLogItem[]>([]);
+  public auditMetrics = signal<AuditMetrics | null>(null);
+  public isLoadingAudit = signal<boolean>(false);
+  public auditFilterAction = signal<string>('ALL');
+  public auditFilterEntity = signal<string>('ALL');
+  public isExportingCsv = signal<boolean>(false);
+
+  public filteredAuditLogs = computed(() => {
+    const logs = this.auditLogs();
+    const action = this.auditFilterAction();
+    const entity = this.auditFilterEntity();
+    return logs.filter(l => {
+      const matchAction = !action || action === 'ALL' || l.action === action;
+      const matchEntity = !entity || entity === 'ALL' || l.entityType === entity;
+      return matchAction && matchEntity;
+    });
+  });
+
   // Computed Filtered Columns
   public filteredColumns = computed(() => {
     const query = this.searchQuery().trim().toLowerCase();
@@ -118,7 +173,8 @@ export class BoardFacade implements OnDestroy {
     private projectService: ProjectService,
     private taskService: TaskService,
     private wsService: WebSocketService,
-    private workLogService: WorkLogService
+    private workLogService: WorkLogService,
+    private auditService: AuditService
   ) {
     this.initWebSocketListeners();
   }
@@ -130,6 +186,7 @@ export class BoardFacade implements OnDestroy {
   public init(): void {
     this.loadProjects();
     this.loadBankUsers();
+    this.loadAuditData();
   }
 
   public loadBankUsers(): void {
@@ -158,6 +215,7 @@ export class BoardFacade implements OnDestroy {
   }
 
   public loadBoard(projectId: number): void {
+    this.loadBurndown(projectId);
     this.projectService.getProjectBoard(projectId).subscribe({
       next: (board) => {
         const cols: KanbanColumn[] = board.stages.map(s => ({
@@ -353,6 +411,8 @@ export class BoardFacade implements OnDestroy {
     this.commentInput.set('');
     this.detailDeadline.set(task.deadline ? task.deadline.substring(0, 10) : '');
     this.loadTaskComments(task.id);
+    this.loadSubtasks(task.id);
+    this.loadAttachments(task.id);
   }
 
   public closeTaskDetail(): void {
@@ -361,6 +421,11 @@ export class BoardFacade implements OnDestroy {
     this.taskComments.set([]);
     this.commentInput.set('');
     this.detailDeadline.set('');
+    this.taskSubtasks.set([]);
+    this.newSubtaskTitle.set('');
+    this.taskAttachments.set([]);
+    this.newAttachmentName.set('');
+    this.newAttachmentUrl.set('');
   }
 
   public assignTaskTo(task: TaskCard, assigneeId: string | null): void {
@@ -646,6 +711,172 @@ export class BoardFacade implements OnDestroy {
       error: (err) => {
         this.isCreatingProject.set(false);
         console.error('BoardFacade: Failed to create project', err);
+      }
+    });
+  }
+
+  // --- Subtasks QA Checklist Actions ---
+  public loadSubtasks(taskId: number): void {
+    this.taskService.getSubtasks(taskId).subscribe({
+      next: (items) => this.taskSubtasks.set(items),
+      error: (err) => console.error('BoardFacade: Failed to load subtasks', err)
+    });
+  }
+
+  public addSubtask(): void {
+    const task = this.activeDetailTask();
+    const title = this.newSubtaskTitle().trim();
+    if (!task || !title) return;
+
+    this.isAddingSubtask.set(true);
+    this.taskService.addSubtask(task.id, title).subscribe({
+      next: (created) => {
+        this.taskSubtasks.update(list => [...list, created]);
+        this.newSubtaskTitle.set('');
+        this.isAddingSubtask.set(false);
+      },
+      error: (err) => {
+        this.isAddingSubtask.set(false);
+        console.error('BoardFacade: Failed to add subtask', err);
+      }
+    });
+  }
+
+  public toggleSubtask(item: SubtaskItem): void {
+    const task = this.activeDetailTask();
+    if (!task) return;
+
+    this.taskService.toggleSubtask(task.id, item.id).subscribe({
+      next: (updated) => {
+        this.taskSubtasks.update(list => list.map(s => s.id === updated.id ? updated : s));
+      },
+      error: (err) => console.error('BoardFacade: Failed to toggle subtask', err)
+    });
+  }
+
+  public deleteSubtask(subtaskId: number): void {
+    const task = this.activeDetailTask();
+    if (!task) return;
+
+    this.taskService.deleteSubtask(task.id, subtaskId).subscribe({
+      next: () => {
+        this.taskSubtasks.update(list => list.filter(s => s.id !== subtaskId));
+      },
+      error: (err) => console.error('BoardFacade: Failed to delete subtask', err)
+    });
+  }
+
+  // --- Task Deliverable Attachments Actions ---
+  public loadAttachments(taskId: number): void {
+    this.taskService.getAttachments(taskId).subscribe({
+      next: (attachments) => this.taskAttachments.set(attachments),
+      error: (err) => console.error('BoardFacade: Failed to load attachments', err)
+    });
+  }
+
+  public addAttachment(): void {
+    const task = this.activeDetailTask();
+    const name = this.newAttachmentName().trim();
+    const url = this.newAttachmentUrl().trim();
+    if (!task || !name || !url) return;
+
+    this.isAddingAttachment.set(true);
+    const type = this.newAttachmentType();
+
+    this.taskService.addAttachment(task.id, {
+      fileName: name,
+      fileType: type,
+      fileUrl: url,
+      fileSize: '1.2 MB'
+    }).subscribe({
+      next: (created) => {
+        this.taskAttachments.update(list => [...list, created]);
+        this.newAttachmentName.set('');
+        this.newAttachmentUrl.set('');
+        this.isAddingAttachment.set(false);
+      },
+      error: (err) => {
+        this.isAddingAttachment.set(false);
+        console.error('BoardFacade: Failed to add attachment', err);
+      }
+    });
+  }
+
+  public deleteAttachment(attachmentId: number): void {
+    const task = this.activeDetailTask();
+    if (!task) return;
+
+    this.taskService.deleteAttachment(task.id, attachmentId).subscribe({
+      next: () => {
+        this.taskAttachments.update(list => list.filter(a => a.id !== attachmentId));
+      },
+      error: (err) => console.error('BoardFacade: Failed to delete attachment', err)
+    });
+  }
+
+  // --- Sprint Burndown & Velocity Analytics Actions ---
+  public loadBurndown(projectId?: number): void {
+    const pId = projectId || this.selectedProjectId();
+    if (!pId) return;
+
+    this.isLoadingBurndown.set(true);
+    this.projectService.getBurndownAnalytics(pId).subscribe({
+      next: (data) => {
+        this.burndownAnalytics.set(data);
+        this.isLoadingBurndown.set(false);
+      },
+      error: (err) => {
+        this.isLoadingBurndown.set(false);
+        console.error('BoardFacade: Failed to load burndown analytics', err);
+      }
+    });
+  }
+
+  // --- Compliance & Immutable Audit Trail Ledger Actions ---
+  public loadAuditData(): void {
+    this.isLoadingAudit.set(true);
+    this.auditService.getAuditMetrics().subscribe({
+      next: (metrics) => this.auditMetrics.set(metrics),
+      error: (err) => console.error('BoardFacade: Failed to load audit metrics', err)
+    });
+
+    this.auditService.getAuditLogs().subscribe({
+      next: (logs) => {
+        this.auditLogs.set(logs);
+        this.isLoadingAudit.set(false);
+      },
+      error: (err) => {
+        this.isLoadingAudit.set(false);
+        console.error('BoardFacade: Failed to load audit logs', err);
+      }
+    });
+  }
+
+  public filterAuditLogs(action: string, entityType: string): void {
+    this.auditFilterAction.set(action);
+    this.auditFilterEntity.set(entityType);
+  }
+
+  public exportAuditCsv(): void {
+    this.isExportingCsv.set(true);
+    const action = this.auditFilterAction();
+    const entity = this.auditFilterEntity();
+
+    this.auditService.exportCsv(action, entity).subscribe({
+      next: (blob) => {
+        this.isExportingCsv.set(false);
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `syncflow-compliance-audit-${new Date().toISOString().substring(0, 10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      },
+      error: (err) => {
+        this.isExportingCsv.set(false);
+        console.error('BoardFacade: Failed to export audit CSV', err);
       }
     });
   }

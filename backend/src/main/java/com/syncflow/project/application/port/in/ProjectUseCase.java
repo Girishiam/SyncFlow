@@ -10,4 +10,5 @@ public interface ProjectUseCase {
     ProjectBoardDTO getProjectBoard(Long projectId);
     StageDTO createStage(Long projectId, CreateStageRequest request);
     void reorderStages(Long projectId, ReorderStagesRequest request);
+    BurndownAnalyticsDTO getBurndownAnalytics(Long projectId);
 }

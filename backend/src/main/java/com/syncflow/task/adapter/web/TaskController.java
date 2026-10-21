@@ -82,4 +82,65 @@ public class TaskController {
 
         return ResponseEntity.ok(taskUseCase.addComment(id, request, authorId));
     }
+
+    // --- Subtasks / QA Checklist Endpoints ---
+    @GetMapping("/{id}/subtasks")
+    public ResponseEntity<List<com.syncflow.dto.SubtaskDTO>> getSubtasks(@PathVariable Long id) {
+        return ResponseEntity.ok(taskUseCase.getSubtasks(id));
+    }
+
+    @PostMapping("/{id}/subtasks")
+    public ResponseEntity<com.syncflow.dto.SubtaskDTO> addSubtask(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestBody java.util.Map<String, String> body) {
+        String title = body.getOrDefault("title", "");
+        String author = userDetails != null ? userDetails.getUsername() : "Team Member";
+        return ResponseEntity.ok(taskUseCase.addSubtask(id, title, author));
+    }
+
+    @PatchMapping("/{id}/subtasks/{subtaskId}/toggle")
+    public ResponseEntity<com.syncflow.dto.SubtaskDTO> toggleSubtask(
+            @PathVariable Long id,
+            @PathVariable Long subtaskId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        String actor = userDetails != null ? userDetails.getUsername() : "Team Member";
+        return ResponseEntity.ok(taskUseCase.toggleSubtask(id, subtaskId, actor));
+    }
+
+    @DeleteMapping("/{id}/subtasks/{subtaskId}")
+    public ResponseEntity<Void> deleteSubtask(
+            @PathVariable Long id,
+            @PathVariable Long subtaskId) {
+        taskUseCase.deleteSubtask(id, subtaskId);
+        return ResponseEntity.ok().build();
+    }
+
+    // --- Task Attachments & Screenshots Endpoints ---
+    @GetMapping("/{id}/attachments")
+    public ResponseEntity<List<com.syncflow.dto.TaskAttachmentDTO>> getAttachments(@PathVariable Long id) {
+        return ResponseEntity.ok(taskUseCase.getAttachments(id));
+    }
+
+    @PostMapping("/{id}/attachments")
+    public ResponseEntity<com.syncflow.dto.TaskAttachmentDTO> addAttachment(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestBody java.util.Map<String, String> body) {
+        String fileName = body.getOrDefault("fileName", "attachment.pdf");
+        String fileType = body.getOrDefault("fileType", "document");
+        String fileSize = body.getOrDefault("fileSize", "1.4 MB");
+        String fileUrl = body.getOrDefault("fileUrl", "#");
+        String uploadedBy = userDetails != null ? userDetails.getUsername() : "Team Member";
+
+        return ResponseEntity.ok(taskUseCase.addAttachment(id, fileName, fileType, fileSize, fileUrl, uploadedBy));
+    }
+
+    @DeleteMapping("/{id}/attachments/{attachmentId}")
+    public ResponseEntity<Void> deleteAttachment(
+            @PathVariable Long id,
+            @PathVariable Long attachmentId) {
+        taskUseCase.deleteAttachment(id, attachmentId);
+        return ResponseEntity.ok().build();
+    }
 }

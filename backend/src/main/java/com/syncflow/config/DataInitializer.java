@@ -29,6 +29,9 @@ public class DataInitializer implements CommandLineRunner {
     private final MessageRepository messageRepository;
     private final MessageSeenReceiptRepository receiptRepository;
     private final com.syncflow.notification.infrastructure.persistence.SpringDataNotificationRepository notificationRepository;
+    private final com.syncflow.audit.infrastructure.persistence.SpringDataAuditLogRepository auditLogRepository;
+    private final com.syncflow.task.infrastructure.persistence.SpringDataSubtaskRepository subtaskRepository;
+    private final com.syncflow.task.infrastructure.persistence.SpringDataTaskAttachmentRepository attachmentRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -320,6 +323,173 @@ public class DataInitializer implements CommandLineRunner {
                     .build());
 
             log.info("Seeded Initial Bank Role Notifications!");
+        }
+
+        // 9. Seed Initial Subtasks & Deliverable QA Checklists
+        if (subtaskRepository.count() == 0) {
+            List<Task> allTasks = taskRepository.findAll();
+            if (!allTasks.isEmpty()) {
+                Task t1 = allTasks.get(0); // Biometric 2FA
+                subtaskRepository.save(Subtask.builder().task(t1).title("FIDO2 Challenge-response payload schema").isCompleted(true).completedBy("Farhan Senior Dev").position(1).build());
+                subtaskRepository.save(Subtask.builder().task(t1).title("WebAuthn navigator.credentials hook").isCompleted(true).completedBy("Farhan Senior Dev").position(2).build());
+                subtaskRepository.save(Subtask.builder().task(t1).title("HSM key store integration & testing").isCompleted(false).position(3).build());
+
+                if (allTasks.size() > 1) {
+                    Task t2 = allTasks.get(1); // Audit Trail Export to CSV
+                    subtaskRepository.save(Subtask.builder().task(t2).title("Define RFC 4180 CSV compliant headers").isCompleted(true).completedBy("Sarah SQA Engineer").position(1).build());
+                    subtaskRepository.save(Subtask.builder().task(t2).title("Generate SHA-256 tamper-evident verification hash").isCompleted(true).completedBy("Sarah SQA Engineer").position(2).build());
+                    subtaskRepository.save(Subtask.builder().task(t2).title("Streaming download response filter").isCompleted(true).completedBy("Sarah SQA Engineer").position(3).build());
+                    subtaskRepository.save(Subtask.builder().task(t2).title("Central Bank compliance QA sign-off").isCompleted(true).completedBy("Sarah SQA Engineer").position(4).build());
+                }
+
+                if (allTasks.size() > 2) {
+                    Task t3 = allTasks.get(2); // MSSQL Partitioning
+                    subtaskRepository.save(Subtask.builder().task(t3).title("Analyze partition function on transaction_date").isCompleted(true).completedBy("Farhan Senior Dev").position(1).build());
+                    subtaskRepository.save(Subtask.builder().task(t3).title("Define partition schemes across PRIMARY filegroups").isCompleted(false).position(2).build());
+                    subtaskRepository.save(Subtask.builder().task(t3).title("Benchmark query execution latency under 100k rows").isCompleted(false).position(3).build());
+                }
+            }
+            log.info("Seeded Initial Subtasks & QA Checklists!");
+        }
+
+        // 10. Seed Initial Task File & Screenshot Attachments
+        if (attachmentRepository.count() == 0) {
+            List<Task> allTasks = taskRepository.findAll();
+            if (allTasks.size() > 1) {
+                Task t2 = allTasks.get(1); // Audit Trail Export
+                attachmentRepository.save(TaskAttachment.builder()
+                        .task(t2)
+                        .fileName("central_bank_compliance_spec_v2.pdf")
+                        .fileType("pdf")
+                        .fileSize("2.4 MB")
+                        .fileUrl("#")
+                        .uploadedBy("Sarah SQA Engineer")
+                        .build());
+                attachmentRepository.save(TaskAttachment.builder()
+                        .task(t2)
+                        .fileName("audit_export_sample_2026.csv")
+                        .fileType("code")
+                        .fileSize("480 KB")
+                        .fileUrl("#")
+                        .uploadedBy("Sarah SQA Engineer")
+                        .build());
+            }
+            if (allTasks.size() > 0) {
+                Task t1 = allTasks.get(0);
+                attachmentRepository.save(TaskAttachment.builder()
+                        .task(t1)
+                        .fileName("fido2_biometric_flowchart.png")
+                        .fileType("image")
+                        .fileSize("1.1 MB")
+                        .fileUrl("#")
+                        .uploadedBy("Farhan Senior Dev")
+                        .build());
+            }
+            log.info("Seeded Initial Task Attachments!");
+        }
+
+        // 11. Seed Initial Compliance & Audit Trail Ledger
+        if (auditLogRepository.count() == 0) {
+            java.time.Instant now = java.time.Instant.now();
+            auditLogRepository.save(AuditLog.builder()
+                    .action("TASK_CREATED")
+                    .entityType("TASK")
+                    .entityId(2L)
+                    .entityName("Audit Trail Export to CSV")
+                    .actorName("Tariq Manager")
+                    .actorEmail("manager@syncflow.bank")
+                    .actorRole("REPORTING_MANAGER")
+                    .details("Created task with LOW priority under project Core Payment Gateway v2.4")
+                    .ipAddress("10.0.4.10")
+                    .verificationHash("A9F23B81C4E7D012")
+                    .timestamp(now.minusSeconds(86400 * 2))
+                    .build());
+
+            auditLogRepository.save(AuditLog.builder()
+                    .action("TASK_ASSIGNED")
+                    .entityType("TASK")
+                    .entityId(2L)
+                    .entityName("Audit Trail Export to CSV")
+                    .actorName("Tariq Manager")
+                    .actorEmail("manager@syncflow.bank")
+                    .actorRole("REPORTING_MANAGER")
+                    .details("Assigned deliverable to Sarah SQA Engineer")
+                    .ipAddress("10.0.4.10")
+                    .verificationHash("B1E45C92D3F8A701")
+                    .timestamp(now.minusSeconds(86400))
+                    .build());
+
+            auditLogRepository.save(AuditLog.builder()
+                    .action("TASK_SUBTASK_VERIFIED")
+                    .entityType("TASK")
+                    .entityId(2L)
+                    .entityName("Audit Trail Export to CSV")
+                    .actorName("Sarah SQA Engineer")
+                    .actorEmail("sqa@syncflow.bank")
+                    .actorRole("SQA")
+                    .details("Verified QA deliverable: Define RFC 4180 CSV compliant headers")
+                    .ipAddress("10.0.4.25")
+                    .verificationHash("C2F67D03E4A9B812")
+                    .timestamp(now.minusSeconds(14400))
+                    .build());
+
+            auditLogRepository.save(AuditLog.builder()
+                    .action("TASK_SUBTASK_VERIFIED")
+                    .entityType("TASK")
+                    .entityId(2L)
+                    .entityName("Audit Trail Export to CSV")
+                    .actorName("Sarah SQA Engineer")
+                    .actorEmail("sqa@syncflow.bank")
+                    .actorRole("SQA")
+                    .details("Verified QA deliverable: Generate SHA-256 tamper-evident verification hash")
+                    .ipAddress("10.0.4.25")
+                    .verificationHash("D3A78E14F5B0C923")
+                    .timestamp(now.minusSeconds(7200))
+                    .build());
+
+            auditLogRepository.save(AuditLog.builder()
+                    .action("TASK_COMPLETED")
+                    .entityType("TASK")
+                    .entityId(2L)
+                    .entityName("Audit Trail Export to CSV")
+                    .actorName("Sarah SQA Engineer")
+                    .actorEmail("sqa@syncflow.bank")
+                    .actorRole("SQA")
+                    .details("Migrated task to 'Done & Verified' with 100% progress. Compliance verified.")
+                    .ipAddress("10.0.4.25")
+                    .verificationHash("E4B89F25A6C1D034")
+                    .timestamp(now.minusSeconds(1800))
+                    .build());
+
+            auditLogRepository.save(AuditLog.builder()
+                    .action("ROLE_UPDATED")
+                    .entityType("ROLE")
+                    .entityId(5L)
+                    .entityName("SQA Engineer Matrix")
+                    .actorName("Chief Admin")
+                    .actorEmail("admin@syncflow.bank")
+                    .actorRole("ADMIN")
+                    .details("Updated SQA role permissions for central bank regulatory audit compliance")
+                    .ipAddress("10.0.4.1")
+                    .verificationHash("F5C90A36B7D2E145")
+                    .timestamp(now.minusSeconds(3600 * 5))
+                    .build());
+
+            auditLogRepository.save(AuditLog.builder()
+                    .action("TASK_BLOCKED")
+                    .entityType("TASK")
+                    .entityId(4L)
+                    .entityName("WebSocket STOMP Broker & Event Hook")
+                    .actorName("Arman Lead")
+                    .actorEmail("lead@syncflow.bank")
+                    .actorRole("TEAM_LEAD")
+                    .details("Active blocker logged: Waiting for SSL certificate handshake setup")
+                    .ipAddress("10.0.4.18")
+                    .verificationHash("A6D01B47C8E3F256")
+                    .timestamp(now.minusSeconds(3600 * 3))
+                    .build());
+
+            log.info("Seeded Initial Compliance Audit Trail Ledger!");
         }
 
         log.info("SyncFlow Bank Enterprise initialization complete!");

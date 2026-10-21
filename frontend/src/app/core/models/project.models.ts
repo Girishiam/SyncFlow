@@ -104,3 +104,75 @@ export interface SubmitWorkLogPayload {
   completedTasksCount?: number;
 }
 
+export interface SubtaskItem {
+  id: number;
+  taskId: number;
+  title: string;
+  isCompleted: boolean;
+  completedBy?: string;
+  completedAt?: string;
+  position: number;
+}
+
+export interface TaskAttachmentItem {
+  id: number;
+  taskId: number;
+  fileName: string;
+  fileType: string;
+  fileSize?: string;
+  fileUrl: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  timeAgo?: string;
+}
+
+export interface BurndownDay {
+  day: number;
+  label: string;
+  idealRemaining: number;
+  actualRemaining?: number;
+  completedTasks: number;
+}
+
+export interface BurndownAnalytics {
+  projectId: number;
+  projectName: string;
+  sprintDurationDays: number;
+  currentDay: number;
+  totalStoryPoints: number;
+  remainingStoryPoints: number;
+  completedStoryPoints?: number;
+  completionPercentage: number;
+  velocityPointsPerWeek: number;
+  averageCycleTimeDays: number;
+  daysRemainingInSprint: number;
+  dailyProgress: BurndownDay[];
+}
+
+export interface AuditLogItem {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId?: number;
+  entityName?: string;
+  actorName: string;
+  actorEmail?: string;
+  actorRole: string;
+  actorAvatar?: string;
+  details?: string;
+  ipAddress?: string;
+  verificationHash?: string;
+  timestamp: string;
+  formattedDate?: string;
+  timeAgo?: string;
+}
+
+export interface AuditMetrics {
+  totalAuditRecords: number;
+  taskAuditRecords: number;
+  rbacAuditRecords: number;
+  complianceStatus: string;
+  integrityAlgorithm: string;
+}
+
+

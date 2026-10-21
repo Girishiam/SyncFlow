@@ -23,4 +23,15 @@ public interface TaskUseCase {
     TaskCommentDTO addComment(Long taskId, AddCommentRequest request, UUID authorId);
     TaskDTO assignTask(Long id, AssignTaskRequest request);
     TaskDTO updateDeadline(Long id, UpdateDeadlineRequest request);
+
+    // Subtasks & Deliverable QA Checklist
+    List<com.syncflow.dto.SubtaskDTO> getSubtasks(Long taskId);
+    com.syncflow.dto.SubtaskDTO addSubtask(Long taskId, String title, String authorName);
+    com.syncflow.dto.SubtaskDTO toggleSubtask(Long taskId, Long subtaskId, String actorName);
+    void deleteSubtask(Long taskId, Long subtaskId);
+
+    // Artifacts & File Attachments
+    List<com.syncflow.dto.TaskAttachmentDTO> getAttachments(Long taskId);
+    com.syncflow.dto.TaskAttachmentDTO addAttachment(Long taskId, String fileName, String fileType, String fileSize, String fileUrl, String uploadedBy);
+    void deleteAttachment(Long taskId, Long attachmentId);
 }

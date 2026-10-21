@@ -48,4 +48,9 @@ public class ProjectController {
         projectUseCase.reorderStages(id, request);
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/{id}/analytics/burndown")
+    public ResponseEntity<BurndownAnalyticsDTO> getBurndownAnalytics(@PathVariable Long id) {
+        return ResponseEntity.ok(projectUseCase.getBurndownAnalytics(id));
+    }
 }

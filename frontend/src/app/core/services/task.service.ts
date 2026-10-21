@@ -52,4 +52,34 @@ export class TaskService implements ITaskPort {
   getBankUsers(): Observable<BankUser[]> {
     return this.http.get<BankUser[]>(`${this.authApiUrl}/users`);
   }
+
+  // Subtasks & Deliverable QA Checklist
+  getSubtasks(taskId: number): Observable<import('../models/project.models').SubtaskItem[]> {
+    return this.http.get<import('../models/project.models').SubtaskItem[]>(`${this.apiUrl}/${taskId}/subtasks`);
+  }
+
+  addSubtask(taskId: number, title: string): Observable<import('../models/project.models').SubtaskItem> {
+    return this.http.post<import('../models/project.models').SubtaskItem>(`${this.apiUrl}/${taskId}/subtasks`, { title });
+  }
+
+  toggleSubtask(taskId: number, subtaskId: number): Observable<import('../models/project.models').SubtaskItem> {
+    return this.http.patch<import('../models/project.models').SubtaskItem>(`${this.apiUrl}/${taskId}/subtasks/${subtaskId}/toggle`, {});
+  }
+
+  deleteSubtask(taskId: number, subtaskId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${taskId}/subtasks/${subtaskId}`);
+  }
+
+  // Task Attachments
+  getAttachments(taskId: number): Observable<import('../models/project.models').TaskAttachmentItem[]> {
+    return this.http.get<import('../models/project.models').TaskAttachmentItem[]>(`${this.apiUrl}/${taskId}/attachments`);
+  }
+
+  addAttachment(taskId: number, payload: { fileName: string; fileType: string; fileSize?: string; fileUrl: string }): Observable<import('../models/project.models').TaskAttachmentItem> {
+    return this.http.post<import('../models/project.models').TaskAttachmentItem>(`${this.apiUrl}/${taskId}/attachments`, payload);
+  }
+
+  deleteAttachment(taskId: number, attachmentId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${taskId}/attachments/${attachmentId}`);
+  }
 }
