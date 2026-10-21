@@ -8,4 +8,6 @@ public interface ChannelRepositoryPort {
     List<Channel> findAll();
     Optional<Channel> findById(Long id);
     Channel save(Channel channel);
+    void deleteById(Long id);
+    boolean existsByName(String name);
 }

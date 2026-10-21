@@ -9,7 +9,8 @@ import java.util.Optional;
 
 @Repository
 public interface ChannelRepository extends JpaRepository<Channel, Long> {
-    List<Channel> findByProjectId(Long projectId);
+    List<Channel> findByProject_Id(Long projectId);
     List<Channel> findByProjectIsNull();
     Optional<Channel> findByName(String name);
+    boolean existsByName(String name);
 }

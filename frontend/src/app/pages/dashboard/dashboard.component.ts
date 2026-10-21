@@ -90,6 +90,56 @@ export class DashboardComponent implements OnInit {
   messages = this.chatFacade.messages;
   chatInput = this.chatFacade.chatInput;
 
+  // Channel Creation Modal State
+  isCreateChannelModalOpen = this.chatFacade.isCreateModalOpen;
+  newChannelName = this.chatFacade.newChannelName;
+  newChannelDescription = this.chatFacade.newChannelDescription;
+  newChannelType = this.chatFacade.newChannelType;
+  newChannelIcon = this.chatFacade.newChannelIcon;
+  newChannelIsPrivate = this.chatFacade.newChannelIsPrivate;
+  newChannelProjectId = this.chatFacade.newChannelProjectId;
+  isCreatingChannel = this.chatFacade.isCreatingChannel;
+  createChannelError = this.chatFacade.createChannelError;
+
+  // Channel Edit Modal State
+  isEditChannelModalOpen = this.chatFacade.isEditModalOpen;
+  channelToEdit = this.chatFacade.channelToEdit;
+  editChannelName = this.chatFacade.editChannelName;
+  editChannelDescription = this.chatFacade.editChannelDescription;
+  editChannelType = this.chatFacade.editChannelType;
+  editChannelIcon = this.chatFacade.editChannelIcon;
+  editChannelIsPrivate = this.chatFacade.editChannelIsPrivate;
+  isUpdatingChannel = this.chatFacade.isUpdatingChannel;
+  editChannelError = this.chatFacade.editChannelError;
+
+  // Channel Delete Modal State
+  isDeleteChannelModalOpen = this.chatFacade.isDeleteModalOpen;
+  channelToDelete = this.chatFacade.channelToDelete;
+  deleteChannelConfirmText = this.chatFacade.deleteConfirmText;
+  deleteChannelError = this.chatFacade.deleteChannelError;
+
+  // Channel Members State
+  isChannelMembersModalOpen = this.chatFacade.isMembersModalOpen;
+  channelMembers = this.chatFacade.channelMembers;
+  isLoadingChannelMembers = this.chatFacade.isLoadingMembers;
+  selectedMemberToAdd = this.chatFacade.selectedMemberToAdd;
+
+  availableChannelIcons = this.chatFacade.availableIcons;
+
+  // RBAC Permission Computations for Channel Governance
+  canCreateChannel = computed(() => this.authService.hasPermission('CHAT:CREATE_CHANNEL'));
+  canEditChannel = computed(() => this.authService.hasPermission('CHAT:EDIT_CHANNEL'));
+  canDeleteChannel = computed(() => this.authService.hasPermission('CHAT:DELETE_CHANNEL'));
+  canManageMembers = computed(() => this.authService.hasPermission('CHAT:MANAGE_MEMBERS'));
+
+  // Available bank users who can be added to the channel
+  availableBankUsersForChannel = computed(() => {
+    const currentMembers = this.channelMembers();
+    const allUsers = this.bankUsers();
+    const currentMemberIds = new Set(currentMembers.map(m => m.id));
+    return allUsers.filter(u => !currentMemberIds.has(u.id));
+  });
+
   // RBAC Facade State Delegates
   roles = this.rbacFacade.roles;
   permissions = this.rbacFacade.permissions;
@@ -243,6 +293,66 @@ export class DashboardComponent implements OnInit {
 
   sendMessage(): void {
     this.chatFacade.sendMessage();
+  }
+
+  openCreateChannel(): void {
+    this.chatFacade.openCreateChannelModal();
+  }
+
+  closeCreateChannel(): void {
+    this.chatFacade.closeCreateChannelModal();
+  }
+
+  submitCreateChannel(): void {
+    this.chatFacade.submitCreateChannel();
+  }
+
+  openEditChannel(channel?: Channel): void {
+    this.chatFacade.openEditChannelModal(channel);
+  }
+
+  closeEditChannel(): void {
+    this.chatFacade.closeEditChannelModal();
+  }
+
+  submitEditChannel(): void {
+    this.chatFacade.submitEditChannel();
+  }
+
+  openDeleteChannel(channel?: Channel): void {
+    this.chatFacade.openDeleteChannelModal(channel);
+  }
+
+  closeDeleteChannel(): void {
+    this.chatFacade.closeDeleteChannelModal();
+  }
+
+  confirmDeleteChannel(): void {
+    this.chatFacade.confirmDeleteChannel();
+  }
+
+  openChannelMembers(): void {
+    this.chatFacade.openMembersModal();
+  }
+
+  closeChannelMembers(): void {
+    this.chatFacade.closeMembersModal();
+  }
+
+  addMemberToChannel(): void {
+    const userId = this.selectedMemberToAdd();
+    if (userId) {
+      this.chatFacade.addMemberToActiveChannel(userId);
+    }
+  }
+
+  removeMemberFromChannel(userId: string): void {
+    this.chatFacade.removeMemberFromActiveChannel(userId);
+  }
+
+  getChannelIconSymbol(iconId?: string): string {
+    const found = this.availableChannelIcons.find(i => i.id === iconId);
+    return found ? found.icon : '#';
   }
 
   // RBAC Operations

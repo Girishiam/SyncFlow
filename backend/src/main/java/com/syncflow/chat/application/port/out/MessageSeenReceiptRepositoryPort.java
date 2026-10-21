@@ -6,4 +6,5 @@ import java.util.List;
 public interface MessageSeenReceiptRepositoryPort {
     List<MessageSeenReceipt> findByMessageId(Long messageId);
     MessageSeenReceipt save(MessageSeenReceipt receipt);
+    void deleteByChannelId(Long channelId);
 }

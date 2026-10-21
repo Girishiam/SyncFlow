@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface MessageRepository extends JpaRepository<Message, Long> {
     List<Message> findByChannelIdOrderByCreatedAtAsc(Long channelId);
+    void deleteByChannelId(Long channelId);
 }

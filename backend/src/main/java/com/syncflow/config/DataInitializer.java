@@ -50,7 +50,10 @@ public class DataInitializer implements CommandLineRunner {
 
         Permission pBuildStage = getOrCreatePermission("STAGE", "BUILD", "Build and reorder pipeline stages");
         Permission pHostMeeting = getOrCreatePermission("MEETING", "HOST", "Host instant department or squad meeting");
-        Permission pCreateChannel = getOrCreatePermission("CHAT", "CREATE_CHANNEL", "Create Discord-style channels");
+        Permission pCreateChannel = getOrCreatePermission("CHAT", "CREATE_CHANNEL", "Create enterprise discussion channels");
+        Permission pEditChannel = getOrCreatePermission("CHAT", "EDIT_CHANNEL", "Edit channel name, description, and icon/logo");
+        Permission pDeleteChannel = getOrCreatePermission("CHAT", "DELETE_CHANNEL", "Delete enterprise discussion channels");
+        Permission pManageChannelMembers = getOrCreatePermission("CHAT", "MANAGE_MEMBERS", "Add or remove members from channels");
 
         Permission pManageUsers = getOrCreatePermission("ADMIN", "MANAGE_USERS", "Manage users and overrides");
         Permission pManageRoles = getOrCreatePermission("ADMIN", "MANAGE_ROLES", "Manage roles and permission matrix");
@@ -60,7 +63,7 @@ public class DataInitializer implements CommandLineRunner {
         rAdmin.getPermissions().addAll(Set.of(
                 pCreateProject, pViewProject, pEditProject, pDeleteProject,
                 pCreateTask, pViewTask, pEditTask, pDeleteTask, pApproveTask, pAssignTask,
-                pBuildStage, pHostMeeting, pCreateChannel, pManageUsers, pManageRoles
+                pBuildStage, pHostMeeting, pCreateChannel, pEditChannel, pDeleteChannel, pManageChannelMembers, pManageUsers, pManageRoles
         ));
         roleRepository.save(rAdmin);
 
@@ -68,7 +71,7 @@ public class DataInitializer implements CommandLineRunner {
         rManager.getPermissions().addAll(Set.of(
                 pCreateProject, pViewProject, pEditProject,
                 pCreateTask, pViewTask, pEditTask, pApproveTask, pAssignTask,
-                pBuildStage, pHostMeeting, pCreateChannel
+                pBuildStage, pHostMeeting, pCreateChannel, pEditChannel, pDeleteChannel, pManageChannelMembers
         ));
         roleRepository.save(rManager);
 
@@ -76,7 +79,7 @@ public class DataInitializer implements CommandLineRunner {
         rTeamLead.getPermissions().addAll(Set.of(
                 pViewProject, pEditProject,
                 pCreateTask, pViewTask, pEditTask, pApproveTask, pAssignTask,
-                pBuildStage, pHostMeeting, pCreateChannel
+                pBuildStage, pHostMeeting, pCreateChannel, pEditChannel, pManageChannelMembers
         ));
         roleRepository.save(rTeamLead);
 

@@ -66,6 +66,14 @@ export interface Channel {
   name: string;
   type?: string;
   unread?: number;
+  description?: string;
+  icon?: string;
+  isPrivate?: boolean;
+  memberCount?: number;
+  projectId?: number;
+  projectName?: string;
+  createdByName?: string;
+  createdAt?: string;
 }
 
 export interface ChatMessage {

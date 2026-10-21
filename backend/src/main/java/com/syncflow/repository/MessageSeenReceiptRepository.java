@@ -12,4 +12,5 @@ import java.util.UUID;
 public interface MessageSeenReceiptRepository extends JpaRepository<MessageSeenReceipt, Long> {
     List<MessageSeenReceipt> findByMessageId(Long messageId);
     Optional<MessageSeenReceipt> findByMessageIdAndUserId(Long messageId, UUID userId);
+    void deleteByChannelId(Long channelId);
 }

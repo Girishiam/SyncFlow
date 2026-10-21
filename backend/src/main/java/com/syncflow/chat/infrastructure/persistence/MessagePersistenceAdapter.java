@@ -35,6 +35,12 @@ public class MessagePersistenceAdapter implements MessageRepositoryPort, Message
     }
 
     @Override
+    public void deleteByChannelId(Long channelId) {
+        receiptRepository.deleteByChannelId(channelId);
+        messageRepository.deleteByChannelId(channelId);
+    }
+
+    @Override
     public List<MessageSeenReceipt> findByMessageId(Long messageId) {
         return receiptRepository.findByMessageId(messageId);
     }

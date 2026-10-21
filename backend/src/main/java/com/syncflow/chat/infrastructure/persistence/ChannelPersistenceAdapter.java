@@ -29,4 +29,14 @@ public class ChannelPersistenceAdapter implements ChannelRepositoryPort {
     public Channel save(Channel channel) {
         return channelRepository.save(channel);
     }
+
+    @Override
+    public void deleteById(Long id) {
+        channelRepository.deleteById(id);
+    }
+
+    @Override
+    public boolean existsByName(String name) {
+        return channelRepository.existsByName(name);
+    }
 }
