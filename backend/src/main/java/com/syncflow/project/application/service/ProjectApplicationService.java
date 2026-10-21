@@ -87,6 +87,7 @@ public class ProjectApplicationService implements ProjectUseCase {
                             .avatar(avatar)
                             .isBlocked(Boolean.TRUE.equals(t.getIsBlocked()))
                             .blockerReason(t.getBlockerReason())
+                            .deadline(t.getDeadline())
                             .build());
                 }
             }

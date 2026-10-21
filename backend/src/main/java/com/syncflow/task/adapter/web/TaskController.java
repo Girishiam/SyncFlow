@@ -50,6 +50,16 @@ public class TaskController {
         return ResponseEntity.ok(taskUseCase.setBlocker(id, request));
     }
 
+    @PutMapping("/{id}/assignee")
+    public ResponseEntity<TaskDTO> assignTask(@PathVariable Long id, @Valid @RequestBody AssignTaskRequest request) {
+        return ResponseEntity.ok(taskUseCase.assignTask(id, request));
+    }
+
+    @PutMapping("/{id}/deadline")
+    public ResponseEntity<TaskDTO> updateDeadline(@PathVariable Long id, @Valid @RequestBody UpdateDeadlineRequest request) {
+        return ResponseEntity.ok(taskUseCase.updateDeadline(id, request));
+    }
+
     @GetMapping("/{id}/comments")
     public ResponseEntity<List<TaskCommentDTO>> getTaskComments(@PathVariable Long id) {
         return ResponseEntity.ok(taskUseCase.getTaskComments(id));

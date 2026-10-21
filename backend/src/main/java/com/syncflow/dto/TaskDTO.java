@@ -23,4 +23,5 @@ public class TaskDTO {
     private String avatar;
     private Boolean isBlocked;
     private String blockerReason;
+    private java.time.Instant deadline;
 }

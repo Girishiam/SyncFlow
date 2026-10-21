@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { TaskCard } from '../models/project.models';
+import { TaskCard, BankUser } from '../models/project.models';
 import { ITaskPort, CreateTaskPayload, TaskComment } from '../ports/task.port';
 
 @Injectable({
@@ -9,6 +9,7 @@ import { ITaskPort, CreateTaskPayload, TaskComment } from '../ports/task.port';
 })
 export class TaskService implements ITaskPort {
   private readonly apiUrl = 'http://localhost:9090/api/v1/tasks';
+  private readonly authApiUrl = 'http://localhost:9090/api/v1/auth';
 
   constructor(private http: HttpClient) {}
 
@@ -38,5 +39,17 @@ export class TaskService implements ITaskPort {
 
   addComment(taskId: number, content: string, attachmentUrl?: string): Observable<TaskComment> {
     return this.http.post<TaskComment>(`${this.apiUrl}/${taskId}/comments`, { content, attachmentUrl });
+  }
+
+  assignTask(taskId: number, assigneeId: string | null): Observable<TaskCard> {
+    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/assignee`, { assigneeId });
+  }
+
+  updateDeadline(taskId: number, deadline: string | null): Observable<TaskCard> {
+    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/deadline`, { deadline });
+  }
+
+  getBankUsers(): Observable<BankUser[]> {
+    return this.http.get<BankUser[]>(`${this.authApiUrl}/users`);
   }
 }

@@ -157,7 +157,7 @@
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input type="text" placeholder="Search tasks, members..." />
+          <input type="text" [(ngModel)]="searchQuery" placeholder="Search tasks, assignees..." />
         </div>
 
         <button class="header-action-btn" (click)="isMeetingOpen.set(true)">
@@ -208,9 +208,48 @@
         </div>
       </div>
 
+      <!-- Board Filters Bar -->
+      <div class="board-filters-bar">
+        <div class="filter-pill-group">
+          <button
+            class="filter-pill"
+            [class.active]="filterMode() === 'ALL'"
+            (click)="setFilterMode('ALL')"
+          >
+            All Tasks
+          </button>
+          <button
+            class="filter-pill"
+            [class.active]="filterMode() === 'MY_TASKS'"
+            (click)="setFilterMode('MY_TASKS')"
+          >
+            My Assigned
+          </button>
+          <button
+            class="filter-pill"
+            [class.active]="filterMode() === 'BLOCKED'"
+            (click)="setFilterMode('BLOCKED')"
+          >
+            Blocked Only
+          </button>
+          <button
+            class="filter-pill"
+            [class.active]="filterMode() === 'CRITICAL_HIGH'"
+            (click)="setFilterMode('CRITICAL_HIGH')"
+          >
+            Critical & High
+          </button>
+        </div>
+
+        <div *ngIf="searchQuery()" class="search-active-hint">
+          <span>Filtering: "<strong>{{ searchQuery() }}</strong>"</span>
+          <button class="clear-search-btn" (click)="searchQuery.set('')">×</button>
+        </div>
+      </div>
+
       <!-- Kanban Drag-Drop Columns -->
       <div class="kanban-board" cdkDropListGroup>
-        <div *ngFor="let col of columns()" class="board-column">
+        <div *ngFor="let col of filteredColumns()" class="board-column">
           <div class="col-header">
             <div class="col-title-wrap">
               <span class="col-title">{{ col.title }}</span>
@@ -234,6 +273,15 @@
             >
               <div class="card-meta">
                 <span class="card-project">{{ task.projectName || 'Core' }}</span>
+                <span *ngIf="task.deadline" class="deadline-pill" title="Due Date">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                    <line x1="16" y1="2" x2="16" y2="6"/>
+                    <line x1="8" y1="2" x2="8" y2="6"/>
+                    <line x1="3" y1="10" x2="21" y2="10"/>
+                  </svg>
+                  <span>{{ task.deadline | date:'MMM d' }}</span>
+                </span>
                 <span
                   class="priority-chip"
                   [class.critical]="task.priority === 'CRITICAL'"
@@ -520,6 +568,22 @@
           <option value="HIGH">HIGH</option>
           <option value="CRITICAL">CRITICAL</option>
         </select>
+
+        <label for="taskAssigneeSelect">Assignee</label>
+        <select id="taskAssigneeSelect" [(ngModel)]="newTaskAssigneeId" class="dialog-select">
+          <option value="">Unassigned</option>
+          <option *ngFor="let u of bankUsers()" [value]="u.id">
+            {{ u.fullName }} ({{ u.role?.name || 'Member' }})
+          </option>
+        </select>
+
+        <label for="taskDeadlineInput">Due Date / Deadline</label>
+        <input
+          id="taskDeadlineInput"
+          type="date"
+          [(ngModel)]="newTaskDeadline"
+          class="dialog-input"
+        />
       </div>
 
       <div class="dialog-actions">
@@ -649,13 +713,32 @@
       <div class="drawer-meta-grid">
         <div class="meta-item">
           <label>Assignee</label>
-          <div class="assignee-display">
+          <div class="assignee-select-wrap">
             <div class="avatar-circle">{{ activeDetailTask()!.avatar || 'UN' }}</div>
-            <span>{{ activeDetailTask()!.assignee || 'Unassigned' }}</span>
+            <select
+              class="meta-select"
+              [value]="activeDetailTask()!.assigneeId || ''"
+              (change)="onAssigneeChange(activeDetailTask()!, $event)"
+            >
+              <option value="">Unassigned</option>
+              <option *ngFor="let u of bankUsers()" [value]="u.id">
+                {{ u.fullName }}
+              </option>
+            </select>
           </div>
         </div>
 
         <div class="meta-item">
+          <label>Due Date</label>
+          <input
+            type="date"
+            class="meta-date-input"
+            [value]="detailDeadline()"
+            (change)="onDeadlineChange(activeDetailTask()!, $event)"
+          />
+        </div>
+
+        <div class="meta-item full-width">
           <label>Progress</label>
           <div class="progress-display">
             <input

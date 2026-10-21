@@ -1,5 +1,5 @@
 import { Observable } from 'rxjs';
-import { TaskCard } from '../models/project.models';
+import { TaskCard, BankUser } from '../models/project.models';
 
 export interface CreateTaskPayload {
   projectId: number;
@@ -8,6 +8,7 @@ export interface CreateTaskPayload {
   description?: string;
   priority?: string;
   assigneeId?: string;
+  deadline?: string;
 }
 
 export interface TaskComment {
@@ -30,4 +31,7 @@ export interface ITaskPort {
   setBlocker(taskId: number, isBlocked: boolean, blockerReason?: string): Observable<TaskCard>;
   getTaskComments(taskId: number): Observable<TaskComment[]>;
   addComment(taskId: number, content: string, attachmentUrl?: string): Observable<TaskComment>;
+  assignTask(taskId: number, assigneeId: string | null): Observable<TaskCard>;
+  updateDeadline(taskId: number, deadline: string | null): Observable<TaskCard>;
+  getBankUsers(): Observable<BankUser[]>;
 }

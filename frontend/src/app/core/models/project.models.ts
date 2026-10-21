@@ -8,10 +8,25 @@ export interface TaskCard {
   stageName?: string;
   projectId?: number;
   projectName?: string;
+  assigneeId?: string;
   assignee?: string;
   avatar?: string;
   isBlocked: boolean;
   blockerReason?: string;
+  deadline?: string;
+}
+
+export interface BankUser {
+  id: string;
+  email: string;
+  fullName: string;
+  avatarUrl?: string;
+  status: string;
+  onLeave: boolean;
+  role?: {
+    id: number;
+    name: string;
+  };
 }
 
 export interface KanbanColumn {

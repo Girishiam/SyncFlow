@@ -16,6 +16,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
+import com.syncflow.auth.application.port.out.UserRepositoryPort;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -23,6 +27,7 @@ public class AuthApplicationService implements AuthUseCase {
 
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
+    private final UserRepositoryPort userRepositoryPort;
 
     @Override
     public AuthResponse login(LoginRequest loginRequest) {
@@ -61,6 +66,18 @@ public class AuthApplicationService implements AuthUseCase {
         }
 
         User user = userDetails.getUser();
+        return toDTO(user, userDetails.getPermissionStrings());
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<UserDTO> getAllUsers() {
+        return userRepositoryPort.findAll().stream()
+                .map(u -> toDTO(u, java.util.Collections.emptySet()))
+                .toList();
+    }
+
+    private UserDTO toDTO(User user, java.util.Set<String> permissions) {
         return UserDTO.builder()
                 .id(user.getId())
                 .email(user.getEmail())
@@ -70,7 +87,7 @@ public class AuthApplicationService implements AuthUseCase {
                 .onLeave(user.getOnLeave())
                 .leaveNote(user.getLeaveNote())
                 .role(user.getRole())
-                .permissions(userDetails.getPermissionStrings())
+                .permissions(permissions)
                 .build();
     }
 }

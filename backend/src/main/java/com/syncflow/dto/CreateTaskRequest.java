@@ -26,4 +26,6 @@ public class CreateTaskRequest {
     private String priority = "MEDIUM"; // LOW, MEDIUM, HIGH, CRITICAL
 
     private UUID assigneeId;
+
+    private java.time.Instant deadline;
 }

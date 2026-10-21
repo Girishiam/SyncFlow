@@ -3,7 +3,7 @@ import { Subscription } from 'rxjs';
 import { ProjectService } from '../../../core/services/project.service';
 import { TaskService } from '../../../core/services/task.service';
 import { WebSocketService } from '../../../core/services/websocket.service';
-import { Project, KanbanColumn, TaskCard } from '../../../core/models/project.models';
+import { Project, KanbanColumn, TaskCard, BankUser } from '../../../core/models/project.models';
 import { TaskComment } from '../../../core/ports/task.port';
 import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 
@@ -24,18 +24,29 @@ export class BoardFacade implements OnDestroy {
   // Blocker Notification Banner Signal
   public activeBlockerBanner = signal<{ title: string; reason: string } | null>(null);
 
+  // Bank Members
+  public bankUsers = signal<BankUser[]>([]);
+
+  // Search & Filter State
+  public searchQuery = signal<string>('');
+  public filterMode = signal<'ALL' | 'MY_TASKS' | 'BLOCKED' | 'CRITICAL_HIGH'>('ALL');
+  public currentUserName = signal<string>('Tariq Manager');
+
   // Modals State
   public isCreateModalOpen = signal(false);
   public newTaskTitle = signal('');
   public newTaskDescription = signal('');
   public newTaskPriority = signal<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('MEDIUM');
   public newTaskStageId = signal<number | null>(null);
+  public newTaskAssigneeId = signal<string>('');
+  public newTaskDeadline = signal<string>('');
 
   public selectedTask = signal<TaskCard | null>(null);
   public blockerReasonInput = signal('');
 
   // Task Detail Drawer State
   public activeDetailTask = signal<TaskCard | null>(null);
+  public detailDeadline = signal<string>('');
   public taskComments = signal<TaskComment[]>([]);
   public commentInput = signal('');
   public isLoadingComments = signal(false);
@@ -44,6 +55,42 @@ export class BoardFacade implements OnDestroy {
   public isCreateStageModalOpen = signal(false);
   public newStageName = signal('');
   public newStageIsDone = signal(false);
+
+  // Computed Filtered Columns
+  public filteredColumns = computed(() => {
+    const query = this.searchQuery().trim().toLowerCase();
+    const mode = this.filterMode();
+    const cols = this.columns();
+
+    return cols.map(col => {
+      let tasks = col.tasks;
+
+      // Text Search Filter
+      if (query) {
+        tasks = tasks.filter(t =>
+          (t.title && t.title.toLowerCase().includes(query)) ||
+          (t.description && t.description.toLowerCase().includes(query)) ||
+          (t.assignee && t.assignee.toLowerCase().includes(query)) ||
+          (t.projectName && t.projectName.toLowerCase().includes(query))
+        );
+      }
+
+      // Quick Filter Mode
+      if (mode === 'MY_TASKS') {
+        const myName = this.currentUserName().toLowerCase();
+        tasks = tasks.filter(t => t.assignee && t.assignee.toLowerCase().includes(myName.split(' ')[0]));
+      } else if (mode === 'BLOCKED') {
+        tasks = tasks.filter(t => t.isBlocked);
+      } else if (mode === 'CRITICAL_HIGH') {
+        tasks = tasks.filter(t => t.priority === 'CRITICAL' || t.priority === 'HIGH');
+      }
+
+      return {
+        ...col,
+        tasks
+      };
+    });
+  });
 
   private subscriptions: Subscription[] = [];
 
@@ -61,6 +108,14 @@ export class BoardFacade implements OnDestroy {
 
   public init(): void {
     this.loadProjects();
+    this.loadBankUsers();
+  }
+
+  public loadBankUsers(): void {
+    this.taskService.getBankUsers().subscribe({
+      next: (users) => this.bankUsers.set(users),
+      error: (err) => console.error('BoardFacade: Failed to load bank users', err)
+    });
   }
 
   public loadProjects(): void {
@@ -195,6 +250,8 @@ export class BoardFacade implements OnDestroy {
     this.newTaskTitle.set('');
     this.newTaskDescription.set('');
     this.newTaskPriority.set('MEDIUM');
+    this.newTaskAssigneeId.set('');
+    this.newTaskDeadline.set('');
     this.isCreateModalOpen.set(true);
   }
 
@@ -209,12 +266,17 @@ export class BoardFacade implements OnDestroy {
 
     if (!title || !stageId) return;
 
+    const assigneeVal = this.newTaskAssigneeId() ? this.newTaskAssigneeId() : undefined;
+    const deadlineVal = this.newTaskDeadline() ? new Date(this.newTaskDeadline()).toISOString() : undefined;
+
     this.taskService.createTask({
       projectId,
       stageId,
       title,
       description: this.newTaskDescription().trim(),
-      priority: this.newTaskPriority()
+      priority: this.newTaskPriority(),
+      assigneeId: assigneeVal,
+      deadline: deadlineVal
     }).subscribe({
       next: (created) => {
         this.applyTaskUpdateLocally(created);
@@ -257,6 +319,7 @@ export class BoardFacade implements OnDestroy {
   public openTaskDetail(task: TaskCard): void {
     this.activeDetailTask.set(task);
     this.commentInput.set('');
+    this.detailDeadline.set(task.deadline ? task.deadline.substring(0, 10) : '');
     this.loadTaskComments(task.id);
   }
 
@@ -264,6 +327,39 @@ export class BoardFacade implements OnDestroy {
     this.activeDetailTask.set(null);
     this.taskComments.set([]);
     this.commentInput.set('');
+    this.detailDeadline.set('');
+  }
+
+  public assignTaskTo(task: TaskCard, assigneeId: string | null): void {
+    this.taskService.assignTask(task.id, assigneeId).subscribe({
+      next: (updated) => {
+        task.assignee = updated.assignee;
+        task.assigneeId = updated.assigneeId;
+        task.avatar = updated.avatar;
+        if (this.activeDetailTask() && this.activeDetailTask()!.id === task.id) {
+          this.activeDetailTask.update(t => t ? {
+            ...t,
+            assignee: updated.assignee,
+            assigneeId: updated.assigneeId,
+            avatar: updated.avatar
+          } : null);
+        }
+      },
+      error: (err) => console.error('BoardFacade: Failed to assign task', err)
+    });
+  }
+
+  public updateTaskDeadline(task: TaskCard, deadlineStr: string | null): void {
+    const isoDeadline = deadlineStr ? new Date(deadlineStr).toISOString() : null;
+    this.taskService.updateDeadline(task.id, isoDeadline).subscribe({
+      next: (updated) => {
+        task.deadline = updated.deadline;
+        if (this.activeDetailTask() && this.activeDetailTask()!.id === task.id) {
+          this.activeDetailTask.update(t => t ? { ...t, deadline: updated.deadline } : null);
+        }
+      },
+      error: (err) => console.error('BoardFacade: Failed to update task deadline', err)
+    });
   }
 
   public loadTaskComments(taskId: number): void {

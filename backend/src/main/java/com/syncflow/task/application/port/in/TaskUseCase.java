@@ -7,6 +7,9 @@ import com.syncflow.dto.SetBlockerRequest;
 import com.syncflow.dto.TaskCommentDTO;
 import com.syncflow.dto.TaskDTO;
 
+import com.syncflow.dto.AssignTaskRequest;
+import com.syncflow.dto.UpdateDeadlineRequest;
+
 import java.util.List;
 import java.util.UUID;
 
@@ -18,4 +21,6 @@ public interface TaskUseCase {
     TaskDTO getTaskDetails(Long id);
     List<TaskCommentDTO> getTaskComments(Long taskId);
     TaskCommentDTO addComment(Long taskId, AddCommentRequest request, UUID authorId);
+    TaskDTO assignTask(Long id, AssignTaskRequest request);
+    TaskDTO updateDeadline(Long id, UpdateDeadlineRequest request);
 }

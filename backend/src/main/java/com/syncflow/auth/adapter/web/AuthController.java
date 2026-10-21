@@ -27,4 +27,9 @@ public class AuthController {
     public ResponseEntity<UserDTO> getCurrentUser(Authentication authentication) {
         return ResponseEntity.ok(authUseCase.getCurrentUser(authentication));
     }
+
+    @GetMapping("/users")
+    public ResponseEntity<java.util.List<UserDTO>> getAllUsers() {
+        return ResponseEntity.ok(authUseCase.getAllUsers());
+    }
 }

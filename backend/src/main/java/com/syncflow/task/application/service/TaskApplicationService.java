@@ -3,11 +3,13 @@ package com.syncflow.task.application.service;
 import com.syncflow.auth.application.port.out.UserRepositoryPort;
 import com.syncflow.common.domain.DomainException;
 import com.syncflow.dto.AddCommentRequest;
+import com.syncflow.dto.AssignTaskRequest;
 import com.syncflow.dto.CreateTaskRequest;
 import com.syncflow.dto.MoveTaskRequest;
 import com.syncflow.dto.SetBlockerRequest;
 import com.syncflow.dto.TaskCommentDTO;
 import com.syncflow.dto.TaskDTO;
+import com.syncflow.dto.UpdateDeadlineRequest;
 import com.syncflow.model.Project;
 import com.syncflow.model.Stage;
 import com.syncflow.model.Task;
@@ -118,6 +120,7 @@ public class TaskApplicationService implements TaskUseCase {
                 .priority(request.getPriority() != null ? request.getPriority() : "MEDIUM")
                 .progressPercentage(0)
                 .assignee(assignee)
+                .deadline(request.getDeadline())
                 .isBlocked(false)
                 .build();
 
@@ -192,6 +195,41 @@ public class TaskApplicationService implements TaskUseCase {
         return dto;
     }
 
+    @Override
+    @Transactional
+    public TaskDTO assignTask(Long id, AssignTaskRequest request) {
+        Task task = taskRepositoryPort.findById(id)
+                .orElseThrow(() -> new DomainException("Task not found: " + id));
+
+        User assignee = null;
+        if (request.getAssigneeId() != null) {
+            assignee = userRepositoryPort.findById(request.getAssigneeId()).orElse(null);
+        }
+
+        task.setAssignee(assignee);
+        Task saved = taskRepositoryPort.save(task);
+        log.info("Task {} assignee updated to {}", id, assignee != null ? assignee.getFullName() : "Unassigned");
+
+        TaskDTO dto = toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public TaskDTO updateDeadline(Long id, UpdateDeadlineRequest request) {
+        Task task = taskRepositoryPort.findById(id)
+                .orElseThrow(() -> new DomainException("Task not found: " + id));
+
+        task.setDeadline(request.getDeadline());
+        Task saved = taskRepositoryPort.save(task);
+        log.info("Task {} deadline updated to {}", id, request.getDeadline());
+
+        TaskDTO dto = toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
     public TaskDTO toDTO(Task task) {
         String assigneeName = task.getAssignee() != null ? task.getAssignee().getFullName() : "Unassigned";
         String avatar = getInitials(assigneeName);
@@ -211,6 +249,7 @@ public class TaskApplicationService implements TaskUseCase {
                 .avatar(avatar)
                 .isBlocked(Boolean.TRUE.equals(task.getIsBlocked()))
                 .blockerReason(task.getBlockerReason())
+                .deadline(task.getDeadline())
                 .build();
     }
 

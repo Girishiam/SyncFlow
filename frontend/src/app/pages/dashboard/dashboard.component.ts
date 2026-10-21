@@ -32,6 +32,10 @@ export class DashboardComponent implements OnInit {
   projects = this.boardFacade.projects;
   selectedProjectId = this.boardFacade.selectedProjectId;
   columns = this.boardFacade.columns;
+  filteredColumns = this.boardFacade.filteredColumns;
+  bankUsers = this.boardFacade.bankUsers;
+  searchQuery = this.boardFacade.searchQuery;
+  filterMode = this.boardFacade.filterMode;
   totalTasksCount = this.boardFacade.totalTasksCount;
   blockedCount = this.boardFacade.blockedCount;
   completionPercentage = this.boardFacade.completionPercentage;
@@ -42,6 +46,8 @@ export class DashboardComponent implements OnInit {
   newTaskTitle = this.boardFacade.newTaskTitle;
   newTaskDescription = this.boardFacade.newTaskDescription;
   newTaskPriority = this.boardFacade.newTaskPriority;
+  newTaskAssigneeId = this.boardFacade.newTaskAssigneeId;
+  newTaskDeadline = this.boardFacade.newTaskDeadline;
 
   // Blocker Dialog Delegates
   selectedTask = this.boardFacade.selectedTask;
@@ -49,6 +55,7 @@ export class DashboardComponent implements OnInit {
 
   // Task Detail Drawer Delegates
   activeDetailTask = this.boardFacade.activeDetailTask;
+  detailDeadline = this.boardFacade.detailDeadline;
   taskComments = this.boardFacade.taskComments;
   commentInput = this.boardFacade.commentInput;
   isLoadingComments = this.boardFacade.isLoadingComments;
@@ -138,6 +145,22 @@ export class DashboardComponent implements OnInit {
 
   submitComment(): void {
     this.boardFacade.submitComment();
+  }
+
+  onAssigneeChange(task: TaskCard, event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const val = select.value ? select.value : null;
+    this.boardFacade.assignTaskTo(task, val);
+  }
+
+  onDeadlineChange(task: TaskCard, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const val = input.value ? input.value : null;
+    this.boardFacade.updateTaskDeadline(task, val);
+  }
+
+  setFilterMode(mode: 'ALL' | 'MY_TASKS' | 'BLOCKED' | 'CRITICAL_HIGH'): void {
+    this.boardFacade.filterMode.set(mode);
   }
 
   // Stage Operations
