@@ -1,5 +1,7 @@
-package com.syncflow.service;
+package com.syncflow.task.application.service;
 
+import com.syncflow.auth.application.port.out.UserRepositoryPort;
+import com.syncflow.common.domain.DomainException;
 import com.syncflow.dto.CreateTaskRequest;
 import com.syncflow.dto.MoveTaskRequest;
 import com.syncflow.dto.SetBlockerRequest;
@@ -8,10 +10,11 @@ import com.syncflow.model.Project;
 import com.syncflow.model.Stage;
 import com.syncflow.model.Task;
 import com.syncflow.model.User;
-import com.syncflow.repository.ProjectRepository;
-import com.syncflow.repository.StageRepository;
-import com.syncflow.repository.TaskRepository;
-import com.syncflow.repository.UserRepository;
+import com.syncflow.project.application.port.out.ProjectRepositoryPort;
+import com.syncflow.project.application.port.out.StageRepositoryPort;
+import com.syncflow.task.application.port.in.TaskUseCase;
+import com.syncflow.task.application.port.out.TaskNotificationPort;
+import com.syncflow.task.application.port.out.TaskRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,24 +25,26 @@ import java.time.Instant;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class TaskService {
+public class TaskApplicationService implements TaskUseCase {
 
-    private final TaskRepository taskRepository;
-    private final ProjectRepository projectRepository;
-    private final StageRepository stageRepository;
-    private final UserRepository userRepository;
+    private final TaskRepositoryPort taskRepositoryPort;
+    private final ProjectRepositoryPort projectRepositoryPort;
+    private final StageRepositoryPort stageRepositoryPort;
+    private final UserRepositoryPort userRepositoryPort;
+    private final TaskNotificationPort taskNotificationPort;
 
+    @Override
     @Transactional
     public TaskDTO createTask(CreateTaskRequest request) {
-        Project project = projectRepository.findById(request.getProjectId())
-                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + request.getProjectId()));
+        Project project = projectRepositoryPort.findById(request.getProjectId())
+                .orElseThrow(() -> new DomainException("Project not found: " + request.getProjectId()));
 
-        Stage stage = stageRepository.findById(request.getStageId())
-                .orElseThrow(() -> new IllegalArgumentException("Stage not found: " + request.getStageId()));
+        Stage stage = stageRepositoryPort.findById(request.getStageId())
+                .orElseThrow(() -> new DomainException("Stage not found: " + request.getStageId()));
 
         User assignee = null;
         if (request.getAssigneeId() != null) {
-            assignee = userRepository.findById(request.getAssigneeId()).orElse(null);
+            assignee = userRepositoryPort.findById(request.getAssigneeId()).orElse(null);
         }
 
         Task task = Task.builder()
@@ -53,18 +58,22 @@ public class TaskService {
                 .isBlocked(false)
                 .build();
 
-        Task saved = taskRepository.save(task);
-        log.info("Created Task ID: {} in Project: {}", saved.getId(), project.getName());
-        return toDTO(saved);
+        Task saved = taskRepositoryPort.save(task);
+        log.info("Task created successfully with ID: {}", saved.getId());
+
+        TaskDTO dto = toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
     }
 
+    @Override
     @Transactional
-    public TaskDTO moveTask(Long taskId, MoveTaskRequest request) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+    public TaskDTO moveTask(Long id, MoveTaskRequest request) {
+        Task task = taskRepositoryPort.findById(id)
+                .orElseThrow(() -> new DomainException("Task not found: " + id));
 
-        Stage targetStage = stageRepository.findById(request.getTargetStageId())
-                .orElseThrow(() -> new IllegalArgumentException("Stage not found: " + request.getTargetStageId()));
+        Stage targetStage = stageRepositoryPort.findById(request.getTargetStageId())
+                .orElseThrow(() -> new DomainException("Target Stage not found: " + request.getTargetStageId()));
 
         task.setStage(targetStage);
         if (Boolean.TRUE.equals(targetStage.getIsDoneStage())) {
@@ -73,25 +82,33 @@ public class TaskService {
             task.setBlockerReason(null);
         }
 
-        Task saved = taskRepository.save(task);
-        log.info("Moved Task ID: {} to Stage: {}", saved.getId(), targetStage.getName());
-        return toDTO(saved);
+        Task saved = taskRepositoryPort.save(task);
+        log.info("Task {} migrated to stage {}", saved.getId(), targetStage.getName());
+
+        TaskDTO dto = toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
     }
 
+    @Override
     @Transactional
-    public TaskDTO updateProgress(Long taskId, Integer progress) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+    public TaskDTO updateProgress(Long id, Integer progress) {
+        Task task = taskRepositoryPort.findById(id)
+                .orElseThrow(() -> new DomainException("Task not found: " + id));
 
         task.setProgressPercentage(Math.max(0, Math.min(100, progress)));
-        Task saved = taskRepository.save(task);
-        return toDTO(saved);
+        Task saved = taskRepositoryPort.save(task);
+
+        TaskDTO dto = toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
     }
 
+    @Override
     @Transactional
-    public TaskDTO setBlocker(Long taskId, SetBlockerRequest request) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+    public TaskDTO setBlocker(Long id, SetBlockerRequest request) {
+        Task task = taskRepositoryPort.findById(id)
+                .orElseThrow(() -> new DomainException("Task not found: " + id));
 
         task.setIsBlocked(request.getIsBlocked());
         if (Boolean.TRUE.equals(request.getIsBlocked())) {
@@ -102,9 +119,14 @@ public class TaskService {
             task.setBlockedAt(null);
         }
 
-        Task saved = taskRepository.save(task);
-        log.info("Updated Blocker for Task ID: {} -> Blocked: {}", saved.getId(), saved.getIsBlocked());
-        return toDTO(saved);
+        Task saved = taskRepositoryPort.save(task);
+        TaskDTO dto = toDTO(saved);
+
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        if (Boolean.TRUE.equals(saved.getIsBlocked())) {
+            taskNotificationPort.broadcastBlockerAlert(dto);
+        }
+        return dto;
     }
 
     public TaskDTO toDTO(Task task) {

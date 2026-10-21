@@ -2,11 +2,12 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { TaskCard } from '../models/project.models';
+import { ITaskPort, CreateTaskPayload } from '../ports/task.port';
 
 @Injectable({
   providedIn: 'root'
 })
-export class TaskService {
+export class TaskService implements ITaskPort {
   private readonly apiUrl = 'http://localhost:9090/api/v1/tasks';
 
   constructor(private http: HttpClient) {}

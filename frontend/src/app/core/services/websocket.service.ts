@@ -2,11 +2,12 @@ import { Injectable, signal } from '@angular/core';
 import { Client, IMessage } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { Observable, Subject } from 'rxjs';
+import { IWebSocketPort } from '../ports/websocket.port';
 
 @Injectable({
   providedIn: 'root'
 })
-export class WebSocketService {
+export class WebSocketService implements IWebSocketPort {
   private client: Client;
   public isConnected = signal(false);
 

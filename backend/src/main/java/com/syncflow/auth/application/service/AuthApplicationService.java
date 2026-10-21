@@ -1,30 +1,31 @@
-package com.syncflow.controller;
+package com.syncflow.auth.application.service;
 
+import com.syncflow.auth.application.port.in.AuthUseCase;
+import com.syncflow.common.domain.DomainException;
 import com.syncflow.dto.AuthResponse;
 import com.syncflow.dto.LoginRequest;
 import com.syncflow.dto.UserDTO;
 import com.syncflow.model.User;
 import com.syncflow.security.JwtUtils;
 import com.syncflow.security.UserDetailsImpl;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.stereotype.Service;
 
-@RestController
-@RequestMapping("/v1/auth")
+@Service
 @RequiredArgsConstructor
-public class AuthController {
+@Slf4j
+public class AuthApplicationService implements AuthUseCase {
 
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
 
-    @PostMapping("/login")
-    public ResponseEntity<AuthResponse> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+    @Override
+    public AuthResponse login(LoginRequest loginRequest) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
         );
@@ -47,20 +48,20 @@ public class AuthController {
                 .permissions(userDetails.getPermissionStrings())
                 .build();
 
-        return ResponseEntity.ok(AuthResponse.builder()
+        return AuthResponse.builder()
                 .token(jwt)
                 .user(userDTO)
-                .build());
+                .build();
     }
 
-    @GetMapping("/me")
-    public ResponseEntity<UserDTO> getCurrentUser(Authentication authentication) {
+    @Override
+    public UserDTO getCurrentUser(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserDetailsImpl userDetails)) {
-            return ResponseEntity.status(401).build();
+            throw new DomainException("Unauthorized: No valid session found");
         }
 
         User user = userDetails.getUser();
-        UserDTO userDTO = UserDTO.builder()
+        return UserDTO.builder()
                 .id(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
@@ -71,7 +72,5 @@ public class AuthController {
                 .role(user.getRole())
                 .permissions(userDetails.getPermissionStrings())
                 .build();
-
-        return ResponseEntity.ok(userDTO);
     }
 }

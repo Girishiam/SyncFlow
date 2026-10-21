@@ -10,6 +10,7 @@ import java.util.UUID;
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
     List<Task> findByProjectId(Long projectId);
+    List<Task> findByStageId(Long stageId);
     List<Task> findByProjectIdAndStageId(Long projectId, Long stageId);
     List<Task> findByAssigneeId(UUID assigneeId);
     long countByProjectId(Long projectId);

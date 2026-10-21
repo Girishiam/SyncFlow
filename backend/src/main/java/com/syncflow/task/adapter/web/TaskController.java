@@ -1,16 +1,15 @@
-package com.syncflow.controller;
+package com.syncflow.task.adapter.web;
 
 import com.syncflow.dto.CreateTaskRequest;
 import com.syncflow.dto.MoveTaskRequest;
 import com.syncflow.dto.SetBlockerRequest;
 import com.syncflow.dto.TaskDTO;
 import com.syncflow.dto.UpdateProgressRequest;
-import com.syncflow.service.TaskService;
+import com.syncflow.task.application.port.in.TaskUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,37 +19,25 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class TaskController {
 
-    private final TaskService taskService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final TaskUseCase taskUseCase;
 
     @PostMapping
     public ResponseEntity<TaskDTO> createTask(@Valid @RequestBody CreateTaskRequest request) {
-        TaskDTO task = taskService.createTask(request);
-        messagingTemplate.convertAndSend("/topic/board", task);
-        return ResponseEntity.ok(task);
+        return ResponseEntity.ok(taskUseCase.createTask(request));
     }
 
     @PutMapping("/{id}/move")
     public ResponseEntity<TaskDTO> moveTask(@PathVariable Long id, @Valid @RequestBody MoveTaskRequest request) {
-        TaskDTO task = taskService.moveTask(id, request);
-        messagingTemplate.convertAndSend("/topic/board", task);
-        return ResponseEntity.ok(task);
+        return ResponseEntity.ok(taskUseCase.moveTask(id, request));
     }
 
     @PutMapping("/{id}/progress")
     public ResponseEntity<TaskDTO> updateProgress(@PathVariable Long id, @Valid @RequestBody UpdateProgressRequest request) {
-        TaskDTO task = taskService.updateProgress(id, request.getProgress());
-        messagingTemplate.convertAndSend("/topic/board", task);
-        return ResponseEntity.ok(task);
+        return ResponseEntity.ok(taskUseCase.updateProgress(id, request.getProgress()));
     }
 
     @PutMapping("/{id}/blocker")
     public ResponseEntity<TaskDTO> setBlocker(@PathVariable Long id, @Valid @RequestBody SetBlockerRequest request) {
-        TaskDTO task = taskService.setBlocker(id, request);
-        messagingTemplate.convertAndSend("/topic/board", task);
-        if (Boolean.TRUE.equals(task.getIsBlocked())) {
-            messagingTemplate.convertAndSend("/topic/blocker-alerts", task);
-        }
-        return ResponseEntity.ok(task);
+        return ResponseEntity.ok(taskUseCase.setBlocker(id, request));
     }
 }

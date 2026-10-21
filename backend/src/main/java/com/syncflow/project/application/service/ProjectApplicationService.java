@@ -1,14 +1,17 @@
-package com.syncflow.service;
+package com.syncflow.project.application.service;
 
+import com.syncflow.common.domain.DomainException;
 import com.syncflow.dto.ProjectBoardDTO;
+import com.syncflow.dto.ProjectDTO;
 import com.syncflow.dto.StageDTO;
 import com.syncflow.dto.TaskDTO;
 import com.syncflow.model.Project;
 import com.syncflow.model.Stage;
 import com.syncflow.model.Task;
-import com.syncflow.repository.ProjectRepository;
-import com.syncflow.repository.StageRepository;
-import com.syncflow.repository.TaskRepository;
+import com.syncflow.project.application.port.in.ProjectUseCase;
+import com.syncflow.project.application.port.out.ProjectRepositoryPort;
+import com.syncflow.project.application.port.out.StageRepositoryPort;
+import com.syncflow.task.application.port.out.TaskRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,16 +23,17 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ProjectService {
+public class ProjectApplicationService implements ProjectUseCase {
 
-    private final ProjectRepository projectRepository;
-    private final StageRepository stageRepository;
-    private final TaskRepository taskRepository;
+    private final ProjectRepositoryPort projectRepositoryPort;
+    private final StageRepositoryPort stageRepositoryPort;
+    private final TaskRepositoryPort taskRepositoryPort;
 
+    @Override
     @Transactional(readOnly = true)
-    public List<com.syncflow.dto.ProjectDTO> getAllProjects() {
-        return projectRepository.findAllByOrderByCreatedAtDesc().stream()
-                .map(p -> com.syncflow.dto.ProjectDTO.builder()
+    public List<ProjectDTO> getAllProjects() {
+        return projectRepositoryPort.findAll().stream()
+                .map(p -> ProjectDTO.builder()
                         .id(p.getId())
                         .name(p.getName())
                         .description(p.getDescription())
@@ -38,13 +42,14 @@ public class ProjectService {
                 .toList();
     }
 
+    @Override
     @Transactional(readOnly = true)
     public ProjectBoardDTO getProjectBoard(Long projectId) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new IllegalArgumentException("Project not found with id: " + projectId));
+        Project project = projectRepositoryPort.findById(projectId)
+                .orElseThrow(() -> new DomainException("Project not found with id: " + projectId));
 
-        List<Stage> stages = stageRepository.findByProjectIdOrderByPositionAsc(projectId);
-        List<Task> allTasks = taskRepository.findByProjectId(projectId);
+        List<Stage> stages = stageRepositoryPort.findByProjectIdOrderByPositionAsc(projectId);
+        List<Task> allTasks = taskRepositoryPort.findByProjectId(projectId);
 
         List<StageDTO> stageDTOs = new ArrayList<>();
         long totalTasks = allTasks.size();

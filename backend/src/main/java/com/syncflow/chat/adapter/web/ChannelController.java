@@ -1,16 +1,16 @@
-package com.syncflow.controller;
+package com.syncflow.chat.adapter.web;
 
+import com.syncflow.auth.application.port.out.UserRepositoryPort;
+import com.syncflow.chat.application.port.in.ChatUseCase;
 import com.syncflow.dto.ChatMessageDTO;
 import com.syncflow.dto.SendMessageRequest;
 import com.syncflow.model.Channel;
 import com.syncflow.model.User;
-import com.syncflow.repository.UserRepository;
 import com.syncflow.security.UserDetailsImpl;
-import com.syncflow.service.ChannelService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,21 +20,21 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/v1/channels")
 @RequiredArgsConstructor
+@Slf4j
 @CrossOrigin(origins = "*", maxAge = 3600)
 public class ChannelController {
 
-    private final ChannelService channelService;
-    private final SimpMessagingTemplate messagingTemplate;
-    private final UserRepository userRepository;
+    private final ChatUseCase chatUseCase;
+    private final UserRepositoryPort userRepositoryPort;
 
     @GetMapping
     public ResponseEntity<List<Channel>> getAllChannels() {
-        return ResponseEntity.ok(channelService.getAllChannels());
+        return ResponseEntity.ok(chatUseCase.getAllChannels());
     }
 
     @GetMapping("/{id}/messages")
     public ResponseEntity<List<ChatMessageDTO>> getChannelMessages(@PathVariable Long id) {
-        return ResponseEntity.ok(channelService.getChannelMessages(id));
+        return ResponseEntity.ok(chatUseCase.getChannelMessages(id));
     }
 
     @PostMapping("/{id}/messages")
@@ -45,15 +45,13 @@ public class ChannelController {
 
         UUID userId = userDetails != null ? userDetails.getId() : null;
         if (userId == null) {
-            userId = userRepository.findAll().stream().findFirst().map(User::getId).orElse(null);
+            userId = userRepositoryPort.findAll().stream().findFirst().map(User::getId).orElse(null);
         }
 
         if (userId == null) {
             return ResponseEntity.badRequest().build();
         }
 
-        ChatMessageDTO message = channelService.postMessage(id, userId, request.getContent());
-        messagingTemplate.convertAndSend("/topic/channel." + id, message);
-        return ResponseEntity.ok(message);
+        return ResponseEntity.ok(chatUseCase.postMessage(id, userId, request.getContent()));
     }
 }

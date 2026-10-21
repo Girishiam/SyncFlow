@@ -1,14 +1,16 @@
-package com.syncflow.service;
+package com.syncflow.chat.application.service;
 
+import com.syncflow.auth.application.port.out.UserRepositoryPort;
+import com.syncflow.chat.application.port.in.ChatUseCase;
+import com.syncflow.chat.application.port.out.ChannelRepositoryPort;
+import com.syncflow.chat.application.port.out.ChatNotificationPort;
+import com.syncflow.chat.application.port.out.MessageRepositoryPort;
+import com.syncflow.chat.application.port.out.MessageSeenReceiptRepositoryPort;
+import com.syncflow.common.domain.DomainException;
 import com.syncflow.dto.ChatMessageDTO;
 import com.syncflow.model.Channel;
 import com.syncflow.model.Message;
-import com.syncflow.model.MessageSeenReceipt;
 import com.syncflow.model.User;
-import com.syncflow.repository.ChannelRepository;
-import com.syncflow.repository.MessageRepository;
-import com.syncflow.repository.MessageSeenReceiptRepository;
-import com.syncflow.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,27 +26,30 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ChannelService {
+public class ChatApplicationService implements ChatUseCase {
 
-    private final ChannelRepository channelRepository;
-    private final MessageRepository messageRepository;
-    private final MessageSeenReceiptRepository receiptRepository;
-    private final UserRepository userRepository;
+    private final ChannelRepositoryPort channelRepositoryPort;
+    private final MessageRepositoryPort messageRepositoryPort;
+    private final MessageSeenReceiptRepositoryPort receiptRepositoryPort;
+    private final UserRepositoryPort userRepositoryPort;
+    private final ChatNotificationPort chatNotificationPort;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("hh:mm a").withZone(ZoneId.systemDefault());
 
+    @Override
     @Transactional(readOnly = true)
     public List<Channel> getAllChannels() {
-        return channelRepository.findAll();
+        return channelRepositoryPort.findAll();
     }
 
+    @Override
     @Transactional(readOnly = true)
     public List<ChatMessageDTO> getChannelMessages(Long channelId) {
-        List<Message> messages = messageRepository.findByChannelIdOrderByCreatedAtAsc(channelId);
+        List<Message> messages = messageRepositoryPort.findByChannelIdOrderByCreatedAtAsc(channelId);
         List<ChatMessageDTO> dtoList = new ArrayList<>();
 
         for (Message msg : messages) {
-            List<String> seenNames = receiptRepository.findByMessageId(msg.getId()).stream()
+            List<String> seenNames = receiptRepositoryPort.findByMessageId(msg.getId()).stream()
                     .map(r -> r.getUser().getFullName())
                     .collect(Collectors.toList());
 
@@ -63,13 +68,14 @@ public class ChannelService {
         return dtoList;
     }
 
+    @Override
     @Transactional
     public ChatMessageDTO postMessage(Long channelId, UUID userId, String content) {
-        Channel channel = channelRepository.findById(channelId)
-                .orElseThrow(() -> new IllegalArgumentException("Channel not found: " + channelId));
+        Channel channel = channelRepositoryPort.findById(channelId)
+                .orElseThrow(() -> new DomainException("Channel not found: " + channelId));
 
-        User sender = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + userId));
+        User sender = userRepositoryPort.findById(userId)
+                .orElseThrow(() -> new DomainException("User not found: " + userId));
 
         Message message = Message.builder()
                 .channel(channel)
@@ -78,9 +84,9 @@ public class ChannelService {
                 .isPinned(false)
                 .build();
 
-        Message saved = messageRepository.save(message);
+        Message saved = messageRepositoryPort.save(message);
 
-        return ChatMessageDTO.builder()
+        ChatMessageDTO dto = ChatMessageDTO.builder()
                 .id(saved.getId())
                 .channelId(channel.getId())
                 .channelName(channel.getName())
@@ -90,5 +96,8 @@ public class ChannelService {
                 .time(TIME_FORMATTER.format(saved.getCreatedAt()))
                 .seenBy(List.of("Just now"))
                 .build();
+
+        chatNotificationPort.broadcastMessage(channelId, dto);
+        return dto;
     }
 }

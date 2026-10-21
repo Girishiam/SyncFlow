@@ -2,11 +2,12 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Channel, ChatMessage } from '../models/project.models';
+import { IChatPort } from '../ports/chat.port';
 
 @Injectable({
   providedIn: 'root'
 })
-export class ChatService {
+export class ChatService implements IChatPort {
   private readonly apiUrl = 'http://localhost:9090/api/v1/channels';
 
   constructor(private http: HttpClient) {}

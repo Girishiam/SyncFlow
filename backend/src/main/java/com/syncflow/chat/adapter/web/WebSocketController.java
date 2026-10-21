@@ -1,4 +1,4 @@
-package com.syncflow.controller;
+package com.syncflow.chat.adapter.web;
 
 import com.syncflow.dto.ChatMessageDTO;
 import com.syncflow.dto.TaskDTO;
