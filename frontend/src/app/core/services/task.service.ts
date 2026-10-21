@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { TaskCard } from '../models/project.models';
-import { ITaskPort, CreateTaskPayload } from '../ports/task.port';
+import { ITaskPort, CreateTaskPayload, TaskComment } from '../ports/task.port';
 
 @Injectable({
   providedIn: 'root'
@@ -12,14 +12,11 @@ export class TaskService implements ITaskPort {
 
   constructor(private http: HttpClient) {}
 
-  createTask(payload: {
-    projectId: number;
-    stageId: number;
-    title: string;
-    description?: string;
-    priority?: string;
-    assigneeId?: string;
-  }): Observable<TaskCard> {
+  getTaskDetails(taskId: number): Observable<TaskCard> {
+    return this.http.get<TaskCard>(`${this.apiUrl}/${taskId}`);
+  }
+
+  createTask(payload: CreateTaskPayload): Observable<TaskCard> {
     return this.http.post<TaskCard>(this.apiUrl, payload);
   }
 
@@ -33,5 +30,13 @@ export class TaskService implements ITaskPort {
 
   setBlocker(taskId: number, isBlocked: boolean, blockerReason?: string): Observable<TaskCard> {
     return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/blocker`, { isBlocked, blockerReason });
+  }
+
+  getTaskComments(taskId: number): Observable<TaskComment[]> {
+    return this.http.get<TaskComment[]>(`${this.apiUrl}/${taskId}/comments`);
+  }
+
+  addComment(taskId: number, content: string, attachmentUrl?: string): Observable<TaskComment> {
+    return this.http.post<TaskComment>(`${this.apiUrl}/${taskId}/comments`, { content, attachmentUrl });
   }
 }

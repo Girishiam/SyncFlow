@@ -4,6 +4,7 @@ import { ProjectService } from '../../../core/services/project.service';
 import { TaskService } from '../../../core/services/task.service';
 import { WebSocketService } from '../../../core/services/websocket.service';
 import { Project, KanbanColumn, TaskCard } from '../../../core/models/project.models';
+import { TaskComment } from '../../../core/ports/task.port';
 import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 
 @Injectable({
@@ -32,6 +33,17 @@ export class BoardFacade implements OnDestroy {
 
   public selectedTask = signal<TaskCard | null>(null);
   public blockerReasonInput = signal('');
+
+  // Task Detail Drawer State
+  public activeDetailTask = signal<TaskCard | null>(null);
+  public taskComments = signal<TaskComment[]>([]);
+  public commentInput = signal('');
+  public isLoadingComments = signal(false);
+
+  // Stage Creator Modal State
+  public isCreateStageModalOpen = signal(false);
+  public newStageName = signal('');
+  public newStageIsDone = signal(false);
 
   private subscriptions: Subscription[] = [];
 
@@ -238,6 +250,80 @@ export class BoardFacade implements OnDestroy {
         this.closeBlocker();
       },
       error: (err) => console.error('BoardFacade: Failed to update blocker', err)
+    });
+  }
+
+  // Task Detail Drawer
+  public openTaskDetail(task: TaskCard): void {
+    this.activeDetailTask.set(task);
+    this.commentInput.set('');
+    this.loadTaskComments(task.id);
+  }
+
+  public closeTaskDetail(): void {
+    this.activeDetailTask.set(null);
+    this.taskComments.set([]);
+    this.commentInput.set('');
+  }
+
+  public loadTaskComments(taskId: number): void {
+    this.isLoadingComments.set(true);
+    this.taskService.getTaskComments(taskId).subscribe({
+      next: (comments) => {
+        this.isLoadingComments.set(false);
+        this.taskComments.set(comments);
+      },
+      error: (err) => {
+        this.isLoadingComments.set(false);
+        console.error('BoardFacade: Failed to load task comments', err);
+      }
+    });
+  }
+
+  public submitComment(): void {
+    const task = this.activeDetailTask();
+    const content = this.commentInput().trim();
+    if (!task || !content) return;
+
+    this.taskService.addComment(task.id, content).subscribe({
+      next: (comment) => {
+        this.taskComments.update(c => [...c, comment]);
+        this.commentInput.set('');
+      },
+      error: (err) => console.error('BoardFacade: Failed to add comment', err)
+    });
+  }
+
+  // Custom Stage / Pipeline Builder
+  public openCreateStageModal(): void {
+    this.newStageName.set('');
+    this.newStageIsDone.set(false);
+    this.isCreateStageModalOpen.set(true);
+  }
+
+  public closeCreateStageModal(): void {
+    this.isCreateStageModalOpen.set(false);
+  }
+
+  public submitCreateStage(): void {
+    const name = this.newStageName().trim();
+    const projectId = this.selectedProjectId();
+    if (!name || !projectId) return;
+
+    const isDone = this.newStageIsDone();
+    this.projectService.createStage(projectId, name, isDone).subscribe({
+      next: (stage) => {
+        const newCol: KanbanColumn = {
+          id: 'stage-' + stage.id,
+          numericId: stage.id,
+          title: stage.name,
+          isDoneStage: stage.isDoneStage,
+          tasks: []
+        };
+        this.columns.update(cols => [...cols, newCol]);
+        this.closeCreateStageModal();
+      },
+      error: (err) => console.error('BoardFacade: Failed to create stage', err)
     });
   }
 }

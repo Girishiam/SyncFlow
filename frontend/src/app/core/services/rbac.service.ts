@@ -1,0 +1,29 @@
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { IRbacPort, Role, Permission } from '../ports/rbac.port';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class RbacService implements IRbacPort {
+  private readonly apiUrl = 'http://localhost:9090/api/v1/rbac';
+
+  constructor(private http: HttpClient) {}
+
+  getAllRoles(): Observable<Role[]> {
+    return this.http.get<Role[]>(`${this.apiUrl}/roles`);
+  }
+
+  getAllPermissions(): Observable<Permission[]> {
+    return this.http.get<Permission[]>(`${this.apiUrl}/permissions`);
+  }
+
+  updateRolePermissions(roleId: number, permissionIds: number[]): Observable<Role> {
+    return this.http.put<Role>(`${this.apiUrl}/roles/${roleId}/permissions`, { permissionIds });
+  }
+
+  createCustomRole(name: string, description: string, permissionIds: number[]): Observable<Role> {
+    return this.http.post<Role>(`${this.apiUrl}/roles`, { name, description, permissionIds });
+  }
+}

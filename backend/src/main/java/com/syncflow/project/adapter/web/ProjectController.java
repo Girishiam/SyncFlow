@@ -1,8 +1,8 @@
 package com.syncflow.project.adapter.web;
 
-import com.syncflow.dto.ProjectBoardDTO;
-import com.syncflow.dto.ProjectDTO;
+import com.syncflow.dto.*;
 import com.syncflow.project.application.port.in.ProjectUseCase;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -27,5 +27,20 @@ public class ProjectController {
     @GetMapping("/{id}/board")
     public ResponseEntity<ProjectBoardDTO> getProjectBoard(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getProjectBoard(id));
+    }
+
+    @PostMapping("/{id}/stages")
+    public ResponseEntity<StageDTO> createStage(
+            @PathVariable Long id,
+            @Valid @RequestBody CreateStageRequest request) {
+        return ResponseEntity.ok(projectUseCase.createStage(id, request));
+    }
+
+    @PutMapping("/{id}/stages/reorder")
+    public ResponseEntity<Void> reorderStages(
+            @PathVariable Long id,
+            @Valid @RequestBody ReorderStagesRequest request) {
+        projectUseCase.reorderStages(id, request);
+        return ResponseEntity.ok().build();
     }
 }

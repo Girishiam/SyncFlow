@@ -1,16 +1,19 @@
 package com.syncflow.task.adapter.web;
 
-import com.syncflow.dto.CreateTaskRequest;
-import com.syncflow.dto.MoveTaskRequest;
-import com.syncflow.dto.SetBlockerRequest;
-import com.syncflow.dto.TaskDTO;
-import com.syncflow.dto.UpdateProgressRequest;
+import com.syncflow.auth.application.port.out.UserRepositoryPort;
+import com.syncflow.dto.*;
+import com.syncflow.model.User;
+import com.syncflow.security.UserDetailsImpl;
 import com.syncflow.task.application.port.in.TaskUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/tasks")
@@ -20,6 +23,12 @@ import org.springframework.web.bind.annotation.*;
 public class TaskController {
 
     private final TaskUseCase taskUseCase;
+    private final UserRepositoryPort userRepositoryPort;
+
+    @GetMapping("/{id}")
+    public ResponseEntity<TaskDTO> getTaskDetails(@PathVariable Long id) {
+        return ResponseEntity.ok(taskUseCase.getTaskDetails(id));
+    }
 
     @PostMapping
     public ResponseEntity<TaskDTO> createTask(@Valid @RequestBody CreateTaskRequest request) {
@@ -39,5 +48,28 @@ public class TaskController {
     @PutMapping("/{id}/blocker")
     public ResponseEntity<TaskDTO> setBlocker(@PathVariable Long id, @Valid @RequestBody SetBlockerRequest request) {
         return ResponseEntity.ok(taskUseCase.setBlocker(id, request));
+    }
+
+    @GetMapping("/{id}/comments")
+    public ResponseEntity<List<TaskCommentDTO>> getTaskComments(@PathVariable Long id) {
+        return ResponseEntity.ok(taskUseCase.getTaskComments(id));
+    }
+
+    @PostMapping("/{id}/comments")
+    public ResponseEntity<TaskCommentDTO> addComment(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @Valid @RequestBody AddCommentRequest request) {
+
+        UUID authorId = userDetails != null ? userDetails.getId() : null;
+        if (authorId == null) {
+            authorId = userRepositoryPort.findAll().stream().findFirst().map(User::getId).orElse(null);
+        }
+
+        if (authorId == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        return ResponseEntity.ok(taskUseCase.addComment(id, request, authorId));
     }
 }

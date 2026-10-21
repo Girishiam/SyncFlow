@@ -1,8 +1,10 @@
 package com.syncflow.project.application.service;
 
 import com.syncflow.common.domain.DomainException;
+import com.syncflow.dto.CreateStageRequest;
 import com.syncflow.dto.ProjectBoardDTO;
 import com.syncflow.dto.ProjectDTO;
+import com.syncflow.dto.ReorderStagesRequest;
 import com.syncflow.dto.StageDTO;
 import com.syncflow.dto.TaskDTO;
 import com.syncflow.model.Project;
@@ -110,6 +112,51 @@ public class ProjectApplicationService implements ProjectUseCase {
                 .blockedTasks(blockedTasks)
                 .completionPercentage(completionPercentage)
                 .build();
+    }
+
+    @Override
+    @Transactional
+    public StageDTO createStage(Long projectId, CreateStageRequest request) {
+        Project project = projectRepositoryPort.findById(projectId)
+                .orElseThrow(() -> new DomainException("Project not found: " + projectId));
+
+        List<Stage> existing = stageRepositoryPort.findByProjectIdOrderByPositionAsc(projectId);
+        int pos = request.getPosition() != null ? request.getPosition() : existing.size() + 1;
+
+        Stage stage = Stage.builder()
+                .project(project)
+                .name(request.getName().trim())
+                .position(pos)
+                .isDoneStage(Boolean.TRUE.equals(request.getIsDoneStage()))
+                .build();
+
+        Stage saved = stageRepositoryPort.save(stage);
+        log.info("Created stage {} in project {}", saved.getName(), project.getName());
+
+        return StageDTO.builder()
+                .id(saved.getId())
+                .name(saved.getName())
+                .position(saved.getPosition())
+                .isDoneStage(saved.getIsDoneStage())
+                .tasks(List.of())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void reorderStages(Long projectId, ReorderStagesRequest request) {
+        List<Stage> existing = stageRepositoryPort.findByProjectIdOrderByPositionAsc(projectId);
+        for (int i = 0; i < request.getStageIds().size(); i++) {
+            Long sId = request.getStageIds().get(i);
+            for (Stage s : existing) {
+                if (s.getId().equals(sId)) {
+                    s.setPosition(i + 1);
+                    stageRepositoryPort.save(s);
+                    break;
+                }
+            }
+        }
+        log.info("Reordered {} stages for project {}", request.getStageIds().size(), projectId);
     }
 
     private String getInitials(String name) {

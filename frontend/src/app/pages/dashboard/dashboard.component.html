@@ -71,6 +71,17 @@
         <span>Analytics</span>
       </button>
 
+      <button
+        class="nav-item"
+        [class.active]="activeNav() === 'rbac'"
+        (click)="activeNav.set('rbac')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+        <span>Roles & RBAC</span>
+      </button>
+
       <!-- Channels Group -->
       <div class="nav-section-title">CHANNELS</div>
       <div class="channel-list">
@@ -234,7 +245,9 @@
                 </span>
               </div>
 
-              <div class="card-title">{{ task.title }}</div>
+              <div class="card-title" (click)="openTaskDetail(task)" title="Click to view details & discussion">
+                {{ task.title }}
+              </div>
 
               <!-- Blocker Badge if Active -->
               <div *ngIf="task.isBlocked" class="blocker-pill">
@@ -264,26 +277,49 @@
 
               <!-- Card Footer -->
               <div class="card-footer">
-                <div class="assignee-wrap">
+                <div class="assignee-wrap" (click)="openTaskDetail(task)" title="View Task Details">
                   <div class="user-avatar-sm">{{ task.avatar || 'UN' }}</div>
                   <span class="assignee-name">{{ task.assignee || 'Unassigned' }}</span>
                 </div>
 
-                <button
-                  class="blocker-btn"
-                  [class.active]="task.isBlocked"
-                  (click)="openBlocker(task)"
-                  [title]="task.isBlocked ? 'Resolve blocker' : 'Raise blocker'"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                  </svg>
-                </button>
+                <div class="card-actions-row">
+                  <button
+                    class="detail-icon-btn"
+                    (click)="openTaskDetail(task)"
+                    title="View task details and comments"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
+                  </button>
+
+                  <button
+                    class="blocker-btn"
+                    [class.active]="task.isBlocked"
+                    (click)="openBlocker(task)"
+                    [title]="task.isBlocked ? 'Resolve blocker' : 'Raise blocker'"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- Add Stage Column -->
+        <div class="add-stage-column">
+          <button class="add-stage-btn" (click)="openCreateStage()" title="Add custom workflow stage">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>Add Stage</span>
+          </button>
         </div>
       </div>
     </div>
@@ -374,6 +410,81 @@
         </table>
       </div>
     </div>
+
+    <!-- CONTENT: ROLES & RBAC MATRIX -->
+    <div *ngIf="activeNav() === 'rbac'" class="rbac-view">
+      <div class="rbac-header-card">
+        <div class="rbac-title-area">
+          <div class="badge-tag">ENTERPRISE GOVERNANCE</div>
+          <h2>Role-Based Access Control (RBAC) Matrix</h2>
+          <p class="rbac-subtitle">
+            Configure granular permission matrices for banking roles across Project, Task, Channel, and Workflow governance.
+          </p>
+        </div>
+        <div class="rbac-actions-area">
+          <span *ngIf="rbacSuccessMsg()" class="save-toast-msg">{{ rbacSuccessMsg() }}</span>
+          <button class="btn-create-role" (click)="openCreateRole()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span>New Role</span>
+          </button>
+          <button class="btn-save-rbac" (click)="saveRolePermissions()" [disabled]="isSavingRbac()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+              <polyline points="17 21 17 13 7 13 7 21" />
+              <polyline points="7 3 7 8 15 8" />
+            </svg>
+            <span>{{ isSavingRbac() ? 'Saving...' : 'Save Matrix' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Role Selector Tabs -->
+      <div class="role-tabs-strip">
+        <button
+          *ngFor="let role of roles()"
+          class="role-tab"
+          [class.active]="role.id === selectedRoleId()"
+          (click)="selectRole(role.id)"
+        >
+          <span class="role-tab-name">{{ role.name }}</span>
+          <span class="role-tab-desc">{{ role.description || 'Enterprise Role' }}</span>
+        </button>
+      </div>
+
+      <!-- Permissions Grid Grouped by Module -->
+      <div class="permissions-modules-grid">
+        <div *ngFor="let mod of modules()" class="module-card">
+          <div class="module-header">
+            <div class="module-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                <polyline points="2 17 12 22 22 17" />
+                <polyline points="2 12 12 17 22 12" />
+              </svg>
+            </div>
+            <h4>{{ mod }} Permissions</h4>
+          </div>
+
+          <div class="module-permissions-list">
+            <label *ngFor="let perm of getPermissionsForModule(mod)" class="perm-checkbox-row">
+              <input
+                type="checkbox"
+                [checked]="hasPermission(perm.id)"
+                (change)="togglePermission(perm.id)"
+                class="custom-check"
+              />
+              <div class="perm-text-wrap">
+                <span class="perm-code">{{ perm.authority }}</span>
+                <span class="perm-desc">{{ perm.description }}</span>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- Create Task Modal -->
@@ -418,6 +529,71 @@
     </div>
   </div>
 
+  <!-- Create Stage Modal -->
+  <div *ngIf="isCreateStageModalOpen()" class="dialog-backdrop">
+    <div class="dialog-card">
+      <div class="dialog-header">
+        <h4>Add Pipeline Stage</h4>
+        <button class="dialog-close" (click)="closeCreateStage()">×</button>
+      </div>
+
+      <div class="dialog-body">
+        <label for="stageNameInput">Stage Name *</label>
+        <input
+          id="stageNameInput"
+          type="text"
+          [(ngModel)]="newStageName"
+          placeholder="e.g. Security Review, UAT Testing"
+          class="dialog-input"
+        />
+
+        <label class="checkbox-label">
+          <input type="checkbox" [(ngModel)]="newStageIsDone" />
+          <span>Mark as Completed / Terminal Stage</span>
+        </label>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="btn-cancel" (click)="closeCreateStage()">Cancel</button>
+        <button class="btn-primary" (click)="submitCreateStage()">Add Stage</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Role Modal -->
+  <div *ngIf="isCreateRoleModalOpen()" class="dialog-backdrop">
+    <div class="dialog-card">
+      <div class="dialog-header">
+        <h4>Create Custom Role</h4>
+        <button class="dialog-close" (click)="closeCreateRole()">×</button>
+      </div>
+
+      <div class="dialog-body">
+        <label for="roleNameInput">Role Name * (e.g. COMPLIANCE_OFFICER)</label>
+        <input
+          id="roleNameInput"
+          type="text"
+          [(ngModel)]="newRoleName"
+          placeholder="e.g. COMPLIANCE_OFFICER"
+          class="dialog-input"
+        />
+
+        <label for="roleDescInput">Description</label>
+        <textarea
+          id="roleDescInput"
+          [(ngModel)]="newRoleDescription"
+          placeholder="Describe scope and responsibilities..."
+          rows="3"
+        ></textarea>
+      </div>
+
+      <div class="dialog-actions">
+        <button class="btn-cancel" (click)="closeCreateRole()">Cancel</button>
+        <button class="btn-primary" (click)="submitCreateRole()">Create Role</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Blocker Dialog -->
   <div *ngIf="selectedTask()" class="dialog-backdrop">
     <div class="dialog-card">
@@ -442,6 +618,119 @@
         <button class="btn-danger" (click)="saveBlocker()">
           {{ blockerReasonInput() ? 'Set Blocker' : 'Clear Blocker' }}
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide-over Task Details & Comments Drawer -->
+  <div *ngIf="activeDetailTask()" class="drawer-overlay" (click)="closeTaskDetail()"></div>
+  <div *ngIf="activeDetailTask()" class="task-detail-drawer">
+    <div class="drawer-header">
+      <div class="drawer-badge-group">
+        <span class="project-tag">{{ activeDetailTask()!.projectName || 'Core Project' }}</span>
+        <span class="priority-tag" [class]="activeDetailTask()!.priority.toLowerCase()">
+          {{ activeDetailTask()!.priority }}
+        </span>
+        <span *ngIf="activeDetailTask()!.isBlocked" class="blocker-tag">BLOCKED</span>
+      </div>
+      <button class="drawer-close" (click)="closeTaskDetail()">×</button>
+    </div>
+
+    <div class="drawer-body">
+      <h3 class="drawer-task-title">{{ activeDetailTask()!.title }}</h3>
+
+      <div class="task-field-group">
+        <label>Description</label>
+        <p class="drawer-desc-text">
+          {{ activeDetailTask()!.description || 'No detailed specifications provided for this task.' }}
+        </p>
+      </div>
+
+      <div class="drawer-meta-grid">
+        <div class="meta-item">
+          <label>Assignee</label>
+          <div class="assignee-display">
+            <div class="avatar-circle">{{ activeDetailTask()!.avatar || 'UN' }}</div>
+            <span>{{ activeDetailTask()!.assignee || 'Unassigned' }}</span>
+          </div>
+        </div>
+
+        <div class="meta-item">
+          <label>Progress</label>
+          <div class="progress-display">
+            <input
+              type="range"
+              min="0"
+              max="100"
+              [(ngModel)]="activeDetailTask()!.progress"
+              (change)="onProgressChange(activeDetailTask()!)"
+              class="range-slider"
+            />
+            <span class="prog-val">{{ activeDetailTask()!.progress }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="activeDetailTask()!.isBlocked" class="drawer-blocker-box">
+        <div class="blocker-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <span>Active Blocker</span>
+        </div>
+        <p>{{ activeDetailTask()!.blockerReason }}</p>
+      </div>
+
+      <hr class="drawer-divider" />
+
+      <!-- Activity & Comments Section -->
+      <div class="comments-section">
+        <div class="comments-header">
+          <h4>Activity & Discussion</h4>
+          <span class="comments-count">{{ taskComments().length }}</span>
+        </div>
+
+        <div *ngIf="isLoadingComments()" class="comments-loading">
+          <span>Loading discussion thread...</span>
+        </div>
+
+        <div *ngIf="!isLoadingComments() && taskComments().length === 0" class="no-comments">
+          <p>No comments on this task yet. Add an update or audit note below.</p>
+        </div>
+
+        <div class="comments-list">
+          <div *ngFor="let comment of taskComments()" class="comment-item">
+            <div class="comment-avatar">
+              {{ comment.authorAvatar || 'US' }}
+            </div>
+            <div class="comment-content">
+              <div class="comment-meta">
+                <span class="comment-author">{{ comment.authorName || 'Team Member' }}</span>
+                <span class="comment-role" *ngIf="comment.authorRole">{{ comment.authorRole }}</span>
+                <span class="comment-time">{{ comment.time }}</span>
+              </div>
+              <p class="comment-text">{{ comment.content }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add Comment Composer -->
+        <div class="comment-composer">
+          <textarea
+            [(ngModel)]="commentInput"
+            placeholder="Write an update, question, or approval..."
+            rows="3"
+            (keydown.control.enter)="submitComment()"
+          ></textarea>
+          <div class="composer-actions">
+            <span class="hint-key">Press Ctrl+Enter to post</span>
+            <button class="btn-post-comment" (click)="submitComment()" [disabled]="!commentInput().trim()">
+              Post Comment
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

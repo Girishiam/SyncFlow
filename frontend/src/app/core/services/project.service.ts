@@ -19,4 +19,12 @@ export class ProjectService implements IProjectPort {
   getProjectBoard(projectId: number): Observable<ProjectBoard> {
     return this.http.get<ProjectBoard>(`${this.apiUrl}/${projectId}/board`);
   }
+
+  createStage(projectId: number, name: string, isDoneStage?: boolean): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${projectId}/stages`, { name, isDoneStage });
+  }
+
+  reorderStages(projectId: number, stageIds: number[]): Observable<void> {
+    return this.http.put<void>(`${this.apiUrl}/${projectId}/stages/reorder`, { stageIds });
+  }
 }

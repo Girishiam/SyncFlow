@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { WebSocketService } from '../../core/services/websocket.service';
 import { BoardFacade } from '../../features/board/application/board.facade';
 import { ChatFacade } from '../../features/chat/application/chat.facade';
+import { RbacFacade } from '../../features/rbac/application/rbac.facade';
 import { Channel, TaskCard } from '../../core/models/project.models';
 
 @Component({
@@ -19,6 +20,7 @@ export class DashboardComponent implements OnInit {
   public authService = inject(AuthService);
   public boardFacade = inject(BoardFacade);
   public chatFacade = inject(ChatFacade);
+  public rbacFacade = inject(RbacFacade);
   public wsService = inject(WebSocketService);
 
   currentUser = computed(() => this.authService.currentUserSignal());
@@ -45,11 +47,37 @@ export class DashboardComponent implements OnInit {
   selectedTask = this.boardFacade.selectedTask;
   blockerReasonInput = this.boardFacade.blockerReasonInput;
 
+  // Task Detail Drawer Delegates
+  activeDetailTask = this.boardFacade.activeDetailTask;
+  taskComments = this.boardFacade.taskComments;
+  commentInput = this.boardFacade.commentInput;
+  isLoadingComments = this.boardFacade.isLoadingComments;
+
+  // Stage Creator Modal Delegates
+  isCreateStageModalOpen = this.boardFacade.isCreateStageModalOpen;
+  newStageName = this.boardFacade.newStageName;
+  newStageIsDone = this.boardFacade.newStageIsDone;
+
   // Chat Facade State Delegates
   channels = this.chatFacade.channels;
   activeChannel = this.chatFacade.activeChannel;
   messages = this.chatFacade.messages;
   chatInput = this.chatFacade.chatInput;
+
+  // RBAC Facade State Delegates
+  roles = this.rbacFacade.roles;
+  permissions = this.rbacFacade.permissions;
+  selectedRoleId = this.rbacFacade.selectedRoleId;
+  selectedRole = this.rbacFacade.selectedRole;
+  modules = this.rbacFacade.modules;
+  activePermissionIds = this.rbacFacade.activePermissionIds;
+  isSavingRbac = this.rbacFacade.isSaving;
+  rbacSuccessMsg = this.rbacFacade.saveSuccessMessage;
+
+  // Custom Role Modal Delegates
+  isCreateRoleModalOpen = this.rbacFacade.isCreateRoleModalOpen;
+  newRoleName = this.rbacFacade.newRoleName;
+  newRoleDescription = this.rbacFacade.newRoleDescription;
 
   // Meeting state
   isMeetingOpen = signal(false);
@@ -58,6 +86,7 @@ export class DashboardComponent implements OnInit {
   ngOnInit(): void {
     this.boardFacade.init();
     this.chatFacade.init();
+    this.rbacFacade.init();
   }
 
   // Board Operations
@@ -98,6 +127,32 @@ export class DashboardComponent implements OnInit {
     this.boardFacade.submitCreateTask();
   }
 
+  // Task Details & Comments
+  openTaskDetail(task: TaskCard): void {
+    this.boardFacade.openTaskDetail(task);
+  }
+
+  closeTaskDetail(): void {
+    this.boardFacade.closeTaskDetail();
+  }
+
+  submitComment(): void {
+    this.boardFacade.submitComment();
+  }
+
+  // Stage Operations
+  openCreateStage(): void {
+    this.boardFacade.openCreateStageModal();
+  }
+
+  closeCreateStage(): void {
+    this.boardFacade.closeCreateStageModal();
+  }
+
+  submitCreateStage(): void {
+    this.boardFacade.submitCreateStage();
+  }
+
   // Chat Operations
   selectChannel(channel: Channel): void {
     this.chatFacade.selectChannel(channel);
@@ -105,6 +160,39 @@ export class DashboardComponent implements OnInit {
 
   sendMessage(): void {
     this.chatFacade.sendMessage();
+  }
+
+  // RBAC Operations
+  selectRole(roleId: number): void {
+    this.rbacFacade.selectRole(roleId);
+  }
+
+  hasPermission(permissionId: number): boolean {
+    return this.rbacFacade.hasPermission(permissionId);
+  }
+
+  togglePermission(permissionId: number): void {
+    this.rbacFacade.togglePermission(permissionId);
+  }
+
+  getPermissionsForModule(moduleName: string) {
+    return this.rbacFacade.getPermissionsForModule(moduleName);
+  }
+
+  saveRolePermissions(): void {
+    this.rbacFacade.saveRolePermissions();
+  }
+
+  openCreateRole(): void {
+    this.rbacFacade.openCreateRoleModal();
+  }
+
+  closeCreateRole(): void {
+    this.rbacFacade.closeCreateRoleModal();
+  }
+
+  submitCreateRole(): void {
+    this.rbacFacade.submitCreateRole();
   }
 
   // Availability Toggle

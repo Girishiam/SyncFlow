@@ -2,17 +2,21 @@ package com.syncflow.task.application.service;
 
 import com.syncflow.auth.application.port.out.UserRepositoryPort;
 import com.syncflow.common.domain.DomainException;
+import com.syncflow.dto.AddCommentRequest;
 import com.syncflow.dto.CreateTaskRequest;
 import com.syncflow.dto.MoveTaskRequest;
 import com.syncflow.dto.SetBlockerRequest;
+import com.syncflow.dto.TaskCommentDTO;
 import com.syncflow.dto.TaskDTO;
 import com.syncflow.model.Project;
 import com.syncflow.model.Stage;
 import com.syncflow.model.Task;
+import com.syncflow.model.TaskComment;
 import com.syncflow.model.User;
 import com.syncflow.project.application.port.out.ProjectRepositoryPort;
 import com.syncflow.project.application.port.out.StageRepositoryPort;
 import com.syncflow.task.application.port.in.TaskUseCase;
+import com.syncflow.task.application.port.out.TaskCommentRepositoryPort;
 import com.syncflow.task.application.port.out.TaskNotificationPort;
 import com.syncflow.task.application.port.out.TaskRepositoryPort;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +25,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +38,63 @@ public class TaskApplicationService implements TaskUseCase {
     private final StageRepositoryPort stageRepositoryPort;
     private final UserRepositoryPort userRepositoryPort;
     private final TaskNotificationPort taskNotificationPort;
+    private final TaskCommentRepositoryPort taskCommentRepositoryPort;
+
+    @Override
+    @Transactional(readOnly = true)
+    public TaskDTO getTaskDetails(Long id) {
+        Task task = taskRepositoryPort.findById(id)
+                .orElseThrow(() -> new DomainException("Task not found: " + id));
+        return toDTO(task);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskCommentDTO> getTaskComments(Long taskId) {
+        return taskCommentRepositoryPort.findByTaskId(taskId).stream()
+                .map(this::toCommentDTO)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public TaskCommentDTO addComment(Long taskId, AddCommentRequest request, UUID authorId) {
+        Task task = taskRepositoryPort.findById(taskId)
+                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
+
+        User author = userRepositoryPort.findById(authorId)
+                .orElseThrow(() -> new DomainException("User not found: " + authorId));
+
+        TaskComment comment = TaskComment.builder()
+                .task(task)
+                .author(author)
+                .content(request.getContent().trim())
+                .attachmentUrl(request.getAttachmentUrl())
+                .build();
+
+        TaskComment saved = taskCommentRepositoryPort.save(comment);
+        log.info("Added comment to task {} by {}", taskId, author.getFullName());
+        return toCommentDTO(saved);
+    }
+
+    private TaskCommentDTO toCommentDTO(TaskComment c) {
+        String roleName = c.getAuthor() != null && c.getAuthor().getRole() != null
+                ? c.getAuthor().getRole().getName()
+                : "Member";
+        String authorName = c.getAuthor() != null ? c.getAuthor().getFullName() : "User";
+
+        return TaskCommentDTO.builder()
+                .id(c.getId())
+                .taskId(c.getTask() != null ? c.getTask().getId() : null)
+                .authorId(c.getAuthor() != null ? c.getAuthor().getId() : null)
+                .authorName(authorName)
+                .authorRole(roleName)
+                .authorAvatar(getInitials(authorName))
+                .content(c.getContent())
+                .time(c.getCreatedAt() != null ? c.getCreatedAt().toString() : "Just now")
+                .attachmentUrl(c.getAttachmentUrl())
+                .build();
+    }
 
     @Override
     @Transactional
