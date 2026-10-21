@@ -32,35 +32,35 @@ interface KanbanColumn {
 export class DashboardComponent {
   currentUser = computed(() => this.authService.currentUserSignal());
 
-  // Navigation tab
-  activeTab = signal<'kanban' | 'channels' | 'analytics' | 'rbac'>('kanban');
-  activeChannel = signal<string>('#general');
+  // Active navigation view
+  activeNav = signal<'overview' | 'board' | 'discussions' | 'analytics' | 'rbac'>('board');
+  activeChannel = signal<string>('general');
 
   // Meeting modal state
-  isMeetingActive = signal(false);
-  meetingRoomId = signal('syncflow-executive-room');
+  isMeetingOpen = signal(false);
+  meetingRoom = signal('syncflow-sprint-room');
 
   // Blocker modal state
-  selectedTaskForBlocker = signal<TaskCard | null>(null);
-  blockerInputReason = signal('');
+  selectedTask = signal<TaskCard | null>(null);
+  blockerReasonInput = signal('');
 
-  // Discord-style Channels list
+  // Discussions channels
   channels = [
-    { name: '#general', type: 'global', unread: 0 },
-    { name: '#core-banking-api', type: 'project', unread: 2 },
-    { name: '#ui-design-tokens', type: 'project', unread: 0 },
-    { name: '#database-migration', type: 'project', unread: 1 }
+    { id: 'general', name: 'general', unread: 0 },
+    { id: 'core-banking-api', name: 'core-banking-api', unread: 2 },
+    { id: 'design-tokens', name: 'design-tokens', unread: 0 },
+    { id: 'database-migration', name: 'database-migration', unread: 1 }
   ];
 
-  // Chat messages
+  // Channel messages
   messages = signal([
-    { sender: 'Manager', text: 'Good morning team! Sprint goals are locked in for the new payment gateway.', time: '09:15 AM', seenBy: ['Team Lead', 'Senior Dev'] },
-    { sender: 'Team Lead', text: 'API schemas are drafted. Reviewing stage pipelines now.', time: '09:22 AM', seenBy: ['Senior Dev'] },
-    { sender: 'Senior Dev', text: 'Started task on MSSQL connection pooling with Virtual Threads.', time: '09:30 AM', seenBy: ['Team Lead'] }
+    { sender: 'Tariq Manager', text: 'Sprint goals are locked in for the payment gateway migration.', time: '09:15 AM', seenBy: ['Arman Lead', 'Farhan Dev'] },
+    { sender: 'Arman Lead', text: 'Pipeline stages are configured. API development is underway.', time: '09:22 AM', seenBy: ['Farhan Dev'] },
+    { sender: 'Farhan Dev', text: 'MSSQL connection pool and Virtual Threads setup complete.', time: '09:30 AM', seenBy: ['Arman Lead'] }
   ]);
-  newChatMessage = signal('');
+  chatInput = signal('');
 
-  // Kanban Columns with initial mock state
+  // Kanban Columns
   columns = signal<KanbanColumn[]>([
     {
       id: 'backlog',
@@ -74,41 +74,41 @@ export class DashboardComponent {
       id: 'db_design',
       title: 'DB Design',
       tasks: [
-        { id: 201, title: 'MSSQL Partitioning for Ledger', project: 'Core Ledger', priority: 'CRITICAL', progress: 30, assignee: 'Senior Dev', avatar: 'SD', isBlocked: false }
+        { id: 201, title: 'MSSQL Partitioning for Ledger', project: 'Core Ledger', priority: 'CRITICAL', progress: 30, assignee: 'Farhan Dev', avatar: 'FD', isBlocked: false }
       ]
     },
     {
       id: 'api',
       title: 'API Dev',
       tasks: [
-        { id: 301, title: 'WebSocket STOMP Broker & Seen Hook', project: 'Realtime Ops', priority: 'HIGH', progress: 65, assignee: 'Farhan Dev', avatar: 'FD', isBlocked: true, blockerReason: 'Waiting for SSL certificate handshake setup' }
+        { id: 301, title: 'WebSocket STOMP Broker & Event Hook', project: 'Realtime Ops', priority: 'HIGH', progress: 65, assignee: 'Arman Lead', avatar: 'AL', isBlocked: true, blockerReason: 'Waiting for SSL certificate handshake setup' }
       ]
     },
     {
       id: 'ui',
       title: 'UI & Layout',
       tasks: [
-        { id: 401, title: 'Emerald Reserve Design Token System', project: 'SyncFlow UI', priority: 'CRITICAL', progress: 90, assignee: 'Team Lead', avatar: 'TL', isBlocked: false }
+        { id: 401, title: 'Emerald Reserve Design Tokens', project: 'SyncFlow UI', priority: 'CRITICAL', progress: 90, assignee: 'Farhan Dev', avatar: 'FD', isBlocked: false }
       ]
     },
     {
       id: 'review',
       title: 'Review / QA',
       tasks: [
-        { id: 501, title: 'JWT Secret Refresh Filter Test', project: 'Security Suite', priority: 'MEDIUM', progress: 95, assignee: 'Sarah SQA', avatar: 'SS', isBlocked: false }
+        { id: 501, title: 'JWT Refresh Filter Test Suite', project: 'Security Suite', priority: 'MEDIUM', progress: 95, assignee: 'Sarah SQA', avatar: 'SS', isBlocked: false }
       ]
     },
     {
       id: 'done',
       title: 'Done',
       tasks: [
-        { id: 601, title: 'Spring Boot 3.3.5 Scaffolding with Loom', project: 'SyncFlow Core', priority: 'HIGH', progress: 100, assignee: 'Senior Dev', avatar: 'SD', isBlocked: false }
+        { id: 601, title: 'Spring Boot 3.3.5 & Java 21 Loom Scaffolding', project: 'SyncFlow Core', priority: 'HIGH', progress: 100, assignee: 'Farhan Dev', avatar: 'FD', isBlocked: false }
       ]
     }
   ]);
 
-  // Executive Stats
-  totalTasks = computed(() => {
+  // Executive KPI stats
+  totalTasksCount = computed(() => {
     return this.columns().reduce((acc, col) => acc + col.tasks.length, 0);
   });
 
@@ -121,16 +121,16 @@ export class DashboardComponent {
     return doneCol ? doneCol.tasks.length : 0;
   });
 
-  completionRate = computed(() => {
-    const total = this.totalTasks();
+  completionPercentage = computed(() => {
+    const total = this.totalTasksCount();
     if (total === 0) return 0;
     return Math.round((this.completedCount() / total) * 100);
   });
 
   constructor(public authService: AuthService) {}
 
-  // Drag and drop handler
-  drop(event: CdkDragDrop<TaskCard[]>) {
+  // Drag & drop
+  onDrop(event: CdkDragDrop<TaskCard[]>) {
     if (event.previousContainer === event.container) {
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
     } else {
@@ -140,76 +140,63 @@ export class DashboardComponent {
         event.previousIndex,
         event.currentIndex
       );
-      // Automatically adjust progress on move to done
-      const task = event.container.data[event.currentIndex];
+      const movedTask = event.container.data[event.currentIndex];
       if (event.container.id === 'done') {
-        task.progress = 100;
-        task.isBlocked = false;
+        movedTask.progress = 100;
+        movedTask.isBlocked = false;
       }
     }
   }
 
-  // Blocker Alert Actions
-  openBlockerModal(task: TaskCard) {
-    this.selectedTaskForBlocker.set(task);
-    this.blockerInputReason.set(task.blockerReason || '');
+  // Blocker operations
+  openBlocker(task: TaskCard) {
+    this.selectedTask.set(task);
+    this.blockerReasonInput.set(task.blockerReason || '');
   }
 
-  confirmBlocker() {
-    const task = this.selectedTaskForBlocker();
+  saveBlocker() {
+    const task = this.selectedTask();
     if (!task) return;
 
-    if (this.blockerInputReason().trim()) {
+    if (this.blockerReasonInput().trim()) {
       task.isBlocked = true;
-      task.blockerReason = this.blockerInputReason().trim();
+      task.blockerReason = this.blockerReasonInput().trim();
     } else {
       task.isBlocked = false;
       task.blockerReason = undefined;
     }
-
-    this.selectedTaskForBlocker.set(null);
-    this.blockerInputReason.set('');
+    this.selectedTask.set(null);
+    this.blockerReasonInput.set('');
   }
 
-  cancelBlocker() {
-    this.selectedTaskForBlocker.set(null);
-    this.blockerInputReason.set('');
+  closeBlocker() {
+    this.selectedTask.set(null);
+    this.blockerReasonInput.set('');
   }
 
-  // Toggle Leave Status
-  toggleLeave() {
+  // Toggle user availability
+  toggleAvailability() {
     const user = this.currentUser();
     if (user) {
       user.onLeave = !user.onLeave;
     }
   }
 
-  // Meeting Trigger
-  startMeeting() {
-    this.isMeetingActive.set(true);
-  }
-
-  closeMeeting() {
-    this.isMeetingActive.set(false);
-  }
-
-  // Chat message send
-  sendChatMessage() {
-    const text = this.newChatMessage().trim();
+  // Send message
+  sendMessage() {
+    const text = this.chatInput().trim();
     if (!text) return;
 
     const user = this.currentUser();
-    const sender = user?.fullName || 'User';
-
     this.messages.update(msgs => [
       ...msgs,
       {
-        sender: sender,
+        sender: user?.fullName || 'User',
         text: text,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         seenBy: ['Just now']
       }
     ]);
-    this.newChatMessage.set('');
+    this.chatInput.set('');
   }
 }

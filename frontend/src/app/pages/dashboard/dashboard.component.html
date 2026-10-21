@@ -1,59 +1,116 @@
-<div class="dashboard-shell">
-  <!-- Top Navigation Header -->
-  <header class="top-nav">
-    <div class="nav-left">
-      <div class="brand-badge">
-        <svg class="brand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+<div class="app-layout">
+  <!-- Persistent Dashboard Sidebar -->
+  <aside class="app-sidebar">
+    <!-- Brand & Workspace -->
+    <div class="sidebar-brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="8" fill="#006022" />
+          <path d="M10 16C10 12.6863 12.6863 10 16 10C19.3137 10 22 12.6863 22 16" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" />
+          <path d="M22 16C22 19.3137 19.3137 22 16 22C12.6863 22 10 19.3137 10 16" stroke="#C59B27" stroke-width="2" stroke-linecap="round" />
+          <circle cx="16" cy="16" r="2.5" fill="#FFFFFF" />
         </svg>
       </div>
-      <div class="brand-info">
-        <h3>SyncFlow</h3>
-        <span class="portal-tag">Enterprise Ops & Banking Portal</span>
-      </div>
-
-      <div class="project-selector">
-        <span class="label">Project:</span>
-        <select class="project-dropdown">
-          <option selected>Core Payment Gateway v2.4</option>
-          <option>Biometric Auth & Security Suite</option>
-          <option>Real-Time Liquidity Engine</option>
-        </select>
+      <div class="brand-text">
+        <span class="app-name">SyncFlow</span>
+        <span class="app-env">Enterprise</span>
       </div>
     </div>
 
-    <div class="nav-actions">
-      <!-- Meeting Launcher -->
-      <button class="meeting-btn" (click)="startMeeting()">
-        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <!-- Quick Action -->
+    <div class="sidebar-action">
+      <button class="call-btn" (click)="isMeetingOpen.set(true)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="23 7 16 12 23 17 23 7" />
           <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
         </svg>
-        <span>Instant Video Meeting</span>
+        <span>Start Meeting</span>
       </button>
+    </div>
 
-      <!-- Availability / Leave Toggle -->
+    <!-- Navigation Menu -->
+    <nav class="sidebar-nav">
+      <div class="nav-section-title">WORKSPACE</div>
+
       <button
-        class="leave-toggle-btn"
-        [class.is-on-leave]="currentUser()?.onLeave"
-        (click)="toggleLeave()"
-        title="Toggle your availability status for task assignments"
+        class="nav-item"
+        [class.active]="activeNav() === 'board'"
+        (click)="activeNav.set('board')"
       >
-        <span class="status-indicator"></span>
-        <span *ngIf="!currentUser()?.onLeave">Available</span>
-        <span *ngIf="currentUser()?.onLeave">On Leave</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="9" />
+          <rect x="14" y="3" width="7" height="5" />
+          <rect x="14" y="12" width="7" height="9" />
+          <rect x="3" y="16" width="7" height="5" />
+        </svg>
+        <span>Sprint Board</span>
       </button>
 
-      <!-- User Profile & Logout -->
-      <div class="user-profile">
-        <div class="avatar-circle">
+      <button
+        class="nav-item"
+        [class.active]="activeNav() === 'discussions'"
+        (click)="activeNav.set('discussions')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        <span>Discussions</span>
+        <span class="unread-chip">3</span>
+      </button>
+
+      <button
+        class="nav-item"
+        [class.active]="activeNav() === 'analytics'"
+        (click)="activeNav.set('analytics')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10" />
+          <line x1="12" y1="20" x2="12" y2="4" />
+          <line x1="6" y1="20" x2="6" y2="14" />
+        </svg>
+        <span>Analytics</span>
+      </button>
+
+      <!-- Channels Group -->
+      <div class="nav-section-title">CHANNELS</div>
+      <div class="channel-list">
+        <button
+          *ngFor="let ch of channels"
+          class="channel-item"
+          [class.active]="activeNav() === 'discussions' && activeChannel() === ch.id"
+          (click)="activeNav.set('discussions'); activeChannel.set(ch.id)"
+        >
+          <span class="channel-prefix">#</span>
+          <span class="channel-name">{{ ch.name }}</span>
+          <span *ngIf="ch.unread > 0" class="ch-badge">{{ ch.unread }}</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- Sidebar Bottom User Area -->
+    <div class="sidebar-user">
+      <div class="user-info">
+        <div class="user-avatar">
           {{ currentUser()?.fullName ? currentUser()!.fullName.substring(0, 2).toUpperCase() : 'US' }}
         </div>
-        <div class="user-meta">
-          <span class="user-name">{{ currentUser()?.fullName || 'Authorized User' }}</span>
-          <span class="user-role">{{ currentUser()?.role?.name || 'Reporting Manager' }}</span>
+        <div class="user-details">
+          <span class="user-name">{{ currentUser()?.fullName || 'User' }}</span>
+          <span class="user-role">{{ currentUser()?.role?.name || 'Manager' }}</span>
         </div>
-        <button class="logout-btn" (click)="authService.logout()" title="Sign Out">
+      </div>
+
+      <div class="user-controls">
+        <button
+          class="status-toggle"
+          [class.on-leave]="currentUser()?.onLeave"
+          (click)="toggleAvailability()"
+          title="Toggle Availability"
+        >
+          <span class="status-dot"></span>
+          <span>{{ currentUser()?.onLeave ? 'On Leave' : 'Available' }}</span>
+        </button>
+
+        <button class="signout-btn" (click)="authService.logout()" title="Sign Out">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
             <polyline points="16 17 21 12 16 7" />
@@ -62,209 +119,138 @@
         </button>
       </div>
     </div>
-  </header>
+  </aside>
 
-  <!-- Sub-Header Navigation Tabs -->
-  <div class="sub-nav">
-    <div class="nav-tabs">
-      <button
-        class="tab-btn"
-        [class.active]="activeTab() === 'kanban'"
-        (click)="activeTab.set('kanban')"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="7" height="9" />
-          <rect x="14" y="3" width="7" height="5" />
-          <rect x="14" y="12" width="7" height="9" />
-          <rect x="3" y="16" width="7" height="5" />
-        </svg>
-        <span>Pipeline & Kanban Board</span>
-      </button>
-
-      <button
-        class="tab-btn"
-        [class.active]="activeTab() === 'channels'"
-        (click)="activeTab.set('channels')"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-        <span>Discord-Style Live Channels</span>
-        <span class="badge-count">3</span>
-      </button>
-
-      <button
-        class="tab-btn"
-        [class.active]="activeTab() === 'analytics'"
-        (click)="activeTab.set('analytics')"
-      >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="20" x2="18" y2="10" />
-          <line x1="12" y1="20" x2="12" y2="4" />
-          <line x1="6" y1="20" x2="6" y2="14" />
-        </svg>
-        <span>Executive 360 & Analytics</span>
-      </button>
-    </div>
-
-    <!-- Active Pipeline Stage Indicator -->
-    <div class="pipeline-breadcrumb">
-      <span class="pipeline-label">Pipeline:</span>
-      <span class="stage-tag">Backlog</span>
-      <span class="arrow">→</span>
-      <span class="stage-tag">DB Design</span>
-      <span class="arrow">→</span>
-      <span class="stage-tag">API</span>
-      <span class="arrow">→</span>
-      <span class="stage-tag">UI</span>
-      <span class="arrow">→</span>
-      <span class="stage-tag">Review</span>
-      <span class="arrow">→</span>
-      <span class="stage-tag done">Done</span>
-    </div>
-  </div>
-
-  <!-- Main Body Content -->
-  <main class="main-body">
-    <!-- Executive KPI Summary Cards -->
-    <div class="kpi-grid">
-      <div class="kpi-card">
-        <div class="kpi-header">
-          <span class="kpi-title">Active Tasks</span>
-          <span class="kpi-icon-wrapper green">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="9 11 12 14 22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
-          </span>
-        </div>
-        <div class="kpi-value">{{ totalTasks() }}</div>
-        <span class="kpi-footer">Across 6 sprint pipeline stages</span>
+  <!-- Main View Area -->
+  <main class="main-content">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <span class="project-label">Project:</span>
+        <select class="project-select">
+          <option selected>Core Payment Gateway v2.4</option>
+          <option>Biometric 2FA Engine</option>
+          <option>Liquidity Settlement</option>
+        </select>
       </div>
 
-      <div class="kpi-card">
-        <div class="kpi-header">
-          <span class="kpi-title">Completion Rate</span>
-          <span class="kpi-icon-wrapper gold">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 14 14" />
-            </svg>
-          </span>
+      <div class="header-right">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input type="text" placeholder="Search tasks, members..." />
         </div>
-        <div class="kpi-value">{{ completionRate() }}%</div>
-        <span class="kpi-footer">{{ completedCount() }} tasks fully completed & approved</span>
+
+        <button class="header-action-btn" (click)="isMeetingOpen.set(true)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="23 7 16 12 23 17 23 7" />
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+          </svg>
+          <span>Video Call</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT: SPRINT BOARD -->
+    <div *ngIf="activeNav() === 'board'" class="board-view">
+      <!-- KPI Metric Row -->
+      <div class="metric-row">
+        <div class="metric-card">
+          <span class="metric-label">Active Tasks</span>
+          <div class="metric-num">{{ totalTasksCount() }}</div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Completion</span>
+          <div class="metric-num">{{ completionPercentage() }}%</div>
+        </div>
+        <div class="metric-card" [class.alert]="blockedCount() > 0">
+          <span class="metric-label">Blockers</span>
+          <div class="metric-num">{{ blockedCount() }}</div>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">On-Time SLA</span>
+          <div class="metric-num">96.4%</div>
+        </div>
       </div>
 
-      <div class="kpi-card" [class.has-blockers]="blockedCount() > 0">
-        <div class="kpi-header">
-          <span class="kpi-title">Active Blockers</span>
-          <span class="kpi-icon-wrapper red">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-          </span>
-        </div>
-        <div class="kpi-value">{{ blockedCount() }}</div>
-        <span class="kpi-footer" *ngIf="blockedCount() > 0">Attention required on API stage!</span>
-        <span class="kpi-footer" *ngIf="blockedCount() === 0">Zero blockers — Smooth flow</span>
-      </div>
-
-      <div class="kpi-card">
-        <div class="kpi-header">
-          <span class="kpi-title">On-Time Delivery</span>
-          <span class="kpi-icon-wrapper blue">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-          </span>
-        </div>
-        <div class="kpi-value">96.4%</div>
-        <span class="kpi-footer">Top tier bank SLA rating</span>
-      </div>
-    </div>
-
-    <!-- TAB 1: KANBAN BOARD -->
-    <div *ngIf="activeTab() === 'kanban'" class="kanban-view" cdkDropListGroup>
-      <div *ngFor="let col of columns()" class="kanban-column">
-        <div class="column-header">
-          <div class="col-title-group">
-            <span class="column-title">{{ col.title }}</span>
-            <span class="count-pill">{{ col.tasks.length }}</span>
+      <!-- Kanban Drag-Drop Columns -->
+      <div class="kanban-board" cdkDropListGroup>
+        <div *ngFor="let col of columns()" class="board-column">
+          <div class="col-header">
+            <div class="col-title-wrap">
+              <span class="col-title">{{ col.title }}</span>
+              <span class="col-count">{{ col.tasks.length }}</span>
+            </div>
+            <button class="col-add" title="Add Task">+</button>
           </div>
-          <button class="add-card-btn" title="Add new task to {{ col.title }}">+</button>
-        </div>
 
-        <div
-          class="card-list"
-          cdkDropList
-          [id]="col.id"
-          [cdkDropListData]="col.tasks"
-          (cdkDropListDropped)="drop($event)"
-        >
           <div
-            *ngFor="let task of col.tasks"
-            class="task-card"
-            [class.is-blocked-card]="task.isBlocked"
-            cdkDrag
+            class="cards-container"
+            cdkDropList
+            [id]="col.id"
+            [cdkDropListData]="col.tasks"
+            (cdkDropListDropped)="onDrop($event)"
           >
-            <!-- Card Priority & Project Tag -->
-            <div class="card-top">
-              <span class="project-tag">{{ task.project }}</span>
-              <span
-                class="priority-tag"
-                [class.critical]="task.priority === 'CRITICAL'"
-                [class.high]="task.priority === 'HIGH'"
-                [class.medium]="task.priority === 'MEDIUM'"
-                [class.low]="task.priority === 'LOW'"
-              >
-                {{ task.priority }}
-              </span>
-            </div>
-
-            <!-- Task Title -->
-            <h4 class="task-title">{{ task.title }}</h4>
-
-            <!-- Blocker Banner if Blocked -->
-            <div *ngIf="task.isBlocked" class="blocker-banner">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <span>{{ task.blockerReason || 'Critical blocker reported' }}</span>
-            </div>
-
-            <!-- Progress Slider -->
-            <div class="progress-section">
-              <div class="progress-label">
-                <span>Progress</span>
-                <strong>{{ task.progress }}%</strong>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                [(ngModel)]="task.progress"
-                class="progress-slider"
-              />
-            </div>
-
-            <!-- Card Bottom: Assignee & Action Buttons -->
-            <div class="card-bottom">
-              <div class="assignee-pill" title="Assigned to {{ task.assignee }}">
-                <span class="mini-avatar">{{ task.avatar }}</span>
-                <span class="assignee-name">{{ task.assignee }}</span>
+            <div
+              *ngFor="let task of col.tasks"
+              class="board-card"
+              [class.blocked-card]="task.isBlocked"
+              cdkDrag
+            >
+              <div class="card-meta">
+                <span class="card-project">{{ task.project }}</span>
+                <span
+                  class="priority-chip"
+                  [class.critical]="task.priority === 'CRITICAL'"
+                  [class.high]="task.priority === 'HIGH'"
+                  [class.medium]="task.priority === 'MEDIUM'"
+                  [class.low]="task.priority === 'LOW'"
+                >
+                  {{ task.priority }}
+                </span>
               </div>
 
-              <div class="card-actions">
+              <div class="card-title">{{ task.title }}</div>
+
+              <!-- Blocker Badge if Active -->
+              <div *ngIf="task.isBlocked" class="blocker-pill">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>{{ task.blockerReason || 'Blocker reported' }}</span>
+              </div>
+
+              <!-- Slider / Progress -->
+              <div class="progress-wrap">
+                <div class="progress-header">
+                  <span>Progress</span>
+                  <span>{{ task.progress }}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  [(ngModel)]="task.progress"
+                  class="range-slider"
+                />
+              </div>
+
+              <!-- Card Footer -->
+              <div class="card-footer">
+                <div class="assignee-wrap">
+                  <div class="user-avatar-sm">{{ task.avatar }}</div>
+                  <span class="assignee-name">{{ task.assignee }}</span>
+                </div>
+
                 <button
-                  class="action-icon-btn blocker-toggle"
-                  [class.active-blocker]="task.isBlocked"
-                  (click)="openBlockerModal(task)"
-                  [title]="task.isBlocked ? 'Manage Blocker' : 'Raise a Blocker'"
+                  class="blocker-btn"
+                  [class.active]="task.isBlocked"
+                  (click)="openBlocker(task)"
+                  [title]="task.isBlocked ? 'Resolve blocker' : 'Raise blocker'"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -279,117 +265,87 @@
       </div>
     </div>
 
-    <!-- TAB 2: DISCORD-STYLE CHANNELS -->
-    <div *ngIf="activeTab() === 'channels'" class="chat-view">
-      <!-- Left Channel List -->
-      <aside class="chat-sidebar">
-        <div class="sidebar-header">
-          <h4>Channels</h4>
-          <button class="new-channel-btn">+</button>
+    <!-- CONTENT: DISCUSSIONS (CHANNELS) -->
+    <div *ngIf="activeNav() === 'discussions'" class="discussions-view">
+      <div class="discussion-header">
+        <div class="channel-heading">
+          <span class="hash-tag">#</span>
+          <h3>{{ activeChannel() }}</h3>
         </div>
+        <button class="call-shortcut" (click)="isMeetingOpen.set(true)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="23 7 16 12 23 17 23 7" />
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+          </svg>
+          <span>Join Room Call</span>
+        </button>
+      </div>
 
-        <div class="channel-group">
-          <span class="group-label">TEXT CHANNELS</span>
-          <button
-            *ngFor="let ch of channels"
-            class="channel-item"
-            [class.active]="activeChannel() === ch.name"
-            (click)="activeChannel.set(ch.name)"
-          >
-            <span class="channel-hash">#</span>
-            <span class="channel-title">{{ ch.name.replace('#', '') }}</span>
-            <span *ngIf="ch.unread > 0" class="channel-unread">{{ ch.unread }}</span>
-          </button>
-        </div>
-      </aside>
-
-      <!-- Right Message Container -->
-      <section class="chat-content">
-        <div class="chat-header">
-          <div class="active-channel-info">
-            <span class="hash">#</span>
-            <h3>{{ activeChannel().replace('#', '') }}</h3>
-            <span class="channel-desc">Secure banking sprint communication & live discussions</span>
-          </div>
-          <button class="meeting-shortcut-btn" (click)="startMeeting()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="23 7 16 12 23 17 23 7" />
-              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-            </svg>
-            <span>Call in #{{ activeChannel().replace('#', '') }}</span>
-          </button>
-        </div>
-
-        <div class="message-stream">
-          <div *ngFor="let msg of messages()" class="message-card">
-            <div class="msg-avatar">{{ msg.sender.substring(0, 2).toUpperCase() }}</div>
-            <div class="msg-body">
-              <div class="msg-meta">
-                <strong class="msg-sender">{{ msg.sender }}</strong>
-                <span class="msg-time">{{ msg.time }}</span>
-              </div>
-              <p class="msg-text">{{ msg.text }}</p>
-              <div class="seen-receipts">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-                <span>Seen by {{ msg.seenBy.join(', ') }}</span>
-              </div>
+      <div class="messages-container">
+        <div *ngFor="let msg of messages()" class="chat-message">
+          <div class="avatar-box">{{ msg.sender.substring(0, 2).toUpperCase() }}</div>
+          <div class="content-box">
+            <div class="author-row">
+              <span class="author-name">{{ msg.sender }}</span>
+              <span class="timestamp">{{ msg.time }}</span>
+            </div>
+            <div class="body-text">{{ msg.text }}</div>
+            <div class="seen-indicator">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              <span>Seen by {{ msg.seenBy.join(', ') }}</span>
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Chat Input Bar -->
-        <div class="chat-input-bar">
-          <input
-            type="text"
-            [(ngModel)]="newChatMessage"
-            (keydown.enter)="sendChatMessage()"
-            placeholder="Message {{ activeChannel() }}... (Press Enter to send)"
-          />
-          <button class="send-btn" (click)="sendChatMessage()">Send</button>
-        </div>
-      </section>
+      <div class="composer-bar">
+        <input
+          type="text"
+          [(ngModel)]="chatInput"
+          (keydown.enter)="sendMessage()"
+          placeholder="Send a message in #{{ activeChannel() }}..."
+        />
+        <button class="send-action" (click)="sendMessage()">Send</button>
+      </div>
     </div>
 
-    <!-- TAB 3: EXECUTIVE 360 ANALYTICS -->
-    <div *ngIf="activeTab() === 'analytics'" class="analytics-view">
+    <!-- CONTENT: ANALYTICS -->
+    <div *ngIf="activeNav() === 'analytics'" class="analytics-view">
       <div class="analytics-card">
-        <h3>Developer Performance Heatmap</h3>
-        <p class="section-desc">Real-time workload distribution and approval pass rates</p>
-
-        <table class="analytics-table">
+        <h3>Team Delivery & Workload Matrix</h3>
+        <table class="modern-table">
           <thead>
             <tr>
-              <th>Developer</th>
-              <th>Assigned Tasks</th>
-              <th>Workload Status</th>
+              <th>Member</th>
+              <th>Active Tasks</th>
+              <th>Status</th>
               <th>On-Time Rate</th>
-              <th>Approval Score</th>
+              <th>Quality Score</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><strong>Senior Dev</strong></td>
-              <td>2 Active</td>
-              <td><span class="status-pill ideal">Ideal (Balanced)</span></td>
-              <td><strong>98%</strong></td>
-              <td><strong>96 / 100</strong></td>
+              <td><strong>Farhan Dev</strong></td>
+              <td>2 Tasks</td>
+              <td><span class="pill-green">Active</span></td>
+              <td>98%</td>
+              <td>96 / 100</td>
             </tr>
             <tr>
-              <td><strong>Farhan Dev</strong></td>
-              <td>2 Active (1 Blocked)</td>
-              <td><span class="status-pill warning">Needs Unblock</span></td>
-              <td><strong>92%</strong></td>
-              <td><strong>90 / 100</strong></td>
+              <td><strong>Arman Lead</strong></td>
+              <td>1 Task (1 Blocked)</td>
+              <td><span class="pill-red">Blocked</span></td>
+              <td>92%</td>
+              <td>90 / 100</td>
             </tr>
             <tr>
               <td><strong>Sarah SQA</strong></td>
-              <td>2 Active</td>
-              <td><span class="status-pill ideal">Ideal</span></td>
-              <td><strong>100%</strong></td>
-              <td><strong>99 / 100</strong></td>
+              <td>2 Tasks</td>
+              <td><span class="pill-green">Active</span></td>
+              <td>100%</td>
+              <td>99 / 100</td>
             </tr>
           </tbody>
         </table>
@@ -397,55 +353,49 @@
     </div>
   </main>
 
-  <!-- MODAL 1: Raise / Resolve Blocker Modal -->
-  <div *ngIf="selectedTaskForBlocker()" class="modal-backdrop">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h4>Manage Task Blocker</h4>
-        <button class="close-x-btn" (click)="cancelBlocker()">×</button>
+  <!-- Blocker Dialog -->
+  <div *ngIf="selectedTask()" class="dialog-backdrop">
+    <div class="dialog-card">
+      <div class="dialog-header">
+        <h4>Task Blocker</h4>
+        <button class="dialog-close" (click)="closeBlocker()">×</button>
       </div>
 
-      <div class="modal-body">
-        <p class="modal-task-title">
-          Task: <strong>{{ selectedTaskForBlocker()?.title }}</strong>
-        </p>
-
-        <label for="blockerReason">Reason for Blocker (or leave blank to remove blocker):</label>
+      <div class="dialog-body">
+        <p class="dialog-subtitle">Task: {{ selectedTask()?.title }}</p>
+        <label for="blockerText">Blocker Reason:</label>
         <textarea
-          id="blockerReason"
-          [(ngModel)]="blockerInputReason"
-          placeholder="Describe the logic, API, or infrastructure issue holding this task..."
-          rows="4"
+          id="blockerText"
+          [(ngModel)]="blockerReasonInput"
+          placeholder="Enter reason holding this task..."
+          rows="3"
         ></textarea>
       </div>
 
-      <div class="modal-footer">
-        <button class="secondary-btn" (click)="cancelBlocker()">Cancel</button>
-        <button class="primary-btn-danger" (click)="confirmBlocker()">
-          {{ blockerInputReason() ? 'Raise Blocker Alert' : 'Remove Blocker' }}
+      <div class="dialog-actions">
+        <button class="btn-cancel" (click)="closeBlocker()">Cancel</button>
+        <button class="btn-danger" (click)="saveBlocker()">
+          {{ blockerReasonInput() ? 'Set Blocker' : 'Clear Blocker' }}
         </button>
       </div>
     </div>
   </div>
 
-  <!-- MODAL 2: In-App Jitsi Meet Modal -->
-  <div *ngIf="isMeetingActive()" class="modal-backdrop">
-    <div class="meeting-modal-card">
-      <div class="meeting-modal-header">
-        <div class="meeting-title-group">
-          <span class="live-dot"></span>
-          <h4>SyncFlow Instant Video Meeting — Room: {{ meetingRoomId() }}</h4>
+  <!-- Jitsi Meeting Modal -->
+  <div *ngIf="isMeetingOpen()" class="dialog-backdrop">
+    <div class="meeting-frame-card">
+      <div class="meeting-bar">
+        <div class="meeting-id">
+          <span class="live-badge"></span>
+          <span>SyncFlow Meeting: {{ meetingRoom() }}</span>
         </div>
-        <button class="leave-call-btn" (click)="closeMeeting()">End / Leave Call</button>
+        <button class="leave-btn" (click)="isMeetingOpen.set(false)">Leave Call</button>
       </div>
-
-      <div class="iframe-container">
-        <iframe
-          src="https://meet.jit.si/syncflow-executive-room#config.prejoinPageEnabled=false"
-          allow="camera; microphone; fullscreen; display-capture"
-          class="jitsi-iframe"
-        ></iframe>
-      </div>
+      <iframe
+        src="https://meet.jit.si/syncflow-sprint-room#config.prejoinPageEnabled=false"
+        allow="camera; microphone; fullscreen; display-capture"
+        class="meeting-frame"
+      ></iframe>
     </div>
   </div>
 </div>

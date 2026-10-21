@@ -16,11 +16,11 @@ export class LoginComponent {
   isLoading = signal(false);
   errorMessage = signal<string | null>(null);
 
-  // Demo accounts for instant testing
-  demoAccounts = [
-    { role: 'Reporting Manager', email: 'manager@syncflow.bank', pass: 'Manager@123', badge: 'Executive Control' },
-    { role: 'Team Lead', email: 'lead@syncflow.bank', pass: 'Lead@123', badge: 'Pipeline Builder' },
-    { role: 'Senior Developer', email: 'dev@syncflow.bank', pass: 'Dev@123', badge: 'Workspace & Kanban' }
+  // Quick-fill roles
+  demoRoles = [
+    { label: 'Manager', email: 'manager@syncflow.bank', pass: 'Manager@123' },
+    { label: 'Team Lead', email: 'lead@syncflow.bank', pass: 'Lead@123' },
+    { label: 'Developer', email: 'dev@syncflow.bank', pass: 'Dev@123' }
   ];
 
   constructor(
@@ -34,11 +34,12 @@ export class LoginComponent {
     });
   }
 
-  fillDemo(account: { email: string; pass: string }) {
+  fillRole(role: { email: string; pass: string }) {
     this.loginForm.patchValue({
-      email: account.email,
-      password: account.pass
+      email: role.email,
+      password: role.pass
     });
+    this.errorMessage.set(null);
   }
 
   onSubmit() {
@@ -58,7 +59,7 @@ export class LoginComponent {
       error: (err) => {
         this.isLoading.set(false);
         this.errorMessage.set(
-          err.error?.message || 'Invalid credentials or unauthorized access. Please verify and try again.'
+          err.error?.message || 'Invalid email or password. Please try again.'
         );
       }
     });

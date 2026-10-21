@@ -1,136 +1,95 @@
-<div class="login-wrapper">
-  <!-- Left Brand Panel -->
-  <div class="brand-panel">
+<div class="login-container">
+  <div class="ambient-glow"></div>
+
+  <div class="login-card">
+    <!-- Brand & Logo -->
     <div class="brand-header">
-      <div class="logo-badge">
-        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+      <div class="brand-logo">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="40" height="40" rx="10" fill="#006022" />
+          <path d="M12 20C12 15.5817 15.5817 12 20 12C24.4183 12 28 15.5817 28 20" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" />
+          <path d="M28 20C28 24.4183 24.4183 28 20 28C15.5817 28 12 24.4183 12 20" stroke="#C59B27" stroke-width="2.5" stroke-linecap="round" />
+          <circle cx="20" cy="20" r="3" fill="#FFFFFF" />
         </svg>
       </div>
-      <div class="brand-text">
-        <h2>SyncFlow</h2>
-        <span class="sub-brand">Banking & Ops Portal</span>
-      </div>
+      <h2>SyncFlow</h2>
+      <p class="tagline">Sign in to your enterprise workspace</p>
     </div>
 
-    <div class="brand-hero">
-      <span class="tag-pill">Institutional Enterprise Platform</span>
-      <h1>Precision Execution for High-Trust Teams</h1>
-      <p>
-        Collaborative project governance, custom pipeline stages, Discord-style live communication, 
-        and high-security RBAC powered by Java 21 Virtual Threads & MSSQL.
-      </p>
-
-      <div class="security-highlights">
-        <div class="highlight-item">
-          <div class="check-circle">✓</div>
-          <div>
-            <strong>Bank-Grade Granular RBAC</strong>
-            <p>Role matrix and user-level overrides with instant Caffeine cache evaluation.</p>
-          </div>
-        </div>
-        <div class="highlight-item">
-          <div class="check-circle">✓</div>
-          <div>
-            <strong>Zero Cost & Self-Hosted</strong>
-            <p>Hosted 24/7 on Windows Server with zero third-party software licensing fees.</p>
-          </div>
-        </div>
-      </div>
+    <!-- Error Alert -->
+    <div *ngIf="errorMessage()" class="alert-box">
+      <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
+      </svg>
+      <span>{{ errorMessage() }}</span>
     </div>
 
-    <div class="brand-footer">
-      <span>Official Banking Color: #006022</span>
-      <span class="version-badge">v1.0-LTS</span>
-    </div>
-  </div>
-
-  <!-- Right Authentication Panel -->
-  <div class="auth-panel">
-    <div class="auth-card">
-      <div class="auth-header">
-        <h3>Sign In to Your Workspace</h3>
-        <p>Enter your authorized enterprise credentials to continue</p>
+    <!-- Login Form -->
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      <div class="form-field">
+        <label for="email">Work Email</label>
+        <div class="input-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+            <polyline points="22,6 12,13 2,6" />
+          </svg>
+          <input
+            id="email"
+            type="email"
+            formControlName="email"
+            placeholder="name@syncflow.bank"
+            [class.invalid]="loginForm.get('email')?.invalid && loginForm.get('email')?.touched"
+          />
+        </div>
+        <span *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched" class="error-text">
+          Enter a valid work email address
+        </span>
       </div>
 
-      <div *ngIf="errorMessage()" class="alert-box">
-        <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-        <span>{{ errorMessage() }}</span>
+      <div class="form-field">
+        <div class="field-header">
+          <label for="password">Password</label>
+        </div>
+        <div class="input-wrap">
+          <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <input
+            id="password"
+            type="password"
+            formControlName="password"
+            placeholder="••••••••••••"
+            [class.invalid]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched"
+          />
+        </div>
+        <span *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched" class="error-text">
+          Password must be at least 6 characters
+        </span>
       </div>
 
-      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
-        <div class="form-group">
-          <label for="email">Enterprise Email Address</label>
-          <div class="input-container">
-            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-              <polyline points="22,6 12,13 2,6" />
-            </svg>
-            <input
-              id="email"
-              type="email"
-              formControlName="email"
-              placeholder="name@syncflow.bank"
-              [class.has-error]="loginForm.get('email')?.invalid && loginForm.get('email')?.touched"
-            />
-          </div>
-          <span *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched" class="field-error">
-            Valid enterprise email is required
-          </span>
-        </div>
+      <button type="submit" class="submit-btn" [disabled]="isLoading()">
+        <span *ngIf="!isLoading()">Sign In</span>
+        <span *ngIf="isLoading()" class="loading-state">
+          <span class="spinner"></span> Signing in...
+        </span>
+      </button>
+    </form>
 
-        <div class="form-group">
-          <label for="password">Security Password</label>
-          <div class="input-container">
-            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            <input
-              id="password"
-              type="password"
-              formControlName="password"
-              placeholder="••••••••••••"
-              [class.has-error]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched"
-            />
-          </div>
-          <span *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched" class="field-error">
-            Password must be at least 6 characters
-          </span>
-        </div>
-
-        <button type="submit" class="submit-btn" [disabled]="isLoading()">
-          <span *ngIf="!isLoading()">Authenticate & Continue</span>
-          <span *ngIf="isLoading()" class="spinner-label">
-            <div class="spinner"></div> Authenticating...
-          </span>
+    <!-- Quick Role Autofill -->
+    <div class="quick-access">
+      <span class="quick-label">Demo Access</span>
+      <div class="role-pills">
+        <button
+          *ngFor="let role of demoRoles"
+          type="button"
+          class="role-pill"
+          (click)="fillRole(role)"
+        >
+          {{ role.label }}
         </button>
-      </form>
-
-      <!-- Instant Testing Demo Selector -->
-      <div class="demo-section">
-        <div class="demo-divider">
-          <span>OR SELECT A ROLE TO TEST IMMEDIATELY</span>
-        </div>
-
-        <div class="demo-grid">
-          <button
-            *ngFor="let acc of demoAccounts"
-            type="button"
-            class="demo-card"
-            (click)="fillDemo(acc)"
-          >
-            <div class="demo-top">
-              <strong class="demo-role">{{ acc.role }}</strong>
-              <span class="demo-badge">{{ acc.badge }}</span>
-            </div>
-            <span class="demo-email">{{ acc.email }}</span>
-          </button>
-        </div>
       </div>
     </div>
   </div>
