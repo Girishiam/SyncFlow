@@ -1,11 +1,7 @@
 package com.syncflow.config;
 
-import com.syncflow.model.Permission;
-import com.syncflow.model.Role;
-import com.syncflow.model.User;
-import com.syncflow.repository.PermissionRepository;
-import com.syncflow.repository.RoleRepository;
-import com.syncflow.repository.UserRepository;
+import com.syncflow.model.*;
+import com.syncflow.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -13,7 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Component
@@ -24,6 +22,12 @@ public class DataInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final UserRepository userRepository;
+    private final ProjectRepository projectRepository;
+    private final StageRepository stageRepository;
+    private final TaskRepository taskRepository;
+    private final ChannelRepository channelRepository;
+    private final MessageRepository messageRepository;
+    private final MessageSeenReceiptRepository receiptRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -90,13 +94,119 @@ public class DataInitializer implements CommandLineRunner {
         roleRepository.save(rSqa);
 
         // 3. Create Seed Users
-        createUserIfNotFound("admin@syncflow.bank", "Admin@123", "Chief Admin", rAdmin);
-        createUserIfNotFound("manager@syncflow.bank", "Manager@123", "Tariq Manager", rManager);
-        createUserIfNotFound("lead@syncflow.bank", "Lead@123", "Arman Lead", rTeamLead);
-        createUserIfNotFound("dev@syncflow.bank", "Dev@123", "Farhan Senior Dev", rDev);
-        createUserIfNotFound("sqa@syncflow.bank", "Sqa@123", "Sarah SQA Engineer", rSqa);
+        User admin = createUserIfNotFound("admin@syncflow.bank", "Admin@123", "Chief Admin", rAdmin);
+        User manager = createUserIfNotFound("manager@syncflow.bank", "Manager@123", "Tariq Manager", rManager);
+        User lead = createUserIfNotFound("lead@syncflow.bank", "Lead@123", "Arman Lead", rTeamLead);
+        User dev = createUserIfNotFound("dev@syncflow.bank", "Dev@123", "Farhan Senior Dev", rDev);
+        User sqa = createUserIfNotFound("sqa@syncflow.bank", "Sqa@123", "Sarah SQA Engineer", rSqa);
 
-        log.info("SyncFlow Bank Enterprise RBAC initialization complete!");
+        // 4. Create Projects if none exist
+        if (projectRepository.count() == 0) {
+            Project p1 = projectRepository.save(Project.builder()
+                    .name("Core Payment Gateway v2.4")
+                    .description("Core banking high-throughput transaction routing and settlement")
+                    .status("ACTIVE")
+                    .startDate(LocalDate.now().minusDays(14))
+                    .dueDate(LocalDate.now().plusDays(45))
+                    .manager(manager)
+                    .build());
+
+            projectRepository.save(Project.builder()
+                    .name("Biometric 2FA Engine")
+                    .description("FIDO2 and WebAuthn hardware key verification service")
+                    .status("ACTIVE")
+                    .startDate(LocalDate.now().minusDays(5))
+                    .dueDate(LocalDate.now().plusDays(30))
+                    .manager(manager)
+                    .build());
+
+            projectRepository.save(Project.builder()
+                    .name("Liquidity Settlement")
+                    .description("Multi-currency Nostro/Vostro real-time liquidity balancing")
+                    .status("ACTIVE")
+                    .startDate(LocalDate.now().minusDays(20))
+                    .dueDate(LocalDate.now().plusDays(60))
+                    .manager(manager)
+                    .build());
+
+            // 5. Create Pipeline Stages for Core Payment Gateway
+            Stage sBacklog = stageRepository.save(Stage.builder().project(p1).name("Backlog").position(0).isDoneStage(false).build());
+            Stage sDb = stageRepository.save(Stage.builder().project(p1).name("DB Design").position(1).isDoneStage(false).build());
+            Stage sApi = stageRepository.save(Stage.builder().project(p1).name("API Dev").position(2).isDoneStage(false).build());
+            Stage sUi = stageRepository.save(Stage.builder().project(p1).name("UI & Layout").position(3).isDoneStage(false).build());
+            Stage sReview = stageRepository.save(Stage.builder().project(p1).name("Review / QA").position(4).isDoneStage(false).build());
+            Stage sDone = stageRepository.save(Stage.builder().project(p1).name("Done").position(5).isDoneStage(true).build());
+
+            // 6. Create Tasks for Core Payment Gateway
+            taskRepository.save(Task.builder()
+                    .project(p1).stage(sBacklog).title("Implement Biometric 2FA Hook")
+                    .description("Integrate FIDO2 challenge-response verification for transactions")
+                    .priority("HIGH").progressPercentage(0).assignee(dev).isBlocked(false).build());
+
+            taskRepository.save(Task.builder()
+                    .project(p1).stage(sBacklog).title("Audit Trail Export to CSV")
+                    .description("Generate encrypted compliance audit logs for central bank audit")
+                    .priority("LOW").progressPercentage(0).assignee(sqa).isBlocked(false).build());
+
+            taskRepository.save(Task.builder()
+                    .project(p1).stage(sDb).title("MSSQL Partitioning for Ledger")
+                    .description("Implement year-based table partitioning on transactions table")
+                    .priority("CRITICAL").progressPercentage(30).assignee(dev).isBlocked(false).build());
+
+            taskRepository.save(Task.builder()
+                    .project(p1).stage(sApi).title("WebSocket STOMP Broker & Event Hook")
+                    .description("Enable live drag-and-drop and real-time blocker synchronization")
+                    .priority("HIGH").progressPercentage(65).assignee(lead)
+                    .isBlocked(true).blockerReason("Waiting for SSL certificate handshake setup").build());
+
+            taskRepository.save(Task.builder()
+                    .project(p1).stage(sUi).title("Emerald Reserve Design Tokens")
+                    .description("Refactor CSS tokens for bank primary #006022 and gold accents")
+                    .priority("CRITICAL").progressPercentage(90).assignee(dev).isBlocked(false).build());
+
+            taskRepository.save(Task.builder()
+                    .project(p1).stage(sReview).title("JWT Refresh Filter Test Suite")
+                    .description("Execute integration test suite covering expired and revoked tokens")
+                    .priority("MEDIUM").progressPercentage(95).assignee(sqa).isBlocked(false).build());
+
+            taskRepository.save(Task.builder()
+                    .project(p1).stage(sDone).title("Spring Boot 3.3.5 & Java 21 Loom Scaffolding")
+                    .description("Scaffold core backend architecture with virtual threads enabled")
+                    .priority("HIGH").progressPercentage(100).assignee(dev).isBlocked(false).build());
+
+            log.info("Created Seed Project, Stages, and Tasks!");
+        }
+
+        // 7. Create Channels if none exist
+        if (channelRepository.count() == 0) {
+            Channel chGeneral = channelRepository.save(Channel.builder().name("general").type("TEXT").createdBy(admin).build());
+            Channel chApi = channelRepository.save(Channel.builder().name("core-banking-api").type("TEXT").createdBy(lead).build());
+            channelRepository.save(Channel.builder().name("design-tokens").type("TEXT").createdBy(dev).build());
+            channelRepository.save(Channel.builder().name("database-migration").type("TEXT").createdBy(lead).build());
+
+            // Add sample messages to #general
+            Message m1 = messageRepository.save(Message.builder()
+                    .channel(chGeneral).sender(manager)
+                    .content("Sprint goals are locked in for the payment gateway migration.").build());
+
+            Message m2 = messageRepository.save(Message.builder()
+                    .channel(chGeneral).sender(lead)
+                    .content("Pipeline stages are configured. API development is underway.").build());
+
+            Message m3 = messageRepository.save(Message.builder()
+                    .channel(chGeneral).sender(dev)
+                    .content("MSSQL connection pool and Virtual Threads setup complete.").build());
+
+            // Add Seen receipts
+            receiptRepository.save(MessageSeenReceipt.builder().message(m1).channel(chGeneral).user(lead).build());
+            receiptRepository.save(MessageSeenReceipt.builder().message(m1).channel(chGeneral).user(dev).build());
+            receiptRepository.save(MessageSeenReceipt.builder().message(m2).channel(chGeneral).user(dev).build());
+            receiptRepository.save(MessageSeenReceipt.builder().message(m3).channel(chGeneral).user(lead).build());
+
+            log.info("Created Seed Channels and Messages!");
+        }
+
+        log.info("SyncFlow Bank Enterprise initialization complete!");
     }
 
     private Permission getOrCreatePermission(String module, String action, String description) {
@@ -107,7 +217,7 @@ public class DataInitializer implements CommandLineRunner {
                                 .action(action)
                                 .description(description)
                                 .build()
-                ));
+                        ));
     }
 
     private Role getOrCreateRole(String name, String description, boolean isSystemRole) {
@@ -119,11 +229,11 @@ public class DataInitializer implements CommandLineRunner {
                                 .isSystemRole(isSystemRole)
                                 .permissions(new HashSet<>())
                                 .build()
-                ));
+                        ));
     }
 
-    private void createUserIfNotFound(String email, String rawPassword, String fullName, Role role) {
-        if (!userRepository.existsByEmail(email)) {
+    private User createUserIfNotFound(String email, String rawPassword, String fullName, Role role) {
+        return userRepository.findByEmail(email).orElseGet(() -> {
             User user = User.builder()
                     .email(email)
                     .passwordHash(passwordEncoder.encode(rawPassword))
@@ -132,8 +242,9 @@ public class DataInitializer implements CommandLineRunner {
                     .onLeave(false)
                     .role(role)
                     .build();
-            userRepository.save(user);
+            User saved = userRepository.save(user);
             log.info("Created Seed User: {} with Role: {}", email, role.getName());
-        }
+            return saved;
+        });
     }
 }

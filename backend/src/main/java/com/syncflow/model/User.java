@@ -58,6 +58,7 @@ public class User {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @Builder.Default
+    @JsonIgnore
     private Set<UserPermissionOverride> directOverrides = new HashSet<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)

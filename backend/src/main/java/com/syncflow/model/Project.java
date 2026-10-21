@@ -48,6 +48,7 @@ public class Project {
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("position ASC")
     @Builder.Default
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<Stage> stages = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)

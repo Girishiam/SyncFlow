@@ -66,7 +66,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/v1/auth/**", "/api/v1/auth/**").permitAll()
-                .requestMatchers("/ws-syncflow/**", "/api/ws-syncflow/**").permitAll()
+                .requestMatchers("/ws/**", "/api/ws/**", "/ws-syncflow/**", "/api/ws-syncflow/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated()
             );

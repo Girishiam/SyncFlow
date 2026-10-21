@@ -1,26 +1,14 @@
-import { Component, signal, computed } from '@angular/core';
+import { Component, signal, computed, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
-
-interface TaskCard {
-  id: number;
-  title: string;
-  project: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  progress: number;
-  assignee: string;
-  avatar: string;
-  isBlocked: boolean;
-  blockerReason?: string;
-}
-
-interface KanbanColumn {
-  id: string;
-  title: string;
-  tasks: TaskCard[];
-}
+import { ProjectService } from '../../core/services/project.service';
+import { TaskService } from '../../core/services/task.service';
+import { ChatService } from '../../core/services/chat.service';
+import { WebSocketService } from '../../core/services/websocket.service';
+import { Project, KanbanColumn, TaskCard, Channel, ChatMessage } from '../../core/models/project.models';
 
 @Component({
   selector: 'app-dashboard',
@@ -29,12 +17,32 @@ interface KanbanColumn {
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
-export class DashboardComponent {
+export class DashboardComponent implements OnInit, OnDestroy {
   currentUser = computed(() => this.authService.currentUserSignal());
 
   // Active navigation view
   activeNav = signal<'overview' | 'board' | 'discussions' | 'analytics' | 'rbac'>('board');
-  activeChannel = signal<string>('general');
+
+  // Projects
+  projects = signal<Project[]>([]);
+  selectedProjectId = signal<number>(1);
+
+  // Kanban Columns
+  columns = signal<KanbanColumn[]>([]);
+
+  // Executive KPI stats
+  totalTasksCount = signal<number>(0);
+  blockedCount = signal<number>(0);
+  completionPercentage = signal<number>(0);
+
+  // Blocker banner notification
+  activeBlockerBanner = signal<{ title: string; reason: string } | null>(null);
+
+  // Discussions channels
+  channels = signal<Channel[]>([]);
+  activeChannel = signal<Channel | null>(null);
+  messages = signal<ChatMessage[]>([]);
+  chatInput = signal('');
 
   // Meeting modal state
   isMeetingOpen = signal(false);
@@ -44,93 +52,169 @@ export class DashboardComponent {
   selectedTask = signal<TaskCard | null>(null);
   blockerReasonInput = signal('');
 
-  // Discussions channels
-  channels = [
-    { id: 'general', name: 'general', unread: 0 },
-    { id: 'core-banking-api', name: 'core-banking-api', unread: 2 },
-    { id: 'design-tokens', name: 'design-tokens', unread: 0 },
-    { id: 'database-migration', name: 'database-migration', unread: 1 }
-  ];
+  // Create Task modal state
+  isCreateModalOpen = signal(false);
+  newTaskTitle = signal('');
+  newTaskDescription = signal('');
+  newTaskPriority = signal<'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('MEDIUM');
+  newTaskStageId = signal<number | null>(null);
 
-  // Channel messages
-  messages = signal([
-    { sender: 'Tariq Manager', text: 'Sprint goals are locked in for the payment gateway migration.', time: '09:15 AM', seenBy: ['Arman Lead', 'Farhan Dev'] },
-    { sender: 'Arman Lead', text: 'Pipeline stages are configured. API development is underway.', time: '09:22 AM', seenBy: ['Farhan Dev'] },
-    { sender: 'Farhan Dev', text: 'MSSQL connection pool and Virtual Threads setup complete.', time: '09:30 AM', seenBy: ['Arman Lead'] }
-  ]);
-  chatInput = signal('');
+  private subscriptions: Subscription[] = [];
 
-  // Kanban Columns
-  columns = signal<KanbanColumn[]>([
-    {
-      id: 'backlog',
-      title: 'Backlog',
-      tasks: [
-        { id: 101, title: 'Implement Biometric 2FA Hook', project: 'Security Suite', priority: 'HIGH', progress: 0, assignee: 'Farhan Dev', avatar: 'FD', isBlocked: false },
-        { id: 102, title: 'Audit Trail Export to CSV', project: 'Compliance', priority: 'LOW', progress: 0, assignee: 'Sarah SQA', avatar: 'SS', isBlocked: false }
-      ]
-    },
-    {
-      id: 'db_design',
-      title: 'DB Design',
-      tasks: [
-        { id: 201, title: 'MSSQL Partitioning for Ledger', project: 'Core Ledger', priority: 'CRITICAL', progress: 30, assignee: 'Farhan Dev', avatar: 'FD', isBlocked: false }
-      ]
-    },
-    {
-      id: 'api',
-      title: 'API Dev',
-      tasks: [
-        { id: 301, title: 'WebSocket STOMP Broker & Event Hook', project: 'Realtime Ops', priority: 'HIGH', progress: 65, assignee: 'Arman Lead', avatar: 'AL', isBlocked: true, blockerReason: 'Waiting for SSL certificate handshake setup' }
-      ]
-    },
-    {
-      id: 'ui',
-      title: 'UI & Layout',
-      tasks: [
-        { id: 401, title: 'Emerald Reserve Design Tokens', project: 'SyncFlow UI', priority: 'CRITICAL', progress: 90, assignee: 'Farhan Dev', avatar: 'FD', isBlocked: false }
-      ]
-    },
-    {
-      id: 'review',
-      title: 'Review / QA',
-      tasks: [
-        { id: 501, title: 'JWT Refresh Filter Test Suite', project: 'Security Suite', priority: 'MEDIUM', progress: 95, assignee: 'Sarah SQA', avatar: 'SS', isBlocked: false }
-      ]
-    },
-    {
-      id: 'done',
-      title: 'Done',
-      tasks: [
-        { id: 601, title: 'Spring Boot 3.3.5 & Java 21 Loom Scaffolding', project: 'SyncFlow Core', priority: 'HIGH', progress: 100, assignee: 'Farhan Dev', avatar: 'FD', isBlocked: false }
-      ]
+  constructor(
+    public authService: AuthService,
+    private projectService: ProjectService,
+    private taskService: TaskService,
+    private chatService: ChatService,
+    public wsService: WebSocketService
+  ) {}
+
+  ngOnInit(): void {
+    this.loadProjects();
+    this.loadChannels();
+    this.setupWebSocketListeners();
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
+  }
+
+  // 1. Projects & Board Loading
+  loadProjects(): void {
+    this.projectService.getAllProjects().subscribe({
+      next: (projs) => {
+        this.projects.set(projs);
+        if (projs.length > 0) {
+          this.selectedProjectId.set(projs[0].id);
+          this.loadBoard(projs[0].id);
+        }
+      },
+      error: (err) => console.error('Failed to load projects', err)
+    });
+  }
+
+  onProjectChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const projId = Number(select.value);
+    this.selectedProjectId.set(projId);
+    this.loadBoard(projId);
+  }
+
+  loadBoard(projectId: number): void {
+    this.projectService.getProjectBoard(projectId).subscribe({
+      next: (board) => {
+        const cols: KanbanColumn[] = board.stages.map(s => ({
+          id: 'stage-' + s.id,
+          numericId: s.id,
+          title: s.name,
+          isDoneStage: s.isDoneStage,
+          tasks: s.tasks || []
+        }));
+        this.columns.set(cols);
+        this.totalTasksCount.set(board.totalTasks);
+        this.blockedCount.set(board.blockedTasks);
+        this.completionPercentage.set(board.completionPercentage);
+      },
+      error: (err) => console.error('Failed to load project board', err)
+    });
+  }
+
+  // 2. Discussions Loading
+  loadChannels(): void {
+    this.chatService.getChannels().subscribe({
+      next: (chs) => {
+        this.channels.set(chs);
+        if (chs.length > 0) {
+          this.selectChannel(chs[0]);
+        }
+      },
+      error: (err) => console.error('Failed to load channels', err)
+    });
+  }
+
+  selectChannel(channel: Channel): void {
+    this.activeChannel.set(channel);
+    this.chatService.getMessages(channel.id).subscribe({
+      next: (msgs) => {
+        this.messages.set(msgs);
+      },
+      error: (err) => console.error('Failed to load messages for channel ' + channel.id, err)
+    });
+
+    // Listen to real-time channel messages via WebSocket
+    const sub = this.wsService.subscribeToChannel(channel.id).subscribe({
+      next: (newMsg: ChatMessage) => {
+        if (newMsg && newMsg.channelId === channel.id) {
+          this.messages.update(msgs => {
+            if (newMsg.id && msgs.some(m => m.id === newMsg.id)) return msgs;
+            return [...msgs, newMsg];
+          });
+        }
+      }
+    });
+    this.subscriptions.push(sub);
+  }
+
+  // 3. WebSocket Real-time Synchronization
+  setupWebSocketListeners(): void {
+    // A. Real-time board movements & task updates from other users
+    const boardSub = this.wsService.getBoardUpdates().subscribe({
+      next: (updatedTask: TaskCard) => {
+        this.applyTaskUpdateLocally(updatedTask);
+      }
+    });
+    this.subscriptions.push(boardSub);
+
+    // B. Real-time Blocker Alert Flash
+    const blockerSub = this.wsService.getBlockerAlerts().subscribe({
+      next: (alertTask: TaskCard) => {
+        this.activeBlockerBanner.set({
+          title: alertTask.title,
+          reason: alertTask.blockerReason || 'Critical blocker encountered'
+        });
+        setTimeout(() => this.activeBlockerBanner.set(null), 8000);
+      }
+    });
+    this.subscriptions.push(blockerSub);
+  }
+
+  private applyTaskUpdateLocally(task: TaskCard): void {
+    if (task.projectId && task.projectId !== this.selectedProjectId()) {
+      return;
     }
-  ]);
+    this.columns.update(cols => {
+      const newCols = cols.map(col => {
+        const remaining = col.tasks.filter(t => t.id !== task.id);
+        if (col.numericId === task.stageId) {
+          return { ...col, tasks: [...remaining, task] };
+        }
+        return { ...col, tasks: remaining };
+      });
+      return newCols;
+    });
+    this.recalculateMetrics();
+  }
 
-  // Executive KPI stats
-  totalTasksCount = computed(() => {
-    return this.columns().reduce((acc, col) => acc + col.tasks.length, 0);
-  });
+  private recalculateMetrics(): void {
+    let total = 0;
+    let blocked = 0;
+    let completed = 0;
 
-  blockedCount = computed(() => {
-    return this.columns().reduce((acc, col) => acc + col.tasks.filter(t => t.isBlocked).length, 0);
-  });
+    for (const col of this.columns()) {
+      total += col.tasks.length;
+      for (const t of col.tasks) {
+        if (t.isBlocked) blocked++;
+        if (col.isDoneStage || t.progress === 100) completed++;
+      }
+    }
 
-  completedCount = computed(() => {
-    const doneCol = this.columns().find(c => c.id === 'done');
-    return doneCol ? doneCol.tasks.length : 0;
-  });
+    this.totalTasksCount.set(total);
+    this.blockedCount.set(blocked);
+    this.completionPercentage.set(total > 0 ? Math.round((completed / total) * 100) : 0);
+  }
 
-  completionPercentage = computed(() => {
-    const total = this.totalTasksCount();
-    if (total === 0) return 0;
-    return Math.round((this.completedCount() / total) * 100);
-  });
-
-  constructor(public authService: AuthService) {}
-
-  // Drag & drop
-  onDrop(event: CdkDragDrop<TaskCard[]>) {
+  // 4. Drag & drop Task Cards
+  onDrop(event: CdkDragDrop<TaskCard[]>): void {
     if (event.previousContainer === event.container) {
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
     } else {
@@ -141,62 +225,115 @@ export class DashboardComponent {
         event.currentIndex
       );
       const movedTask = event.container.data[event.currentIndex];
-      if (event.container.id === 'done') {
-        movedTask.progress = 100;
-        movedTask.isBlocked = false;
+      const targetCol = this.columns().find(c => c.id === event.container.id);
+
+      if (targetCol) {
+        movedTask.stageId = targetCol.numericId;
+        if (targetCol.isDoneStage) {
+          movedTask.progress = 100;
+          movedTask.isBlocked = false;
+        }
+
+        // Call backend API to persist stage move
+        this.taskService.moveTask(movedTask.id, targetCol.numericId).subscribe({
+          next: () => this.recalculateMetrics(),
+          error: (err) => console.error('Failed to persist task move', err)
+        });
       }
     }
   }
 
-  // Blocker operations
-  openBlocker(task: TaskCard) {
+  // 5. Progress Slider
+  onProgressChange(task: TaskCard): void {
+    this.taskService.updateProgress(task.id, task.progress).subscribe({
+      next: () => this.recalculateMetrics(),
+      error: (err) => console.error('Failed to update progress', err)
+    });
+  }
+
+  // 6. Blocker Operations
+  openBlocker(task: TaskCard): void {
     this.selectedTask.set(task);
     this.blockerReasonInput.set(task.blockerReason || '');
   }
 
-  saveBlocker() {
+  saveBlocker(): void {
     const task = this.selectedTask();
     if (!task) return;
 
-    if (this.blockerReasonInput().trim()) {
-      task.isBlocked = true;
-      task.blockerReason = this.blockerReasonInput().trim();
-    } else {
-      task.isBlocked = false;
-      task.blockerReason = undefined;
-    }
+    const reason = this.blockerReasonInput().trim();
+    const isBlocked = !!reason;
+
+    this.taskService.setBlocker(task.id, isBlocked, reason).subscribe({
+      next: (updated) => {
+        task.isBlocked = updated.isBlocked;
+        task.blockerReason = updated.blockerReason;
+        this.recalculateMetrics();
+        this.closeBlocker();
+      },
+      error: (err) => console.error('Failed to update blocker', err)
+    });
+  }
+
+  closeBlocker(): void {
     this.selectedTask.set(null);
     this.blockerReasonInput.set('');
   }
 
-  closeBlocker() {
-    this.selectedTask.set(null);
-    this.blockerReasonInput.set('');
+  // 7. Create Task Modal
+  openCreateTask(stageId: number): void {
+    this.newTaskStageId.set(stageId);
+    this.newTaskTitle.set('');
+    this.newTaskDescription.set('');
+    this.newTaskPriority.set('MEDIUM');
+    this.isCreateModalOpen.set(true);
   }
 
-  // Toggle user availability
-  toggleAvailability() {
+  closeCreateTask(): void {
+    this.isCreateModalOpen.set(false);
+  }
+
+  submitCreateTask(): void {
+    const title = this.newTaskTitle().trim();
+    const stageId = this.newTaskStageId();
+    const projectId = this.selectedProjectId();
+
+    if (!title || !stageId) return;
+
+    this.taskService.createTask({
+      projectId,
+      stageId,
+      title,
+      description: this.newTaskDescription().trim(),
+      priority: this.newTaskPriority()
+    }).subscribe({
+      next: (created) => {
+        this.applyTaskUpdateLocally(created);
+        this.closeCreateTask();
+      },
+      error: (err) => console.error('Failed to create task', err)
+    });
+  }
+
+  // 8. Discussions Messaging
+  sendMessage(): void {
+    const text = this.chatInput().trim();
+    const channel = this.activeChannel();
+    if (!text || !channel) return;
+
+    this.chatService.sendMessage(channel.id, text).subscribe({
+      next: (msg) => {
+        this.chatInput.set('');
+      },
+      error: (err) => console.error('Failed to send message', err)
+    });
+  }
+
+  // 9. Availability Toggle
+  toggleAvailability(): void {
     const user = this.currentUser();
     if (user) {
       user.onLeave = !user.onLeave;
     }
-  }
-
-  // Send message
-  sendMessage() {
-    const text = this.chatInput().trim();
-    if (!text) return;
-
-    const user = this.currentUser();
-    this.messages.update(msgs => [
-      ...msgs,
-      {
-        sender: user?.fullName || 'User',
-        text: text,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        seenBy: ['Just now']
-      }
-    ]);
-    this.chatInput.set('');
   }
 }
