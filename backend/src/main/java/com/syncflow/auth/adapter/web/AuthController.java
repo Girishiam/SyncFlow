@@ -32,4 +32,12 @@ public class AuthController {
     public ResponseEntity<java.util.List<UserDTO>> getAllUsers() {
         return ResponseEntity.ok(authUseCase.getAllUsers());
     }
+
+    @PutMapping("/users/{id}/role")
+    public ResponseEntity<UserDTO> updateUserRole(
+            @PathVariable java.util.UUID id,
+            @RequestBody java.util.Map<String, Long> payload) {
+        Long roleId = payload.get("roleId");
+        return ResponseEntity.ok(authUseCase.updateUserRole(id, roleId));
+    }
 }

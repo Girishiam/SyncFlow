@@ -22,4 +22,6 @@ export interface IRbacPort {
   getAllPermissions(): Observable<Permission[]>;
   updateRolePermissions(roleId: number, permissionIds: number[]): Observable<Role>;
   createCustomRole(name: string, description: string, permissionIds: number[]): Observable<Role>;
+  getAllUsers(): Observable<any[]>;
+  updateUserRole(userId: string, roleId: number): Observable<any>;
 }

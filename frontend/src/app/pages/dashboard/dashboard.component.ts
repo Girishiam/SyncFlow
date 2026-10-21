@@ -60,6 +60,12 @@ export class DashboardComponent implements OnInit {
   commentInput = this.boardFacade.commentInput;
   isLoadingComments = this.boardFacade.isLoadingComments;
 
+  // Project Creator Modal Delegates
+  isCreateProjectModalOpen = this.boardFacade.isCreateProjectModalOpen;
+  newProjectName = this.boardFacade.newProjectName;
+  newProjectDescription = this.boardFacade.newProjectDescription;
+  isCreatingProject = this.boardFacade.isCreatingProject;
+
   // Stage Creator Modal Delegates
   isCreateStageModalOpen = this.boardFacade.isCreateStageModalOpen;
   newStageName = this.boardFacade.newStageName;
@@ -96,6 +102,8 @@ export class DashboardComponent implements OnInit {
   isCreateRoleModalOpen = this.rbacFacade.isCreateRoleModalOpen;
   newRoleName = this.rbacFacade.newRoleName;
   newRoleDescription = this.rbacFacade.newRoleDescription;
+  rbacBankUsers = this.rbacFacade.bankUsers;
+  activeRbacTab = signal<'MATRIX' | 'MEMBERS'>('MATRIX');
 
   // Meeting state
   isMeetingOpen = signal(false);
@@ -244,6 +252,27 @@ export class DashboardComponent implements OnInit {
 
   submitCreateRole(): void {
     this.rbacFacade.submitCreateRole();
+  }
+
+  onMemberRoleChange(userId: string, event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const roleId = Number(select.value);
+    if (roleId) {
+      this.rbacFacade.changeUserRole(userId, roleId);
+    }
+  }
+
+  // Project Creation Operations
+  openCreateProject(): void {
+    this.boardFacade.openCreateProjectModal();
+  }
+
+  closeCreateProject(): void {
+    this.boardFacade.closeCreateProjectModal();
+  }
+
+  submitCreateProject(): void {
+    this.boardFacade.submitCreateProject();
   }
 
   // Availability Toggle

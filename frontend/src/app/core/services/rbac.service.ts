@@ -26,4 +26,12 @@ export class RbacService implements IRbacPort {
   createCustomRole(name: string, description: string, permissionIds: number[]): Observable<Role> {
     return this.http.post<Role>(`${this.apiUrl}/roles`, { name, description, permissionIds });
   }
+
+  getAllUsers(): Observable<any[]> {
+    return this.http.get<any[]>('http://localhost:9090/api/v1/auth/users');
+  }
+
+  updateUserRole(userId: string, roleId: number): Observable<any> {
+    return this.http.put<any>(`http://localhost:9090/api/v1/auth/users/${userId}/role`, { roleId });
+  }
 }

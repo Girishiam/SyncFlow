@@ -45,6 +45,38 @@ public class ProjectApplicationService implements ProjectUseCase {
     }
 
     @Override
+    @Transactional
+    public ProjectDTO createProject(com.syncflow.dto.CreateProjectRequest request) {
+        Project project = Project.builder()
+                .name(request.getName().trim())
+                .description(request.getDescription())
+                .status("ACTIVE")
+                .build();
+
+        Project savedProject = projectRepositoryPort.save(project);
+
+        // Seed 4 canonical enterprise workflow stages
+        Stage s1 = Stage.builder().project(savedProject).name("Backlog").position(1).isDoneStage(false).build();
+        Stage s2 = Stage.builder().project(savedProject).name("In Development").position(2).isDoneStage(false).build();
+        Stage s3 = Stage.builder().project(savedProject).name("Code Review & QA").position(3).isDoneStage(false).build();
+        Stage s4 = Stage.builder().project(savedProject).name("Done & Verified").position(4).isDoneStage(true).build();
+
+        stageRepositoryPort.save(s1);
+        stageRepositoryPort.save(s2);
+        stageRepositoryPort.save(s3);
+        stageRepositoryPort.save(s4);
+
+        log.info("Created new enterprise project: {} with ID: {}", savedProject.getName(), savedProject.getId());
+
+        return ProjectDTO.builder()
+                .id(savedProject.getId())
+                .name(savedProject.getName())
+                .description(savedProject.getDescription())
+                .status(savedProject.getStatus())
+                .build();
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public ProjectBoardDTO getProjectBoard(Long projectId) {
         Project project = projectRepositoryPort.findById(projectId)

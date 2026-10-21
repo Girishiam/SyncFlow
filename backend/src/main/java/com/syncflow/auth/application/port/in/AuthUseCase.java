@@ -11,4 +11,5 @@ public interface AuthUseCase {
     AuthResponse login(LoginRequest loginRequest);
     UserDTO getCurrentUser(Authentication authentication);
     List<UserDTO> getAllUsers();
+    UserDTO updateUserRole(java.util.UUID userId, Long roleId);
 }

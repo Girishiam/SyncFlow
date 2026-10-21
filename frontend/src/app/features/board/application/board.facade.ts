@@ -52,6 +52,12 @@ export class BoardFacade implements OnDestroy {
   public commentInput = signal('');
   public isLoadingComments = signal(false);
 
+  // Project Creator Modal State
+  public isCreateProjectModalOpen = signal(false);
+  public newProjectName = signal('');
+  public newProjectDescription = signal('');
+  public isCreatingProject = signal(false);
+
   // Stage Creator Modal State
   public isCreateStageModalOpen = signal(false);
   public newStageName = signal('');
@@ -501,5 +507,39 @@ export class BoardFacade implements OnDestroy {
       }
     });
   }
+
+  // Project Creation Actions
+  public openCreateProjectModal(): void {
+    this.newProjectName.set('');
+    this.newProjectDescription.set('');
+    this.isCreateProjectModalOpen.set(true);
+  }
+
+  public closeCreateProjectModal(): void {
+    this.isCreateProjectModalOpen.set(false);
+  }
+
+  public submitCreateProject(): void {
+    const name = this.newProjectName().trim();
+    if (!name) return;
+
+    this.isCreatingProject.set(true);
+    const desc = this.newProjectDescription().trim();
+
+    this.projectService.createProject(name, desc).subscribe({
+      next: (createdProject) => {
+        this.isCreatingProject.set(false);
+        this.projects.update(projs => [...projs, createdProject]);
+        this.selectedProjectId.set(createdProject.id);
+        this.loadBoard(createdProject.id);
+        this.closeCreateProjectModal();
+      },
+      error: (err) => {
+        this.isCreatingProject.set(false);
+        console.error('BoardFacade: Failed to create project', err);
+      }
+    });
+  }
 }
+
 

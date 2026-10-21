@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+import com.syncflow.auth.application.port.out.RoleRepositoryPort;
 import com.syncflow.auth.application.port.out.UserRepositoryPort;
 
 @Service
@@ -28,6 +29,7 @@ public class AuthApplicationService implements AuthUseCase {
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     private final UserRepositoryPort userRepositoryPort;
+    private final RoleRepositoryPort roleRepositoryPort;
 
     @Override
     public AuthResponse login(LoginRequest loginRequest) {
@@ -75,6 +77,21 @@ public class AuthApplicationService implements AuthUseCase {
         return userRepositoryPort.findAll().stream()
                 .map(u -> toDTO(u, java.util.Collections.emptySet()))
                 .toList();
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional
+    public UserDTO updateUserRole(java.util.UUID userId, Long roleId) {
+        User user = userRepositoryPort.findById(userId)
+                .orElseThrow(() -> new DomainException("User not found with ID: " + userId));
+
+        com.syncflow.model.Role role = roleRepositoryPort.findById(roleId)
+                .orElseThrow(() -> new DomainException("Role not found with ID: " + roleId));
+
+        user.setRole(role);
+        User saved = userRepositoryPort.save(user);
+        log.info("Updated role for user: {} to: {}", saved.getEmail(), role.getName());
+        return toDTO(saved, java.util.Collections.emptySet());
     }
 
     private UserDTO toDTO(User user, java.util.Set<String> permissions) {

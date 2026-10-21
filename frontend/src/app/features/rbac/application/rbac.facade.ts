@@ -12,6 +12,7 @@ export class RbacFacade {
   public activePermissionIds = signal<Set<number>>(new Set());
   public isSaving = signal(false);
   public saveSuccessMessage = signal<string | null>(null);
+  public bankUsers = signal<any[]>([]);
 
   // Create Custom Role Modal State
   public isCreateRoleModalOpen = signal(false);
@@ -33,6 +34,27 @@ export class RbacFacade {
 
   public init(): void {
     this.loadRolesAndPermissions();
+    this.loadBankUsers();
+  }
+
+  public loadBankUsers(): void {
+    this.rbacService.getAllUsers().subscribe({
+      next: (users) => this.bankUsers.set(users),
+      error: (err) => console.error('RbacFacade: Failed to load users', err)
+    });
+  }
+
+  public changeUserRole(userId: string, roleId: number): void {
+    this.rbacService.updateUserRole(userId, roleId).subscribe({
+      next: (updatedUser) => {
+        this.bankUsers.update(users =>
+          users.map(u => u.id === updatedUser.id ? updatedUser : u)
+        );
+        this.saveSuccessMessage.set(`Updated role for ${updatedUser.fullName || updatedUser.email}!`);
+        setTimeout(() => this.saveSuccessMessage.set(null), 3000);
+      },
+      error: (err) => console.error('RbacFacade: Failed to update user role', err)
+    });
   }
 
   public loadRolesAndPermissions(): void {

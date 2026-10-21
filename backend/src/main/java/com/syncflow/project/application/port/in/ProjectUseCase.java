@@ -6,6 +6,7 @@ import java.util.List;
 
 public interface ProjectUseCase {
     List<ProjectDTO> getAllProjects();
+    ProjectDTO createProject(CreateProjectRequest request);
     ProjectBoardDTO getProjectBoard(Long projectId);
     StageDTO createStage(Long projectId, CreateStageRequest request);
     void reorderStages(Long projectId, ReorderStagesRequest request);

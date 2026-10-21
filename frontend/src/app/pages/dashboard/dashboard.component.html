@@ -47,6 +47,18 @@
       </button>
 
       <button
+        class="nav-item new-proj-item"
+        (click)="openCreateProject()"
+        title="Create New Enterprise Project"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        <span>New Project</span>
+      </button>
+
+      <button
         class="nav-item"
         [class.active]="activeNav() === 'discussions'"
         (click)="activeNav.set('discussions')"
@@ -157,6 +169,13 @@
             {{ p.name }}
           </option>
         </select>
+        <button class="btn-new-project-pill" (click)="openCreateProject()" title="Create New Enterprise Project">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <span>New Project</span>
+        </button>
       </div>
 
       <div class="header-right">
@@ -514,49 +533,113 @@
         </div>
       </div>
 
-      <!-- Role Selector Tabs -->
-      <div class="role-tabs-strip">
+      <!-- RBAC Sub-Navigation Tabs: Matrix vs Members -->
+      <div class="rbac-nav-tabs">
         <button
-          *ngFor="let role of roles()"
-          class="role-tab"
-          [class.active]="role.id === selectedRoleId()"
-          (click)="selectRole(role.id)"
+          class="rbac-nav-pill"
+          [class.active]="activeRbacTab() === 'MATRIX'"
+          (click)="activeRbacTab.set('MATRIX')"
         >
-          <span class="role-tab-name">{{ role.name }}</span>
-          <span class="role-tab-desc">{{ role.description || 'Enterprise Role' }}</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="14" y="14" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+          </svg>
+          <span>Permission Matrix</span>
+        </button>
+        <button
+          class="rbac-nav-pill"
+          [class.active]="activeRbacTab() === 'MEMBERS'"
+          (click)="activeRbacTab.set('MEMBERS')"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span>Bank Member Roles ({{ rbacBankUsers().length }})</span>
         </button>
       </div>
 
-      <!-- Permissions Grid Grouped by Module -->
-      <div class="permissions-modules-grid">
-        <div *ngFor="let mod of modules()" class="module-card">
-          <div class="module-header">
-            <div class="module-icon-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                <polyline points="2 17 12 22 22 17" />
-                <polyline points="2 12 12 17 22 12" />
-              </svg>
-            </div>
-            <h4>{{ mod }} Permissions</h4>
-          </div>
+      <!-- Tab 1: Permission Matrix -->
+      <ng-container *ngIf="activeRbacTab() === 'MATRIX'">
+        <!-- Role Selector Tabs -->
+        <div class="role-tabs-strip">
+          <button
+            *ngFor="let role of roles()"
+            class="role-tab"
+            [class.active]="role.id === selectedRoleId()"
+            (click)="selectRole(role.id)"
+          >
+            <span class="role-tab-name">{{ role.name }}</span>
+            <span class="role-tab-desc">{{ role.description || 'Enterprise Role' }}</span>
+          </button>
+        </div>
 
-          <div class="module-permissions-list">
-            <label *ngFor="let perm of getPermissionsForModule(mod)" class="perm-checkbox-row">
-              <input
-                type="checkbox"
-                [checked]="hasPermission(perm.id)"
-                (change)="togglePermission(perm.id)"
-                class="custom-check"
-              />
-              <div class="perm-text-wrap">
-                <span class="perm-code">{{ perm.authority }}</span>
-                <span class="perm-desc">{{ perm.description }}</span>
+        <!-- Permissions Grid Grouped by Module -->
+        <div class="permissions-modules-grid">
+          <div *ngFor="let mod of modules()" class="module-card">
+            <div class="module-header">
+              <div class="module-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                  <polyline points="2 17 12 22 22 17" />
+                  <polyline points="2 12 12 17 22 12" />
+                </svg>
               </div>
-            </label>
+              <h4>{{ mod }} Permissions</h4>
+            </div>
+
+            <div class="module-permissions-list">
+              <label *ngFor="let perm of getPermissionsForModule(mod)" class="perm-checkbox-row">
+                <input
+                  type="checkbox"
+                  [checked]="hasPermission(perm.id)"
+                  (change)="togglePermission(perm.id)"
+                  class="custom-check"
+                />
+                <div class="perm-text-wrap">
+                  <span class="perm-code">{{ perm.authority }}</span>
+                  <span class="perm-desc">{{ perm.description }}</span>
+                </div>
+              </label>
+            </div>
           </div>
         </div>
-      </div>
+      </ng-container>
+
+      <!-- Tab 2: Bank Member Role Assignment -->
+      <ng-container *ngIf="activeRbacTab() === 'MEMBERS'">
+        <div class="members-role-grid">
+          <div *ngFor="let user of rbacBankUsers()" class="member-role-card">
+            <div class="member-info-col">
+              <div class="member-avatar">{{ user.fullName.slice(0, 2).toUpperCase() }}</div>
+              <div class="member-names">
+                <span class="name">{{ user.fullName }}</span>
+                <span class="email">{{ user.email }}</span>
+              </div>
+            </div>
+
+            <div class="member-role-col">
+              <label class="assign-label">Assigned Role</label>
+              <select
+                class="role-assign-select"
+                (change)="onMemberRoleChange(user.id, $event)"
+              >
+                <option
+                  *ngFor="let role of roles()"
+                  [value]="role.id"
+                  [selected]="user.role?.id === role.id || user.role?.name === role.name"
+                >
+                  {{ role.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </ng-container>
     </div>
   </main>
 
@@ -977,6 +1060,104 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Project Modal -->
+  <div *ngIf="isCreateProjectModalOpen()" class="dialog-backdrop" (click)="closeCreateProject()">
+    <div class="dialog-card" (click)="$event.stopPropagation()">
+      <div class="dialog-header">
+        <h4>Create New Enterprise Project</h4>
+        <button class="dialog-close" (click)="closeCreateProject()">×</button>
+      </div>
+
+      <div class="dialog-body">
+        <label for="projectNameInput">Project Name *</label>
+        <input
+          id="projectNameInput"
+          type="text"
+          [(ngModel)]="newProjectName"
+          placeholder="e.g. Swift Financial Messaging Platform"
+          class="dialog-input"
+        />
+
+        <label for="projectDescInput">Project Description</label>
+        <textarea
+          id="projectDescInput"
+          [(ngModel)]="newProjectDescription"
+          placeholder="Brief description of the project deliverables and scope..."
+          rows="3"
+          class="dialog-textarea"
+        ></textarea>
+
+        <div class="dialog-helper-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="16" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12.01" y2="8" />
+          </svg>
+          <span>SyncFlow will automatically initialize canonical banking workflow stages: Backlog, In Development, Code Review & QA, and Done & Verified.</span>
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="btn-cancel" (click)="closeCreateProject()">Cancel</button>
+        <button
+          class="btn-primary"
+          (click)="submitCreateProject()"
+          [disabled]="isCreatingProject() || !newProjectName().trim()"
+        >
+          {{ isCreatingProject() ? 'Creating Project...' : 'Create Project' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Custom Role Modal -->
+  <div *ngIf="isCreateRoleModalOpen()" class="dialog-backdrop" (click)="closeCreateRole()">
+    <div class="dialog-card" (click)="$event.stopPropagation()">
+      <div class="dialog-header">
+        <h4>Create Custom Banking Role</h4>
+        <button class="dialog-close" (click)="closeCreateRole()">×</button>
+      </div>
+
+      <div class="dialog-body">
+        <label for="roleNameInput">Role Name * (Uppercase, e.g. TREASURY_OFFICER)</label>
+        <input
+          id="roleNameInput"
+          type="text"
+          [(ngModel)]="newRoleName"
+          placeholder="e.g. TREASURY_OFFICER"
+          class="dialog-input"
+        />
+
+        <label for="roleDescInput">Role Scope & Description</label>
+        <textarea
+          id="roleDescInput"
+          [(ngModel)]="newRoleDescription"
+          placeholder="Purpose and responsibilities of this role..."
+          rows="3"
+          class="dialog-textarea"
+        ></textarea>
+
+        <div class="dialog-helper-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          <span>The custom role will be created and inherit your currently selected permissions ({{ activePermissionIds().size }} active permissions). You can customize them anytime in the RBAC matrix.</span>
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="btn-cancel" (click)="closeCreateRole()">Cancel</button>
+        <button
+          class="btn-primary"
+          (click)="submitCreateRole()"
+          [disabled]="!newRoleName().trim()"
+        >
+          Create Enterprise Role
+        </button>
       </div>
     </div>
   </div>

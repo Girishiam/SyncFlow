@@ -383,6 +383,32 @@
           border-color: #006022;
         }
       }
+
+      .btn-new-project-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        background: #E7F3EC;
+        color: #006022;
+        border: 1px solid #B8D8C3;
+        border-radius: 6px;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.78rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        svg {
+          width: 14px;
+          height: 14px;
+        }
+
+        &:hover {
+          background: #006022;
+          color: #FFFFFF;
+          border-color: #006022;
+        }
+      }
     }
 
     .header-right {
@@ -1115,6 +1141,127 @@
       }
     }
 
+    .rbac-nav-tabs {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 1px solid #E5EBE7;
+      padding-bottom: 0.75rem;
+
+      .rbac-nav-pill {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.5rem 1rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        border-radius: 6px;
+        border: 1px solid #D7E1DA;
+        background: #FFFFFF;
+        color: #4B5563;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        svg {
+          width: 15px;
+          height: 15px;
+        }
+
+        &:hover {
+          background: #F3F7F4;
+          color: #006022;
+        }
+
+        &.active {
+          background: #006022;
+          color: #FFFFFF;
+          border-color: #006022;
+        }
+      }
+    }
+
+    .members-role-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+
+      .member-role-card {
+        background: #FFFFFF;
+        border: 1px solid #E5EBE7;
+        border-radius: 8px;
+        padding: 1.1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        box-shadow: 0 1px 3px rgba(0, 40, 15, 0.04);
+
+        .member-info-col {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+
+          .member-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #E7F3EC;
+            color: #006022;
+            font-size: 0.82rem;
+            font-weight: 800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+          }
+
+          .member-names {
+            display: flex;
+            flex-direction: column;
+
+            .name {
+              font-size: 0.88rem;
+              font-weight: 700;
+              color: #1F2923;
+            }
+
+            .email {
+              font-size: 0.72rem;
+              color: #7A8E81;
+            }
+          }
+        }
+
+        .member-role-col {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+
+          .assign-label {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #7A8E81;
+            text-transform: uppercase;
+          }
+
+          .role-assign-select {
+            padding: 0.4rem 0.65rem;
+            border-radius: 6px;
+            border: 1px solid #D5E2D9;
+            background: #F8FAF9;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: #006022;
+            cursor: pointer;
+
+            &:focus {
+              border-color: #006022;
+              outline: none;
+            }
+          }
+        }
+      }
+    }
+
     .role-tabs-strip {
       display: flex;
       gap: 0.75rem;
@@ -1609,6 +1756,31 @@
         width: 16px;
         height: 16px;
         cursor: pointer;
+      }
+    }
+
+    .dialog-helper-box {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+      background: #F0F9F4;
+      border: 1px solid #C4DEC9;
+      border-radius: 6px;
+      padding: 0.75rem;
+      margin-top: 0.5rem;
+
+      svg {
+        width: 18px;
+        height: 18px;
+        color: #006022;
+        flex-shrink: 0;
+        margin-top: 2px;
+      }
+
+      span {
+        font-size: 0.76rem;
+        color: #1E3A28;
+        line-height: 1.4;
       }
     }
   }

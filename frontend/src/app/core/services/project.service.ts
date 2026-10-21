@@ -16,6 +16,10 @@ export class ProjectService implements IProjectPort {
     return this.http.get<Project[]>(this.apiUrl);
   }
 
+  createProject(name: string, description?: string): Observable<Project> {
+    return this.http.post<Project>(this.apiUrl, { name, description });
+  }
+
   getProjectBoard(projectId: number): Observable<ProjectBoard> {
     return this.http.get<ProjectBoard>(`${this.apiUrl}/${projectId}/board`);
   }

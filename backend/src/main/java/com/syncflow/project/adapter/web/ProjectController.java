@@ -24,6 +24,11 @@ public class ProjectController {
         return ResponseEntity.ok(projectUseCase.getAllProjects());
     }
 
+    @PostMapping
+    public ResponseEntity<ProjectDTO> createProject(@Valid @RequestBody CreateProjectRequest request) {
+        return ResponseEntity.ok(projectUseCase.createProject(request));
+    }
+
     @GetMapping("/{id}/board")
     public ResponseEntity<ProjectBoardDTO> getProjectBoard(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getProjectBoard(id));
