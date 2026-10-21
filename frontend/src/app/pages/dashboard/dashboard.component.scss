@@ -2318,275 +2318,360 @@
       }
     }
   }
+}
 
-  /* 8. Daily Standup & EOD Work Log Drawer */
-  .worklog-drawer {
-    width: min(540px, 100vw);
-    max-width: 540px;
+/* 8. Daily Standup & EOD Work Log Drawer */
+.task-detail-drawer.worklog-drawer,
+.worklog-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(540px, 92vw);
+  max-width: 540px;
+  background: #FFFFFF;
+  box-shadow: -8px 0 32px rgba(0, 40, 15, 0.14);
+  z-index: 1060;
+  display: flex;
+  flex-direction: column;
+  animation: slideLeft 0.25s ease-out;
 
-    .worklog-icon-badge {
-      width: 38px;
-      height: 38px;
-      border-radius: 8px;
-      background: #E7F3EC;
-      color: #006022;
+  .drawer-header {
+    height: 68px;
+    padding: 0 1.5rem;
+    border-bottom: 1px solid #E5EBE7;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: #FFFFFF;
+
+    .drawer-header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+
+      .worklog-icon-badge {
+        width: 38px;
+        height: 38px;
+        border-radius: 8px;
+        background: #E7F3EC;
+        color: #006022;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+
+        svg {
+          width: 20px;
+          height: 20px;
+          stroke: #006022;
+        }
+      }
+
+      h3 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #1F2923;
+        line-height: 1.2;
+      }
+
+      .drawer-task-id {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #7A8E81;
+      }
+    }
+
+    .drawer-close-btn {
+      width: 32px;
+      height: 32px;
+      border: 1px solid #E5EBE7;
+      background: #FAFCFA;
+      border-radius: 6px;
+      color: #7A8E81;
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: all 0.2s ease;
 
       svg {
-        width: 20px;
-        height: 20px;
+        width: 16px;
+        height: 16px;
+      }
+
+      &:hover {
+        background: #FEE2E2;
+        color: #DC2626;
+        border-color: #FECACA;
+      }
+    }
+  }
+
+  .worklog-tabs {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: #FAFCFA;
+    border-bottom: 1px solid #E5EBE7;
+
+    .worklog-tab {
+      flex: 1;
+      padding: 0.5rem 0.85rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+      border-radius: 6px;
+      border: 1px solid #D7E1DA;
+      background: #FFFFFF;
+      color: #4B5563;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #F3F7F4;
+        color: #006022;
+      }
+
+      &.active {
+        background: #006022;
+        color: #FFFFFF;
+        border-color: #006022;
+      }
+    }
+  }
+
+  .worklog-pane {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+
+    .worklog-status-banner {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 0.85rem;
+      background: #E7F3EC;
+      border: 1px solid #C4DEC9;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #006022;
+
+      .status-indicator-green {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #006022;
       }
     }
 
-    .worklog-tabs {
+    .form-group {
       display: flex;
-      gap: 0.5rem;
-      padding: 0.75rem 1.5rem;
-      background: #FAFCFA;
-      border-bottom: 1px solid #E5EBE7;
+      flex-direction: column;
+      gap: 0.4rem;
 
-      .worklog-tab {
-        flex: 1;
-        padding: 0.5rem 0.85rem;
-        font-size: 0.82rem;
+      label {
+        font-size: 0.8rem;
         font-weight: 700;
-        border-radius: 6px;
-        border: 1px solid #D7E1DA;
-        background: #FFFFFF;
-        color: #4B5563;
-        cursor: pointer;
-        transition: all 0.2s ease;
+        color: #374151;
+      }
 
-        &:hover {
-          background: #F3F7F4;
+      .form-control {
+        padding: 0.55rem 0.75rem;
+        border: 1px solid #D1D5DB;
+        border-radius: 6px;
+        font-size: 0.85rem;
+        color: #1F2923;
+        background: #FFFFFF;
+        outline: none;
+        transition: border-color 0.2s;
+
+        &:focus {
+          border-color: #006022;
+          box-shadow: 0 0 0 3px rgba(0, 96, 34, 0.1);
+        }
+      }
+
+      .metric-counter-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+
+        .metric-input {
+          max-width: 100px;
+          font-weight: 700;
+          font-size: 0.95rem;
           color: #006022;
         }
 
-        &.active {
-          background: #006022;
-          color: #FFFFFF;
+        .metric-helper {
+          font-size: 0.75rem;
+          color: #6B7280;
+        }
+      }
+
+      .worklog-textarea {
+        font-family: inherit;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        resize: vertical;
+        padding: 0.75rem;
+        border: 1px solid #D1D5DB;
+        border-radius: 6px;
+        transition: border-color 0.2s;
+
+        &:focus {
+          outline: none;
           border-color: #006022;
+          box-shadow: 0 0 0 3px rgba(0, 96, 34, 0.1);
         }
       }
     }
 
-    .worklog-pane {
-      flex: 1;
-      overflow-y: auto;
-      padding: 1.5rem;
+    .alert-success-banner {
+      background: #D1FAE5;
+      color: #065F46;
+      border: 1px solid #A7F3D0;
+      padding: 0.65rem 1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .worklog-actions {
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 0.5rem;
+
+      .btn-primary-emerald {
+        background: #006022;
+        color: #FFFFFF;
+        border: none;
+        border-radius: 6px;
+        padding: 0.65rem 1.4rem;
+        font-size: 0.88rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: background 0.2s ease;
+
+        &:hover:not(:disabled) {
+          background: #004D1B;
+        }
+
+        &:disabled {
+          opacity: 0.55;
+          cursor: not-allowed;
+        }
+      }
+    }
+
+    .team-logs-list {
       display: flex;
       flex-direction: column;
-      gap: 1.25rem;
+      gap: 0.85rem;
 
-      .worklog-status-banner {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.6rem 0.85rem;
-        background: #E7F3EC;
-        border: 1px solid #C4DEC9;
-        border-radius: 6px;
-        font-size: 0.82rem;
-        font-weight: 600;
-        color: #006022;
-
-        .status-indicator-green {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #006022;
-        }
+      .no-logs {
+        padding: 2rem 1rem;
+        text-align: center;
+        color: #6B7280;
+        font-size: 0.88rem;
       }
 
-      .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.4rem;
+      .team-log-card {
+        background: #FFFFFF;
+        border: 1px solid #E5EBE7;
+        border-radius: 8px;
+        padding: 1rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 
-        label {
-          font-size: 0.8rem;
-          font-weight: 700;
-          color: #374151;
-        }
-
-        .metric-counter-row {
+        .team-log-header {
           display: flex;
+          justify-content: space-between;
           align-items: center;
-          gap: 0.75rem;
+          margin-bottom: 0.6rem;
 
-          .metric-input {
-            max-width: 100px;
-            font-weight: 700;
-            font-size: 0.95rem;
-            color: #006022;
-          }
-
-          .metric-helper {
-            font-size: 0.75rem;
-            color: #6B7280;
-          }
-        }
-
-        .worklog-textarea {
-          font-family: inherit;
-          font-size: 0.88rem;
-          line-height: 1.5;
-          resize: vertical;
-          padding: 0.75rem;
-          border: 1px solid #D1D5DB;
-          border-radius: 6px;
-          transition: border-color 0.2s;
-
-          &:focus {
-            outline: none;
-            border-color: #006022;
-            box-shadow: 0 0 0 3px rgba(0, 96, 34, 0.1);
-          }
-        }
-      }
-
-      .alert-success-banner {
-        background: #D1FAE5;
-        color: #065F46;
-        border: 1px solid #A7F3D0;
-        padding: 0.65rem 1rem;
-        border-radius: 6px;
-        font-size: 0.85rem;
-        font-weight: 600;
-      }
-
-      .worklog-actions {
-        display: flex;
-        justify-content: flex-end;
-        padding-top: 0.5rem;
-
-        .btn-primary-emerald {
-          background: #006022;
-          color: #FFFFFF;
-          border: none;
-          border-radius: 6px;
-          padding: 0.65rem 1.4rem;
-          font-size: 0.88rem;
-          font-weight: 700;
-          cursor: pointer;
-          transition: background 0.2s ease;
-
-          &:hover:not(:disabled) {
-            background: #004D1B;
-          }
-
-          &:disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
-          }
-        }
-      }
-
-      .team-logs-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.85rem;
-
-        .no-logs {
-          padding: 2rem 1rem;
-          text-align: center;
-          color: #6B7280;
-          font-size: 0.88rem;
-        }
-
-        .team-log-card {
-          background: #FFFFFF;
-          border: 1px solid #E5EBE7;
-          border-radius: 8px;
-          padding: 1rem;
-          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
-
-          .team-log-header {
+          .team-log-user {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 0.6rem;
+            gap: 0.6rem;
 
-            .team-log-user {
-              display: flex;
-              align-items: center;
-              gap: 0.6rem;
-
-              .user-avatar {
-                width: 32px;
-                height: 32px;
-                border-radius: 50%;
-                background: #E7F3EC;
-                color: #006022;
-                font-size: 0.75rem;
-                font-weight: 800;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-              }
-
-              .user-name {
-                font-weight: 700;
-                font-size: 0.88rem;
-                color: #1F2923;
-              }
-
-              .user-role-badge {
-                font-size: 0.65rem;
-                font-weight: 800;
-                background: #F3F4F6;
-                color: #4B5563;
-                padding: 0.1rem 0.4rem;
-                border-radius: 4px;
-                margin-left: 0.35rem;
-              }
-            }
-
-            .team-log-date-badge {
-              font-size: 0.72rem;
-              font-weight: 700;
-              color: #006022;
+            .user-avatar {
+              width: 32px;
+              height: 32px;
+              border-radius: 50%;
               background: #E7F3EC;
-              padding: 0.2rem 0.5rem;
-              border-radius: 9999px;
-            }
-          }
-
-          .team-log-body {
-            font-size: 0.85rem;
-            color: #374151;
-            line-height: 1.5;
-            margin: 0.5rem 0 0.75rem 0;
-            white-space: pre-wrap;
-          }
-
-          .team-log-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.72rem;
-            color: #9CA3AF;
-            border-top: 1px solid #F3F4F6;
-            padding-top: 0.5rem;
-
-            .completed-metric {
+              color: #006022;
+              font-size: 0.75rem;
+              font-weight: 800;
               display: flex;
               align-items: center;
-              gap: 0.35rem;
-              color: #006022;
+              justify-content: center;
+            }
+
+            .user-name {
               font-weight: 700;
-
-              svg {
-                width: 14px;
-                height: 14px;
-              }
+              font-size: 0.88rem;
+              color: #1F2923;
             }
 
-            .timestamp {
-              color: #9CA3AF;
+            .user-role-badge {
+              font-size: 0.65rem;
+              font-weight: 800;
+              background: #F3F4F6;
+              color: #4B5563;
+              padding: 0.1rem 0.4rem;
+              border-radius: 4px;
+              margin-left: 0.35rem;
             }
+          }
+
+          .team-log-date-badge {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #006022;
+            background: #E7F3EC;
+            padding: 0.2rem 0.5rem;
+            border-radius: 9999px;
+          }
+        }
+
+        .team-log-body {
+          font-size: 0.85rem;
+          color: #374151;
+          line-height: 1.5;
+          margin: 0.5rem 0 0.75rem 0;
+          white-space: pre-wrap;
+        }
+
+        .team-log-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.72rem;
+          color: #9CA3AF;
+          border-top: 1px solid #F3F4F6;
+          padding-top: 0.5rem;
+
+          .completed-metric {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: #006022;
+            font-weight: 700;
+
+            svg {
+              width: 14px;
+              height: 14px;
+            }
+          }
+
+          .timestamp {
+            color: #9CA3AF;
           }
         }
       }

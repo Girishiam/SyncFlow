@@ -927,8 +927,8 @@
   </div>
 
   <!-- Daily Standup & EOD Work Log Drawer -->
-  <div *ngIf="isWorkLogDrawerOpen()" class="drawer-backdrop" (click)="closeWorkLogDrawer()">
-    <div class="task-detail-drawer worklog-drawer" (click)="$event.stopPropagation()">
+  <div *ngIf="isWorkLogDrawerOpen()" class="drawer-overlay" (click)="closeWorkLogDrawer()"></div>
+  <div *ngIf="isWorkLogDrawerOpen()" class="task-detail-drawer worklog-drawer">
       <div class="drawer-header">
         <div class="drawer-header-left">
           <div class="worklog-icon-badge">
@@ -1062,7 +1062,6 @@
         </div>
       </div>
     </div>
-  </div>
 
   <!-- Create Project Modal -->
   <div *ngIf="isCreateProjectModalOpen()" class="dialog-backdrop" (click)="closeCreateProject()">
