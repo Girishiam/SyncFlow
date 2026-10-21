@@ -19,5 +19,6 @@ public interface NotificationUseCase {
     NotificationDTO notifyTaskAssigned(Task task, User assignee, User actor);
     void notifyBlockerAlert(Task task, String blockerReason, User actor);
     NotificationDTO notifyChannelMention(Channel channel, Message message, User sender, User recipient);
+    void notifyTaskCompleted(Task task, User actor);
     int scanAndGenerateDeadlineNotifications();
 }

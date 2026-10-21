@@ -2407,10 +2407,16 @@
     box-shadow: 0 0 0 1px #F43F5E;
   }
 
+  &.completed-card {
+    border-left: 4px solid #16A34A;
+    background: linear-gradient(180deg, #F8FCF9 0%, #FFFFFF 100%);
+  }
+
   .card-meta {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.35rem;
     margin-bottom: 0.45rem;
 
     .card-project {
@@ -2419,6 +2425,25 @@
       color: #7A8E81;
       text-transform: uppercase;
       letter-spacing: 0.04em;
+    }
+
+    .done-tag-mini {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: #15803D;
+      background: #DCFCE7;
+      padding: 0.12rem 0.45rem;
+      border-radius: 4px;
+      margin-left: auto;
+      letter-spacing: 0.02em;
+
+      svg {
+        width: 10px;
+        height: 10px;
+      }
     }
 
     .deadline-pill {
@@ -3036,6 +3061,23 @@
         padding: 0.2rem 0.5rem;
         border-radius: 4px;
       }
+
+      .completed-tag {
+        font-size: 0.7rem;
+        font-weight: 800;
+        background: #DCFCE7;
+        color: #15803D;
+        padding: 0.2rem 0.55rem;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+
+        svg {
+          width: 12px;
+          height: 12px;
+        }
+      }
     }
 
     .drawer-close {
@@ -3184,6 +3226,83 @@
             font-size: 0.82rem;
             font-weight: 700;
             color: #006022;
+          }
+        }
+
+        &.completion-action-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding-top: 0.65rem;
+          border-top: 1px dashed #D5E2D9;
+          margin-top: 0.35rem;
+
+          .btn-mark-completed {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.5rem 0.95rem;
+            background: #006022;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 6px rgba(0, 96, 34, 0.2);
+
+            svg {
+              width: 14px;
+              height: 14px;
+            }
+
+            &:hover {
+              background: #004D1A;
+              transform: translateY(-1px);
+              box-shadow: 0 4px 10px rgba(0, 96, 34, 0.3);
+            }
+          }
+
+          .btn-reopen-task {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.45rem 0.85rem;
+            background: #F1F5F9;
+            color: #475569;
+            border: 1px solid #CBD5E1;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+
+            svg {
+              width: 13px;
+              height: 13px;
+            }
+
+            &:hover {
+              background: #E2E8F0;
+              color: #1E293B;
+            }
+          }
+
+          .completion-verified-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: #166534;
+
+            svg {
+              width: 14px;
+              height: 14px;
+              color: #16A34A;
+            }
           }
         }
       }
@@ -4936,6 +5055,64 @@
       }
     }
   }
+}
+
+/* Task Completion Celebration Toast */
+.celebration-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1.25rem;
+  background: #FFFFFF;
+  border-left: 5px solid #006022;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 96, 34, 0.2), 0 2px 8px rgba(0, 0, 0, 0.08);
+  animation: slideUpToast 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .celebration-icon {
+    font-size: 1.4rem;
+    line-height: 1;
+  }
+
+  .celebration-text {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #1F2923;
+  }
+
+  .celebration-close {
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+    color: #94A3B8;
+    cursor: pointer;
+    line-height: 1;
+    margin-left: 0.5rem;
+
+    &:hover {
+      color: #1E293B;
+    }
+  }
+}
+
+@keyframes slideUpToast {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notif-type-pill.task_completed {
+  background: #DCFCE7 !important;
+  color: #15803D !important;
 }
 
 

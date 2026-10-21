@@ -4,6 +4,7 @@ export type NotificationType =
   | 'TASK_OVERDUE'
   | 'CHANNEL_MENTION'
   | 'BLOCKER_ALERT'
+  | 'TASK_COMPLETED'
   | 'ROLE_UPDATE'
   | 'SYSTEM';
 

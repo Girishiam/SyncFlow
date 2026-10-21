@@ -47,10 +47,12 @@ export class BoardFacade implements OnDestroy {
 
   // Task Detail Drawer State
   public activeDetailTask = signal<TaskCard | null>(null);
+  public detailAssigneeId = signal<string>('');
   public detailDeadline = signal<string>('');
   public taskComments = signal<TaskComment[]>([]);
   public commentInput = signal('');
   public isLoadingComments = signal(false);
+  public completionCelebrationMsg = signal<string | null>(null);
 
   // Project Creator Modal State
   public isCreateProjectModalOpen = signal(false);
@@ -336,6 +338,17 @@ export class BoardFacade implements OnDestroy {
 
   // Task Detail Drawer
   public openTaskDetail(task: TaskCard): void {
+    // Resolve assignee ID if missing but assignee name is present
+    let initialAssigneeId = task.assigneeId || '';
+    if (!initialAssigneeId && task.assignee && task.assignee !== 'Unassigned') {
+      const match = this.bankUsers().find(u => u.fullName.toLowerCase() === task.assignee!.toLowerCase());
+      if (match) {
+        initialAssigneeId = match.id;
+        task.assigneeId = match.id;
+      }
+    }
+    this.detailAssigneeId.set(initialAssigneeId);
+
     this.activeDetailTask.set(task);
     this.commentInput.set('');
     this.detailDeadline.set(task.deadline ? task.deadline.substring(0, 10) : '');
@@ -344,6 +357,7 @@ export class BoardFacade implements OnDestroy {
 
   public closeTaskDetail(): void {
     this.activeDetailTask.set(null);
+    this.detailAssigneeId.set('');
     this.taskComments.set([]);
     this.commentInput.set('');
     this.detailDeadline.set('');
@@ -355,6 +369,7 @@ export class BoardFacade implements OnDestroy {
         task.assignee = updated.assignee;
         task.assigneeId = updated.assigneeId;
         task.avatar = updated.avatar;
+        this.detailAssigneeId.set(updated.assigneeId || '');
         if (this.activeDetailTask() && this.activeDetailTask()!.id === task.id) {
           this.activeDetailTask.update(t => t ? {
             ...t,
@@ -365,6 +380,100 @@ export class BoardFacade implements OnDestroy {
         }
       },
       error: (err) => console.error('BoardFacade: Failed to assign task', err)
+    });
+  }
+
+  public markTaskCompleted(task: TaskCard): void {
+    const doneCol = this.columns().find(c => c.isDoneStage) || this.columns()[this.columns().length - 1];
+    task.progress = 100;
+    task.isBlocked = false;
+    task.blockerReason = undefined;
+
+    if (doneCol) {
+      task.stageId = doneCol.numericId;
+      task.stageName = doneCol.title;
+    }
+
+    if (this.activeDetailTask() && this.activeDetailTask()!.id === task.id) {
+      this.activeDetailTask.update(t => t ? {
+        ...t,
+        progress: 100,
+        isBlocked: false,
+        blockerReason: undefined,
+        stageId: doneCol ? doneCol.numericId : t.stageId,
+        stageName: doneCol ? doneCol.title : t.stageName
+      } : null);
+    }
+
+    this.taskService.updateProgress(task.id, 100).subscribe({
+      next: () => {
+        if (doneCol) {
+          this.taskService.moveTask(task.id, doneCol.numericId).subscribe({
+            next: () => {
+              this.loadBoard(this.selectedProjectId());
+              this.showCelebrationBanner(`🎉 Task Completed: "${task.title}" is finished & verified!`);
+              this.submitAuditComment(task.id, '✅ Task marked as COMPLETED and verified.');
+            }
+          });
+        } else {
+          this.recalculateMetrics();
+          this.showCelebrationBanner(`🎉 Task Completed: "${task.title}" is finished & verified!`);
+          this.submitAuditComment(task.id, '✅ Task marked as COMPLETED and verified.');
+        }
+      },
+      error: (err) => console.error('BoardFacade: Failed to mark task completed', err)
+    });
+  }
+
+  public reopenTask(task: TaskCard): void {
+    const devCol = this.columns().find(c => !c.isDoneStage && c.numericId !== 1) || this.columns()[0];
+    task.progress = 50;
+
+    if (devCol) {
+      task.stageId = devCol.numericId;
+      task.stageName = devCol.title;
+    }
+
+    if (this.activeDetailTask() && this.activeDetailTask()!.id === task.id) {
+      this.activeDetailTask.update(t => t ? {
+        ...t,
+        progress: 50,
+        stageId: devCol ? devCol.numericId : t.stageId,
+        stageName: devCol ? devCol.title : t.stageName
+      } : null);
+    }
+
+    this.taskService.updateProgress(task.id, 50).subscribe({
+      next: () => {
+        if (devCol) {
+          this.taskService.moveTask(task.id, devCol.numericId).subscribe({
+            next: () => {
+              this.loadBoard(this.selectedProjectId());
+              this.submitAuditComment(task.id, '🔄 Task reopened for further review and development.');
+            }
+          });
+        } else {
+          this.recalculateMetrics();
+          this.submitAuditComment(task.id, '🔄 Task reopened for further review and development.');
+        }
+      },
+      error: (err) => console.error('BoardFacade: Failed to reopen task', err)
+    });
+  }
+
+  private showCelebrationBanner(msg: string): void {
+    this.completionCelebrationMsg.set(msg);
+    setTimeout(() => this.completionCelebrationMsg.set(null), 6000);
+  }
+
+  private submitAuditComment(taskId: number, content: string): void {
+    this.taskService.addComment(taskId, content).subscribe({
+      next: (comment) => {
+        if (this.activeDetailTask() && this.activeDetailTask()!.id === taskId) {
+          this.taskComments.update(c => [...c, comment]);
+        }
+      },
+      error: (err) => console.error('BoardFacade: Failed to post audit comment', err)
     });
   }
 

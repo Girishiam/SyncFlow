@@ -353,6 +353,7 @@
               *ngFor="let task of col.tasks"
               class="board-card"
               [class.blocked-card]="task.isBlocked"
+              [class.completed-card]="task.progress === 100 || col.isDoneStage"
               cdkDrag
             >
               <div class="card-meta">
@@ -365,6 +366,12 @@
                     <line x1="3" y1="10" x2="21" y2="10"/>
                   </svg>
                   <span>{{ task.deadline | date:'MMM d' }}</span>
+                </span>
+                <span *ngIf="task.progress === 100 || col.isDoneStage" class="done-tag-mini" title="Verified Complete">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  DONE
                 </span>
                 <span
                   class="priority-chip"
@@ -1259,6 +1266,12 @@
           {{ activeDetailTask()!.priority }}
         </span>
         <span *ngIf="activeDetailTask()!.isBlocked" class="blocker-tag">BLOCKED</span>
+        <span *ngIf="isTaskCompleted(activeDetailTask()!)" class="completed-tag">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          COMPLETED
+        </span>
       </div>
       <button class="drawer-close" (click)="closeTaskDetail()">×</button>
     </div>
@@ -1280,11 +1293,15 @@
             <div class="avatar-circle">{{ activeDetailTask()!.avatar || 'UN' }}</div>
             <select
               class="meta-select"
-              [value]="activeDetailTask()!.assigneeId || ''"
-              (change)="onAssigneeChange(activeDetailTask()!, $event)"
+              [ngModel]="detailAssigneeId()"
+              (ngModelChange)="onAssigneeSelectChange($event)"
             >
               <option value="">Unassigned</option>
-              <option *ngFor="let u of bankUsers()" [value]="u.id">
+              <option
+                *ngFor="let u of bankUsers()"
+                [value]="u.id"
+                [selected]="u.id === detailAssigneeId() || u.fullName === activeDetailTask()!.assignee"
+              >
                 {{ u.fullName }}
               </option>
             </select>
@@ -1314,6 +1331,42 @@
             />
             <span class="prog-val">{{ activeDetailTask()!.progress }}%</span>
           </div>
+        </div>
+
+        <!-- Task Completion Quick Action Row -->
+        <div class="meta-item full-width completion-action-row">
+          <button
+            *ngIf="!isTaskCompleted(activeDetailTask()!)"
+            class="btn-mark-completed"
+            (click)="markTaskCompleted(activeDetailTask()!)"
+            title="Mark this task as finished and move to Done & Verified"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+            <span>Mark as Completed</span>
+          </button>
+
+          <button
+            *ngIf="isTaskCompleted(activeDetailTask()!)"
+            class="btn-reopen-task"
+            (click)="reopenTask(activeDetailTask()!)"
+            title="Reopen task and move back to In Development"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            </svg>
+            <span>Reopen Task</span>
+          </button>
+
+          <span *ngIf="isTaskCompleted(activeDetailTask()!)" class="completion-verified-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Deliverable Verified & Logged
+          </span>
         </div>
       </div>
 
@@ -2137,6 +2190,7 @@
             <span *ngIf="item.type === 'TASK_OVERDUE'">🚨 OVERDUE</span>
             <span *ngIf="item.type === 'CHANNEL_MENTION'">💬 MENTION</span>
             <span *ngIf="item.type === 'BLOCKER_ALERT'">⚠️ BLOCKER</span>
+            <span *ngIf="item.type === 'TASK_COMPLETED'">🎉 COMPLETED</span>
             <span *ngIf="item.type === 'ROLE_UPDATE'">🛡️ ROLE GOVERNANCE</span>
           </div>
           <div class="notif-meta">
@@ -2169,5 +2223,12 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Real-time Task Completion Celebration Toast -->
+  <div *ngIf="completionCelebrationMsg()" class="celebration-toast">
+    <div class="celebration-icon">🎉</div>
+    <div class="celebration-text">{{ completionCelebrationMsg() }}</div>
+    <button class="celebration-close" (click)="completionCelebrationMsg.set(null)">×</button>
   </div>
 </div>

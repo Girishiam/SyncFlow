@@ -83,10 +83,12 @@ export class DashboardComponent implements OnInit {
 
   // Task Detail Drawer Delegates
   activeDetailTask = this.boardFacade.activeDetailTask;
+  detailAssigneeId = this.boardFacade.detailAssigneeId;
   detailDeadline = this.boardFacade.detailDeadline;
   taskComments = this.boardFacade.taskComments;
   commentInput = this.boardFacade.commentInput;
   isLoadingComments = this.boardFacade.isLoadingComments;
+  completionCelebrationMsg = this.boardFacade.completionCelebrationMsg;
 
   // Project Creator Modal Delegates
   isCreateProjectModalOpen = this.boardFacade.isCreateProjectModalOpen;
@@ -267,10 +269,33 @@ export class DashboardComponent implements OnInit {
     this.boardFacade.submitComment();
   }
 
+  onAssigneeSelectChange(newAssigneeId: string): void {
+    const task = this.activeDetailTask();
+    if (!task) return;
+    const val = newAssigneeId ? newAssigneeId : null;
+    this.boardFacade.assignTaskTo(task, val);
+  }
+
   onAssigneeChange(task: TaskCard, event: Event): void {
     const select = event.target as HTMLSelectElement;
     const val = select.value ? select.value : null;
     this.boardFacade.assignTaskTo(task, val);
+  }
+
+  isTaskCompleted(task: TaskCard | null): boolean {
+    if (!task) return false;
+    if (task.progress === 100) return true;
+    if (task.stageName && task.stageName.toLowerCase().includes('done')) return true;
+    const doneCol = this.columns().find(c => c.isDoneStage);
+    return doneCol ? task.stageId === doneCol.numericId : false;
+  }
+
+  markTaskCompleted(task: TaskCard): void {
+    this.boardFacade.markTaskCompleted(task);
+  }
+
+  reopenTask(task: TaskCard): void {
+    this.boardFacade.reopenTask(task);
   }
 
   onDeadlineChange(task: TaskCard, event: Event): void {

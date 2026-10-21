@@ -200,6 +200,39 @@ public class NotificationApplicationService implements NotificationUseCase {
 
     @Override
     @Transactional
+    public void notifyTaskCompleted(Task task, User actor) {
+        String actorName = actor != null ? actor.getFullName() :
+                (task.getAssignee() != null ? task.getAssignee().getFullName() : "Team Member");
+        String title = "Task Completed: " + task.getTitle();
+        String message = String.format("%s completed and verified '%s' in %s.",
+                actorName, task.getTitle(), task.getProject() != null ? task.getProject().getName() : "the project");
+
+        List<String> targetRoles = List.of("TEAM_LEAD", "REPORTING_MANAGER", "ADMIN");
+        for (String roleName : targetRoles) {
+            Role role = roleRepository.findByName(roleName).orElse(null);
+            if (role != null) {
+                Notification notification = Notification.builder()
+                        .targetRole(role)
+                        .title(title)
+                        .message(message)
+                        .type("TASK_COMPLETED")
+                        .priority("INFO")
+                        .isRead(false)
+                        .actionType("NAVIGATE_TASK")
+                        .referenceId(task.getId())
+                        .senderName(actorName)
+                        .senderAvatar(getInitials(actorName))
+                        .createdAt(Instant.now())
+                        .build();
+
+                Notification saved = notificationRepositoryPort.save(notification);
+                notificationWebSocketPort.pushToRole(roleName, toDTO(saved));
+            }
+        }
+    }
+
+    @Override
+    @Transactional
     public int scanAndGenerateDeadlineNotifications() {
         Instant now = Instant.now();
         Instant in24Hours = now.plus(Duration.ofHours(24));

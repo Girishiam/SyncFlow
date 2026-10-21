@@ -160,6 +160,14 @@ public class TaskApplicationService implements TaskUseCase {
         Task saved = taskRepositoryPort.save(task);
         log.info("Task {} migrated to stage {}", saved.getId(), targetStage.getName());
 
+        if (Boolean.TRUE.equals(targetStage.getIsDoneStage())) {
+            try {
+                notificationUseCase.notifyTaskCompleted(saved, saved.getAssignee());
+            } catch (Exception e) {
+                log.warn("Failed to dispatch task completion notification: {}", e.getMessage());
+            }
+        }
+
         TaskDTO dto = toDTO(saved);
         taskNotificationPort.broadcastBoardUpdate(dto);
         return dto;
@@ -171,8 +179,22 @@ public class TaskApplicationService implements TaskUseCase {
         Task task = taskRepositoryPort.findById(id)
                 .orElseThrow(() -> new DomainException("Task not found: " + id));
 
+        boolean wasDone = (task.getProgressPercentage() != null && task.getProgressPercentage() == 100);
         task.setProgressPercentage(Math.max(0, Math.min(100, progress)));
+        if (task.getProgressPercentage() == 100) {
+            task.setIsBlocked(false);
+            task.setBlockerReason(null);
+        }
+
         Task saved = taskRepositoryPort.save(task);
+
+        if (!wasDone && saved.getProgressPercentage() == 100) {
+            try {
+                notificationUseCase.notifyTaskCompleted(saved, saved.getAssignee());
+            } catch (Exception e) {
+                log.warn("Failed to dispatch task completion notification: {}", e.getMessage());
+            }
+        }
 
         TaskDTO dto = toDTO(saved);
         taskNotificationPort.broadcastBoardUpdate(dto);
