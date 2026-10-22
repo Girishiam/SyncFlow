@@ -375,6 +375,14 @@
           <span class="metric-label">On-Time SLA</span>
           <div class="metric-num">96.4%</div>
         </div>
+        <div class="metric-card time-metric-card" (click)="openProjectTimeModal()" title="Click to view collective project time breakdown">
+          <div class="metric-header-row">
+            <span class="metric-label">Project Time</span>
+            <span class="metric-badge">Collective</span>
+          </div>
+          <div class="metric-num">{{ projectTimeSummary()?.totalHoursSpent || 0 }} hrs</div>
+          <span class="metric-sub">{{ projectTimeSummary()?.developerBreakdown?.length || 0 }} contributors</span>
+        </div>
       </div>
 
       <!-- Board Filters Bar -->
@@ -490,6 +498,30 @@
                   {{ task.priority }}
                 </span>
                 <span class="points-badge" title="Story Points">{{ task.storyPoints || 3 }} pts</span>
+
+                <!-- Time Logged Badge & Quick Stopwatch on Card -->
+                <span class="time-tracker-chip" [class.running]="isTimerActive() && timerTaskId() === task.id" title="Logged hours / estimated">
+                  <span class="time-chip-icon">⏱️</span>
+                  <span>{{ task.totalHoursSpent || 0 }}h</span>
+                  <span *ngIf="task.estimatedHours" class="est-hint">/{{ task.estimatedHours }}h</span>
+                  <button
+                    *ngIf="isTimerActive() && timerTaskId() === task.id; else startTimerBtn"
+                    class="quick-timer-btn active"
+                    (click)="stopTimerAndLog(task.id, $event)"
+                    title="Stop timer and log elapsed time"
+                  >
+                    ⏹ {{ formatTimerDisplay(timerElapsedSeconds()) }}
+                  </button>
+                  <ng-template #startTimerBtn>
+                    <button
+                      class="quick-timer-btn"
+                      (click)="startTimer(task.id, $event)"
+                      title="Start live stopwatch timer"
+                    >
+                      ▶
+                    </button>
+                  </ng-template>
+                </span>
               </div>
 
               <div class="card-title" (click)="openTaskDetail(task)" title="Click to view details & discussion">
@@ -2904,6 +2936,138 @@
 
       <hr class="drawer-divider" />
 
+      <!-- Task Work Logs & Time Tracking Section -->
+      <div class="task-time-section">
+        <div class="section-header-row">
+          <div class="header-title-flex">
+            <span class="section-icon">⏱️</span>
+            <h4>Work Logs & Time Tracking</h4>
+          </div>
+          <span class="hours-badge">
+            {{ activeDetailTask()!.totalHoursSpent || 0 }}h logged / {{ activeDetailTask()!.estimatedHours || 8 }}h est
+          </span>
+        </div>
+
+        <!-- Progress Bar for Hours -->
+        <div class="time-progress-bar-wrap">
+          <div class="time-progress-track">
+            <div
+              class="time-progress-fill"
+              [style.width.%]="Math.min(100, (((activeDetailTask()!.totalHoursSpent || 0) / (activeDetailTask()!.estimatedHours || 8)) * 100))"
+            ></div>
+          </div>
+          <span class="time-progress-lbl">
+            {{ Math.round((((activeDetailTask()!.totalHoursSpent || 0) / (activeDetailTask()!.estimatedHours || 8)) * 100)) }}% of estimate
+          </span>
+        </div>
+
+        <!-- Live Stopwatch Widget -->
+        <div class="live-stopwatch-card" [class.recording]="isTimerActive() && timerTaskId() === activeDetailTask()!.id">
+          <div class="stopwatch-display">
+            <span class="stopwatch-led"></span>
+            <span class="stopwatch-digits">
+              {{ (isTimerActive() && timerTaskId() === activeDetailTask()!.id) ? formatTimerDisplay(timerElapsedSeconds()) : '00:00:00' }}
+            </span>
+            <span class="stopwatch-status">
+              {{ (isTimerActive() && timerTaskId() === activeDetailTask()!.id) ? 'Recording Time...' : 'Stopwatch Ready' }}
+            </span>
+          </div>
+
+          <div class="stopwatch-actions">
+            <button
+              *ngIf="!(isTimerActive() && timerTaskId() === activeDetailTask()!.id); else stopBtn"
+              class="btn-timer-start"
+              (click)="startTimer(activeDetailTask()!.id)"
+            >
+              ▶ Start Timer
+            </button>
+            <ng-template #stopBtn>
+              <button class="btn-timer-stop" (click)="stopTimerAndLog(activeDetailTask()!.id)">
+                ⏹ Stop & Log Work
+              </button>
+              <button class="btn-timer-pause" (click)="pauseTimer()">
+                ⏸ Pause
+              </button>
+            </ng-template>
+          </div>
+        </div>
+
+        <!-- Manual Work Log Input -->
+        <div class="manual-log-card">
+          <h5>Log Work Manually</h5>
+          <div class="log-input-row">
+            <div class="input-field-sm">
+              <label>Hours Spent</label>
+              <input
+                type="number"
+                step="0.25"
+                min="0.1"
+                placeholder="e.g. 2.5"
+                [(ngModel)]="logHoursInput"
+                class="log-num-input"
+              />
+            </div>
+            <div class="input-field-sm">
+              <label>Estimated Total (hrs)</label>
+              <input
+                type="number"
+                step="1"
+                min="1"
+                placeholder="e.g. 8"
+                [(ngModel)]="logEstimatedHoursInput"
+                class="log-num-input"
+              />
+            </div>
+            <div class="input-field-desc">
+              <label>Work Summary / Note</label>
+              <input
+                type="text"
+                placeholder="What did you work on? (optional)"
+                [(ngModel)]="logNoteInput"
+                class="log-text-input"
+                (keydown.enter)="logTaskTime(activeDetailTask()!.id)"
+              />
+            </div>
+            <button
+              class="btn-log-submit"
+              (click)="logTaskTime(activeDetailTask()!.id)"
+              [disabled]="isLoggingTime() || !logHoursInput()"
+            >
+              {{ isLoggingTime() ? 'Saving...' : '+ Log Hours' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Past Work Logs List -->
+        <div class="past-logs-wrap" *ngIf="activeTaskTimeLogs().length > 0">
+          <h5 class="past-logs-title">Logged Sessions ({{ activeTaskTimeLogs().length }})</h5>
+          <div class="past-logs-list">
+            <div *ngFor="let log of activeTaskTimeLogs()" class="time-log-item">
+              <div class="log-user-meta">
+                <div class="user-avatar-tiny">{{ log.userName.substring(0, 2).toUpperCase() }}</div>
+                <div class="user-info-tiny">
+                  <span class="user-name-txt">{{ log.userName }}</span>
+                  <span class="user-role-txt">{{ log.userRole || 'Contributor' }} • {{ log.loggedDate | date:'MMM d' }}</span>
+                </div>
+              </div>
+              <div class="log-desc-txt">{{ log.description || 'General engineering & implementation' }}</div>
+              <div class="log-right-meta">
+                <span class="hours-spent-tag">+{{ log.hoursSpent }}h</span>
+                <button
+                  class="btn-del-log"
+                  (click)="deleteTaskTimeLog(log.id, activeDetailTask()!.id)"
+                  title="Remove log entry"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="drawer-divider" />
+
       <!-- Activity & Comments Section -->
       <div class="comments-section">
         <div class="comments-header">
@@ -4114,4 +4278,141 @@
       </div>
     </div>
   </div>
+
+  <!-- Collective Project Time Report Modal -->
+  <div *ngIf="isProjectTimeModalOpen()" class="modal-backdrop" (click)="closeProjectTimeModal()">
+    <div class="time-report-modal" (click)="$event.stopPropagation()">
+      <div class="dialog-header">
+        <div class="dialog-title-group">
+          <span class="dialog-icon-pill">⏱️</span>
+          <div>
+            <h3>Project Collective Time Matrix</h3>
+            <p class="dialog-subtitle">{{ projectTimeSummary()?.projectName }} • Aggregate Work Logs</p>
+          </div>
+        </div>
+        <button class="dialog-close-btn" (click)="closeProjectTimeModal()">×</button>
+      </div>
+
+      <div class="dialog-body">
+        <!-- Top Metrics Ribbon -->
+        <div class="time-kpi-grid">
+          <div class="time-kpi-card highlight">
+            <span class="kpi-label">Collective Spent</span>
+            <span class="kpi-value">{{ projectTimeSummary()?.totalHoursSpent || 0 }} hrs</span>
+            <span class="kpi-sub">{{ projectTimeSummary()?.totalLogsCount || 0 }} logged sessions</span>
+          </div>
+          <div class="time-kpi-card">
+            <span class="kpi-label">Estimated Effort</span>
+            <span class="kpi-value">{{ projectTimeSummary()?.totalEstimatedHours || 0 }} hrs</span>
+            <span class="kpi-sub">{{ projectTimeSummary()?.tasksWithLogsCount || 0 }} active tasks tracked</span>
+          </div>
+          <div class="time-kpi-card">
+            <span class="kpi-label">Remaining Effort</span>
+            <span class="kpi-value">{{ projectTimeSummary()?.hoursRemaining || 0 }} hrs</span>
+            <span class="kpi-sub">Calculated projection</span>
+          </div>
+          <div class="time-kpi-card">
+            <span class="kpi-label">Project Progress</span>
+            <span class="kpi-value">{{ projectTimeSummary()?.progressPercentage || 0 }}%</span>
+            <div class="kpi-mini-bar">
+              <div class="kpi-mini-fill" [style.width.%]="projectTimeSummary()?.progressPercentage || 0"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 1: Developer-Wise Breakdown -->
+        <div class="report-section">
+          <div class="report-section-header">
+            <h4>Developer Effort Distribution</h4>
+            <span class="section-tag">{{ projectTimeSummary()?.developerBreakdown?.length || 0 }} Squad Members</span>
+          </div>
+
+          <div class="dev-breakdown-list">
+            <div *ngFor="let dev of projectTimeSummary()?.developerBreakdown" class="dev-breakdown-card">
+              <div class="dev-main-info">
+                <div class="dev-avatar-md">{{ dev.fullName.substring(0, 2).toUpperCase() }}</div>
+                <div class="dev-meta-text">
+                  <span class="dev-name">{{ dev.fullName }}</span>
+                  <span class="dev-role-badge">{{ dev.role }} • {{ dev.logsCount }} entries</span>
+                </div>
+              </div>
+
+              <div class="dev-progress-col">
+                <div class="dev-progress-nums">
+                  <span class="dev-hrs-txt"><strong>{{ dev.totalHours }}</strong> hrs</span>
+                  <span class="dev-pct-txt">{{ dev.percentageOfTotal }}% of project</span>
+                </div>
+                <div class="dev-progress-track">
+                  <div class="dev-progress-fill" [style.width.%]="dev.percentageOfTotal"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Kanban Stage Breakdown -->
+        <div class="report-section" *ngIf="projectTimeSummary()?.stageBreakdown?.length">
+          <div class="report-section-header">
+            <h4>Hours by Pipeline Stage</h4>
+            <span class="section-tag">Kanban Distribution</span>
+          </div>
+
+          <div class="stage-time-grid">
+            <div *ngFor="let stage of projectTimeSummary()?.stageBreakdown" class="stage-time-card">
+              <div class="stage-card-top">
+                <span class="stage-card-name">{{ stage.stageName }}</span>
+                <span class="stage-card-tasks">{{ stage.tasksCount }} tasks</span>
+              </div>
+              <div class="stage-card-hrs">{{ stage.totalHours }} hrs</div>
+              <div class="stage-progress-track">
+                <div class="stage-progress-fill" [style.width.%]="stage.percentageOfTotal"></div>
+              </div>
+              <span class="stage-pct-hint">{{ stage.percentageOfTotal }}% of effort</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Recent Activity Log Feed -->
+        <div class="report-section" *ngIf="projectTimeSummary()?.recentLogs?.length">
+          <div class="report-section-header">
+            <h4>Recent Project Work Logs</h4>
+            <span class="section-tag">Chronological Feed</span>
+          </div>
+
+          <div class="recent-logs-table-wrap">
+            <table class="recent-logs-table">
+              <thead>
+                <tr>
+                  <th>Contributor</th>
+                  <th>Task Title</th>
+                  <th>Date</th>
+                  <th>Hours</th>
+                  <th>Work Note</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let log of projectTimeSummary()?.recentLogs">
+                  <td>
+                    <div class="contributor-cell">
+                      <span class="mini-circle">{{ log.userName.substring(0, 2).toUpperCase() }}</span>
+                      <span>{{ log.userName }}</span>
+                    </div>
+                  </td>
+                  <td class="task-cell-txt">{{ log.taskTitle || 'Task #' + log.taskId }}</td>
+                  <td class="date-cell-txt">{{ log.loggedDate | date:'MMM d, y' }}</td>
+                  <td class="hrs-cell-txt">+{{ log.hoursSpent }}h</td>
+                  <td class="note-cell-txt">{{ log.description || 'Routine implementation' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="btn-primary" (click)="closeProjectTimeModal()">Close Report</button>
+      </div>
+    </div>
+  </div>
 </div>
+

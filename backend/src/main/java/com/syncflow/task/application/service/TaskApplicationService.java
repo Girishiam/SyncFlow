@@ -49,6 +49,7 @@ public class TaskApplicationService implements TaskUseCase {
     private final com.syncflow.repository.SprintRepository sprintRepository;
     private final com.syncflow.repository.AutomationRuleRepository automationRuleRepository;
     private final com.syncflow.service.WebhookDispatcherService webhookDispatcherService;
+    private final com.syncflow.repository.TaskTimeLogRepository taskTimeLogRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -832,6 +833,8 @@ public class TaskApplicationService implements TaskUseCase {
                 .gitBranch(task.getGitBranch())
                 .gitCommitHash(task.getGitCommitHash())
                 .gitPrUrl(task.getGitPrUrl())
+                .estimatedHours(task.getEstimatedHours() != null ? task.getEstimatedHours() : 8.0)
+                .totalHoursSpent(task.getTotalHoursSpent() != null ? task.getTotalHoursSpent() : 0.0)
                 .build();
     }
 
@@ -842,5 +845,100 @@ public class TaskApplicationService implements TaskUseCase {
             return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
         }
         return name.length() >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
+    }
+
+    // --- Time Tracking & Work Logs ---
+    @Override
+    @Transactional
+    public com.syncflow.dto.TaskTimeLogDTO logTime(Long taskId, com.syncflow.dto.LogTimeRequest request, String userEmail) {
+        Task task = taskRepositoryPort.findById(taskId)
+                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
+
+        User user = null;
+        if (userEmail != null) {
+            user = userRepositoryPort.findByEmail(userEmail).orElse(null);
+        }
+        if (user == null && task.getAssignee() != null) {
+            user = task.getAssignee();
+        }
+        if (user == null) {
+            user = userRepositoryPort.findByEmail("admin@syncflow.bank")
+                    .orElseThrow(() -> new DomainException("User context required to log time"));
+        }
+
+        com.syncflow.model.TaskTimeLog timeLog = com.syncflow.model.TaskTimeLog.builder()
+                .task(task)
+                .user(user)
+                .hoursSpent(request.getHoursSpent())
+                .description(request.getDescription())
+                .loggedDate(request.getLoggedDate() != null ? request.getLoggedDate() : java.time.LocalDate.now())
+                .createdAt(Instant.now())
+                .build();
+
+        com.syncflow.model.TaskTimeLog saved = taskTimeLogRepository.save(timeLog);
+
+        Double total = taskTimeLogRepository.sumHoursByTaskId(taskId);
+        task.setTotalHoursSpent(total != null ? total : request.getHoursSpent());
+
+        if (request.getEstimatedHours() != null && request.getEstimatedHours() > 0) {
+            task.setEstimatedHours(request.getEstimatedHours());
+        }
+        taskRepositoryPort.save(task);
+
+        try {
+            auditLogUseCase.recordLog(
+                    "TIME_LOGGED",
+                    "TASK",
+                    taskId,
+                    task.getTitle(),
+                    user.getFullName(),
+                    null,
+                    "HOURS: " + request.getHoursSpent(),
+                    "Logged " + request.getHoursSpent() + "h on task '" + task.getTitle() + "'. Note: " + request.getDescription()
+            );
+        } catch (Exception e) {
+            log.warn("Failed to record time log audit: {}", e.getMessage());
+        }
+
+        return toTimeLogDTO(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<com.syncflow.dto.TaskTimeLogDTO> getTaskTimeLogs(Long taskId) {
+        return taskTimeLogRepository.findByTaskIdOrderByCreatedAtDesc(taskId)
+                .stream()
+                .map(this::toTimeLogDTO)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void deleteTimeLog(Long logId, String userEmail) {
+        com.syncflow.model.TaskTimeLog logEntry = taskTimeLogRepository.findById(logId)
+                .orElseThrow(() -> new DomainException("Time log not found: " + logId));
+
+        Task task = logEntry.getTask();
+        taskTimeLogRepository.delete(logEntry);
+
+        Double total = taskTimeLogRepository.sumHoursByTaskId(task.getId());
+        task.setTotalHoursSpent(total != null ? total : 0.0);
+        taskRepositoryPort.save(task);
+    }
+
+    private com.syncflow.dto.TaskTimeLogDTO toTimeLogDTO(com.syncflow.model.TaskTimeLog logEntry) {
+        return com.syncflow.dto.TaskTimeLogDTO.builder()
+                .id(logEntry.getId())
+                .taskId(logEntry.getTask() != null ? logEntry.getTask().getId() : null)
+                .taskTitle(logEntry.getTask() != null ? logEntry.getTask().getTitle() : null)
+                .userId(logEntry.getUser() != null ? logEntry.getUser().getId() : null)
+                .userName(logEntry.getUser() != null ? logEntry.getUser().getFullName() : "Unknown")
+                .userEmail(logEntry.getUser() != null ? logEntry.getUser().getEmail() : "")
+                .userRole(logEntry.getUser() != null && logEntry.getUser().getRole() != null ? logEntry.getUser().getRole().getName() : "CONTRIBUTOR")
+                .hoursSpent(logEntry.getHoursSpent())
+                .description(logEntry.getDescription())
+                .loggedDate(logEntry.getLoggedDate())
+                .createdAt(logEntry.getCreatedAt())
+                .build();
     }
 }

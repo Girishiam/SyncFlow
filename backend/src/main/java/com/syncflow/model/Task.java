@@ -105,6 +105,15 @@ public class Task {
     @Builder.Default
     private Integer storyPoints = 3;
 
+    // Time Tracking & Work Logs
+    @Column(name = "estimated_hours")
+    @Builder.Default
+    private Double estimatedHours = 8.0;
+
+    @Column(name = "total_hours_spent")
+    @Builder.Default
+    private Double totalHoursSpent = 0.0;
+
     // Git / Enterprise VCS Integration
     @Column(name = "git_branch", length = 150)
     private String gitBranch;

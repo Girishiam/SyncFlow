@@ -27,7 +27,9 @@ import {
   MemberCapacity,
   TeamCapacity,
   BiometricAuthChallenge,
-  PasskeyVerificationResponse
+  PasskeyVerificationResponse,
+  TaskTimeLog,
+  ProjectTimeSummary
 } from '../../../core/models/project.models';
 import { TaskComment } from '../../../core/ports/task.port';
 import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
@@ -206,6 +208,20 @@ export class BoardFacade implements OnDestroy {
   public teamCapacity = signal<TeamCapacity | null>(null);
   public isLoadingCapacity = signal<boolean>(false);
 
+  // --- Task Work Logs & Collective Project Time Tracking ---
+  public projectTimeSummary = signal<ProjectTimeSummary | null>(null);
+  public activeTaskTimeLogs = signal<TaskTimeLog[]>([]);
+  public isProjectTimeModalOpen = signal<boolean>(false);
+  public isLoadingTimeLogs = signal<boolean>(false);
+  public isTimerActive = signal<boolean>(false);
+  public timerTaskId = signal<number | null>(null);
+  public timerElapsedSeconds = signal<number>(0);
+  private timerInterval: any = null;
+  public logHoursInput = signal<number | null>(null);
+  public logNoteInput = signal<string>('');
+  public logEstimatedHoursInput = signal<number | null>(null);
+  public isLoggingTime = signal<boolean>(false);
+
   public filteredAuditLogs = computed(() => {
     const logs = this.auditLogs();
     const action = this.auditFilterAction();
@@ -275,6 +291,9 @@ export class BoardFacade implements OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(s => s.unsubscribe());
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+    }
   }
 
   public init(): void {
@@ -310,6 +329,7 @@ export class BoardFacade implements OnDestroy {
 
   public loadBoard(projectId: number): void {
     this.loadBurndown(projectId);
+    this.loadProjectTimeSummary(projectId);
     this.projectService.getProjectBoard(projectId).subscribe({
       next: (board) => {
         const cols: KanbanColumn[] = board.stages.map(s => ({
@@ -536,6 +556,10 @@ export class BoardFacade implements OnDestroy {
     this.loadSubtasks(task.id);
     this.loadAttachments(task.id);
     this.loadDependencies(task.id);
+    this.loadTaskTimeLogs(task.id);
+    this.logHoursInput.set(null);
+    this.logNoteInput.set('');
+    this.logEstimatedHoursInput.set(task.estimatedHours || 8.0);
   }
 
   public closeTaskDetail(): void {
@@ -1446,6 +1470,142 @@ export class BoardFacade implements OnDestroy {
       },
       error: (err) => console.error('BoardFacade: Failed to rebalance task', err)
     });
+  }
+
+  // --- Task Work Logs & Collective Time Actions ---
+  public loadProjectTimeSummary(projectId?: number): void {
+    const pId = projectId || this.selectedProjectId();
+    if (!pId) return;
+    this.projectService.getProjectTimeSummary(pId).subscribe({
+      next: (summary) => this.projectTimeSummary.set(summary),
+      error: (err) => console.error('BoardFacade: Failed to load project time summary', err)
+    });
+  }
+
+  public loadTaskTimeLogs(taskId: number): void {
+    this.isLoadingTimeLogs.set(true);
+    this.taskService.getTaskTimeLogs(taskId).subscribe({
+      next: (logs) => {
+        this.activeTaskTimeLogs.set(logs);
+        this.isLoadingTimeLogs.set(false);
+      },
+      error: (err) => {
+        console.error('BoardFacade: Failed to load task time logs', err);
+        this.isLoadingTimeLogs.set(false);
+      }
+    });
+  }
+
+  public logTaskTime(taskId: number, hours?: number, note?: string, estHours?: number): void {
+    const hrs = hours !== undefined ? hours : this.logHoursInput();
+    if (!hrs || hrs <= 0) return;
+    const desc = note !== undefined ? note : this.logNoteInput();
+    const est = estHours !== undefined ? estHours : this.logEstimatedHoursInput();
+
+    this.isLoggingTime.set(true);
+    this.taskService.logTime(taskId, {
+      hoursSpent: hrs,
+      description: desc,
+      estimatedHours: est || undefined
+    }).subscribe({
+      next: (logEntry) => {
+        this.isLoggingTime.set(false);
+        this.logHoursInput.set(null);
+        this.logNoteInput.set('');
+
+        this.loadTaskTimeLogs(taskId);
+        this.loadProjectTimeSummary();
+
+        this.columns.update(cols =>
+          cols.map(c => ({
+            ...c,
+            tasks: c.tasks.map(t => {
+              if (t.id === taskId) {
+                const updatedSpent = Math.round(((t.totalHoursSpent || 0) + hrs) * 10) / 10;
+                return {
+                  ...t,
+                  totalHoursSpent: updatedSpent,
+                  estimatedHours: est || t.estimatedHours
+                };
+              }
+              return t;
+            })
+          }))
+        );
+
+        if (this.activeDetailTask() && this.activeDetailTask()!.id === taskId) {
+          this.activeDetailTask.update(t => t ? {
+            ...t,
+            totalHoursSpent: Math.round(((t.totalHoursSpent || 0) + hrs) * 10) / 10,
+            estimatedHours: est || t.estimatedHours
+          } : null);
+        }
+      },
+      error: (err) => {
+        this.isLoggingTime.set(false);
+        console.error('BoardFacade: Failed to log time', err);
+      }
+    });
+  }
+
+  public deleteTaskTimeLog(logId: number, taskId: number): void {
+    this.taskService.deleteTimeLog(logId).subscribe({
+      next: () => {
+        this.loadTaskTimeLogs(taskId);
+        this.loadProjectTimeSummary();
+        this.loadBoard(this.selectedProjectId());
+      },
+      error: (err) => console.error('BoardFacade: Failed to delete time log', err)
+    });
+  }
+
+  // --- Live Stopwatch Timer Controls ---
+  public startTimer(taskId: number): void {
+    if (this.isTimerActive() && this.timerTaskId() === taskId) return;
+    if (this.timerInterval) clearInterval(this.timerInterval);
+
+    this.timerTaskId.set(taskId);
+    this.isTimerActive.set(true);
+    this.timerInterval = setInterval(() => {
+      this.timerElapsedSeconds.update(s => s + 1);
+    }, 1000);
+  }
+
+  public pauseTimer(): void {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = null;
+    }
+    this.isTimerActive.set(false);
+  }
+
+  public stopTimerAndLog(taskId: number, description?: string): void {
+    this.pauseTimer();
+    const seconds = this.timerElapsedSeconds();
+    if (seconds <= 0) return;
+
+    const hours = Math.max(0.05, Math.round((seconds / 3600) * 100) / 100);
+    const note = description || 'Timer tracked session (' + this.formatTimerDisplay(seconds) + ')';
+
+    this.logTaskTime(taskId, hours, note);
+    this.resetTimer();
+  }
+
+  public resetTimer(): void {
+    this.pauseTimer();
+    this.timerElapsedSeconds.set(0);
+    this.timerTaskId.set(null);
+  }
+
+  public formatTimerDisplay(totalSeconds: number): string {
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    const pad = (n: number) => n < 10 ? '0' + n : String(n);
+    if (hrs > 0) {
+      return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+    }
+    return `${pad(mins)}:${pad(secs)}`;
   }
 }
 

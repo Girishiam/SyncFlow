@@ -17,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +36,7 @@ public class ProjectApplicationService implements ProjectUseCase {
     private final com.syncflow.repository.WebhookSubscriptionRepository webhookSubscriptionRepository;
     private final com.syncflow.service.WebhookDispatcherService webhookDispatcherService;
     private final com.syncflow.auth.application.port.out.UserRepositoryPort userRepositoryPort;
+    private final com.syncflow.repository.TaskTimeLogRepository taskTimeLogRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -739,4 +743,108 @@ public class ProjectApplicationService implements ProjectUseCase {
         }
         return name.length() >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
     }
+
+    // --- Collective Project Time Tracking ---
+    @Override
+    @Transactional(readOnly = true)
+    public ProjectTimeSummaryDTO getProjectTimeSummary(Long projectId) {
+        Project project = projectRepositoryPort.findById(projectId)
+                .orElseThrow(() -> new DomainException("Project not found: " + projectId));
+
+        List<Task> tasks = taskRepositoryPort.findByProjectId(projectId);
+        List<com.syncflow.model.TaskTimeLog> allLogs = taskTimeLogRepository.findByTaskProjectIdOrderByCreatedAtDesc(projectId);
+
+        double totalHoursSpent = allLogs.stream().mapToDouble(com.syncflow.model.TaskTimeLog::getHoursSpent).sum();
+        double totalEstimatedHours = tasks.stream()
+                .mapToDouble(t -> t.getEstimatedHours() != null ? t.getEstimatedHours() : 8.0)
+                .sum();
+        double hoursRemaining = Math.max(0.0, totalEstimatedHours - totalHoursSpent);
+        double progressPercentage = totalEstimatedHours > 0
+                ? Math.min(100.0, Math.round((totalHoursSpent / totalEstimatedHours) * 1000.0) / 10.0)
+                : 0.0;
+
+        // Developer breakdown
+        Map<UUID, List<com.syncflow.model.TaskTimeLog>> logsByUser = allLogs.stream()
+                .filter(l -> l.getUser() != null)
+                .collect(Collectors.groupingBy(l -> l.getUser().getId()));
+
+        List<DeveloperTimeBreakdownDTO> devBreakdowns = new ArrayList<>();
+        for (Map.Entry<UUID, List<com.syncflow.model.TaskTimeLog>> entry : logsByUser.entrySet()) {
+            List<com.syncflow.model.TaskTimeLog> userLogs = entry.getValue();
+            com.syncflow.model.User u = userLogs.get(0).getUser();
+            double userHours = userLogs.stream().mapToDouble(com.syncflow.model.TaskTimeLog::getHoursSpent).sum();
+            double pct = totalHoursSpent > 0 ? (userHours / totalHoursSpent) * 100.0 : 0.0;
+
+            devBreakdowns.add(DeveloperTimeBreakdownDTO.builder()
+                    .userId(u.getId())
+                    .fullName(u.getFullName())
+                    .email(u.getEmail())
+                    .role(u.getRole() != null ? u.getRole().getName() : "CONTRIBUTOR")
+                    .totalHours(Math.round(userHours * 10.0) / 10.0)
+                    .logsCount(userLogs.size())
+                    .percentageOfTotal(Math.round(pct * 10.0) / 10.0)
+                    .build());
+        }
+        devBreakdowns.sort((a, b) -> Double.compare(b.getTotalHours(), a.getTotalHours()));
+
+        // Stage breakdown
+        List<Stage> stages = stageRepositoryPort.findByProjectIdOrderByPositionAsc(projectId);
+        Map<Long, List<Task>> tasksByStage = tasks.stream()
+                .filter(t -> t.getStage() != null)
+                .collect(Collectors.groupingBy(t -> t.getStage().getId()));
+
+        List<StageTimeBreakdownDTO> stageBreakdowns = new ArrayList<>();
+        for (Stage s : stages) {
+            List<Task> stageTasks = tasksByStage.getOrDefault(s.getId(), List.of());
+            double stageHours = stageTasks.stream()
+                    .mapToDouble(t -> t.getTotalHoursSpent() != null ? t.getTotalHoursSpent() : 0.0)
+                    .sum();
+            double pct = totalHoursSpent > 0 ? (stageHours / totalHoursSpent) * 100.0 : 0.0;
+
+            stageBreakdowns.add(StageTimeBreakdownDTO.builder()
+                    .stageId(s.getId())
+                    .stageName(s.getName())
+                    .totalHours(Math.round(stageHours * 10.0) / 10.0)
+                    .tasksCount(stageTasks.size())
+                    .percentageOfTotal(Math.round(pct * 10.0) / 10.0)
+                    .build());
+        }
+
+        // Recent 10 logs
+        List<TaskTimeLogDTO> recentLogsDTO = allLogs.stream()
+                .limit(10)
+                .map(l -> TaskTimeLogDTO.builder()
+                        .id(l.getId())
+                        .taskId(l.getTask() != null ? l.getTask().getId() : null)
+                        .taskTitle(l.getTask() != null ? l.getTask().getTitle() : null)
+                        .userId(l.getUser() != null ? l.getUser().getId() : null)
+                        .userName(l.getUser() != null ? l.getUser().getFullName() : "Unknown")
+                        .userEmail(l.getUser() != null ? l.getUser().getEmail() : "")
+                        .userRole(l.getUser() != null && l.getUser().getRole() != null ? l.getUser().getRole().getName() : "CONTRIBUTOR")
+                        .hoursSpent(l.getHoursSpent())
+                        .description(l.getDescription())
+                        .loggedDate(l.getLoggedDate())
+                        .createdAt(l.getCreatedAt())
+                        .build())
+                .toList();
+
+        long tasksWithLogs = tasks.stream()
+                .filter(t -> t.getTotalHoursSpent() != null && t.getTotalHoursSpent() > 0)
+                .count();
+
+        return ProjectTimeSummaryDTO.builder()
+                .projectId(project.getId())
+                .projectName(project.getName())
+                .totalHoursSpent(Math.round(totalHoursSpent * 10.0) / 10.0)
+                .totalEstimatedHours(Math.round(totalEstimatedHours * 10.0) / 10.0)
+                .hoursRemaining(Math.round(hoursRemaining * 10.0) / 10.0)
+                .progressPercentage(progressPercentage)
+                .totalLogsCount(allLogs.size())
+                .tasksWithLogsCount((int) tasksWithLogs)
+                .developerBreakdown(devBreakdowns)
+                .stageBreakdown(stageBreakdowns)
+                .recentLogs(recentLogsDTO)
+                .build();
+    }
 }
+

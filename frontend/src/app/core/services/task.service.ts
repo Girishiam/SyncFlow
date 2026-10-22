@@ -143,4 +143,17 @@ export class TaskService implements ITaskPort {
   verifyPasskey(payload: { challengeId: string; clientDataJSON?: string; authenticatorData?: string; signature?: string; actionScope?: string }): Observable<import('../models/project.models').PasskeyVerificationResponse> {
     return this.http.post<import('../models/project.models').PasskeyVerificationResponse>(`${this.authApiUrl}/passkey/verify`, payload);
   }
+
+  // --- Task Work Logs & Time Tracking ---
+  logTime(taskId: number, payload: { hoursSpent: number; description?: string; loggedDate?: string; estimatedHours?: number }): Observable<import('../models/project.models').TaskTimeLog> {
+    return this.http.post<import('../models/project.models').TaskTimeLog>(`${this.apiUrl}/${taskId}/time-logs`, payload);
+  }
+
+  getTaskTimeLogs(taskId: number): Observable<import('../models/project.models').TaskTimeLog[]> {
+    return this.http.get<import('../models/project.models').TaskTimeLog[]>(`${this.apiUrl}/${taskId}/time-logs`);
+  }
+
+  deleteTimeLog(logId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/time-logs/${logId}`);
+  }
 }

@@ -24,6 +24,8 @@ export interface TaskCard {
   gitBranch?: string;
   gitCommitHash?: string;
   gitPrUrl?: string;
+  estimatedHours?: number;
+  totalHoursSpent?: number;
 }
 
 export interface BankUser {
@@ -320,5 +322,51 @@ export interface PasskeyVerificationResponse {
   message: string;
   verifiedMethod: string;
   expiresAtMillis: number;
+}
+
+export interface TaskTimeLog {
+  id: number;
+  taskId: number;
+  taskTitle?: string;
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  userRole?: string;
+  hoursSpent: number;
+  description?: string;
+  loggedDate: string;
+  createdAt: string;
+}
+
+export interface DeveloperTimeBreakdown {
+  userId: string;
+  fullName: string;
+  email: string;
+  role: string;
+  totalHours: number;
+  logsCount: number;
+  percentageOfTotal: number;
+}
+
+export interface StageTimeBreakdown {
+  stageId: number;
+  stageName: string;
+  totalHours: number;
+  tasksCount: number;
+  percentageOfTotal: number;
+}
+
+export interface ProjectTimeSummary {
+  projectId: number;
+  projectName: string;
+  totalHoursSpent: number;
+  totalEstimatedHours: number;
+  hoursRemaining: number;
+  progressPercentage: number;
+  totalLogsCount: number;
+  tasksWithLogsCount: number;
+  developerBreakdown: DeveloperTimeBreakdown[];
+  stageBreakdown: StageTimeBreakdown[];
+  recentLogs: TaskTimeLog[];
 }
 

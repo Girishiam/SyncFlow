@@ -37,4 +37,7 @@ public interface ProjectUseCase {
     WebhookSubscriptionDTO toggleWebhook(Long webhookId);
     WebhookSubscriptionDTO testWebhook(Long webhookId);
     void deleteWebhook(Long webhookId);
+
+    // Collective Project Time Tracking
+    ProjectTimeSummaryDTO getProjectTimeSummary(Long projectId);
 }

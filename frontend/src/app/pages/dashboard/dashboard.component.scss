@@ -8679,6 +8679,816 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* ==========================================================================
+   TASK TIME TRACKER & COLLECTIVE PROJECT EFFORT MATRIX
+   ========================================================================== */
+
+.time-metric-card {
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #E2E8F0;
+  position: relative;
+  overflow: hidden;
+
+  &:hover {
+    border-color: #006022;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 96, 34, 0.08);
+
+    .metric-badge {
+      background: #006022;
+      color: #FFFFFF;
+    }
+  }
+
+  .metric-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.35rem;
+  }
+
+  .metric-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 7px;
+    border-radius: 12px;
+    background: #E7F3EC;
+    color: #006022;
+    transition: all 0.2s ease;
+  }
+
+  .metric-sub {
+    font-size: 0.72rem;
+    color: #64748B;
+    display: block;
+    margin-top: 0.25rem;
+  }
+}
+
+/* On-card pill */
+.time-tracker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 2px 7px;
+  background: #F1F5F9;
+  border: 1px solid #E2E8F0;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #334155;
+  transition: all 0.2s ease;
+
+  .time-chip-icon {
+    font-size: 0.72rem;
+  }
+
+  .est-hint {
+    color: #94A3B8;
+    font-weight: 500;
+  }
+
+  .quick-timer-btn {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 0.65rem;
+    padding: 0 3px;
+    color: #006022;
+    display: flex;
+    align-items: center;
+    border-radius: 3px;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #E7F3EC;
+    }
+
+    &.active {
+      color: #DC2626;
+      font-weight: 700;
+      animation: pulseText 1.5s infinite;
+    }
+  }
+
+  &.running {
+    background: #FEF2F2;
+    border-color: #FECDD3;
+    color: #DC2626;
+  }
+}
+
+/* Task Detail Drawer Section */
+.task-time-section {
+  padding: 1.25rem;
+  background: #F8FAFC;
+  border-radius: 8px;
+  border: 1px solid #E2E8F0;
+  margin-bottom: 1.25rem;
+
+  .section-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.85rem;
+
+    .header-title-flex {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      h4 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #0F172A;
+      }
+    }
+
+    .hours-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      background: #E7F3EC;
+      color: #006022;
+      border-radius: 12px;
+      border: 1px solid rgba(0, 96, 34, 0.2);
+    }
+  }
+
+  .time-progress-bar-wrap {
+    margin-bottom: 1rem;
+
+    .time-progress-track {
+      height: 6px;
+      background: #E2E8F0;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 0.3rem;
+    }
+
+    .time-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #006022 0%, #00A63E 100%);
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+
+    .time-progress-lbl {
+      font-size: 0.7rem;
+      color: #64748B;
+      font-weight: 500;
+    }
+  }
+
+  /* Live Stopwatch Card */
+  .live-stopwatch-card {
+    background: #0F172A;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    border: 1px solid #1E293B;
+    transition: all 0.3s ease;
+
+    &.recording {
+      border-color: #DC2626;
+      box-shadow: 0 0 15px rgba(220, 38, 38, 0.25);
+
+      .stopwatch-led {
+        background: #EF4444;
+        box-shadow: 0 0 8px #EF4444;
+        animation: pulseLed 1s infinite;
+      }
+    }
+
+    .stopwatch-display {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .stopwatch-led {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #64748B;
+    }
+
+    .stopwatch-digits {
+      font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #F8FAFC;
+      letter-spacing: 0.05em;
+    }
+
+    .stopwatch-status {
+      font-size: 0.72rem;
+      color: #94A3B8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stopwatch-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      button {
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 6px 14px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: none;
+      }
+
+      .btn-timer-start {
+        background: #006022;
+        color: #FFFFFF;
+
+        &:hover {
+          background: #004D1A;
+        }
+      }
+
+      .btn-timer-stop {
+        background: #DC2626;
+        color: #FFFFFF;
+
+        &:hover {
+          background: #B91C1C;
+        }
+      }
+
+      .btn-timer-pause {
+        background: #334155;
+        color: #F8FAFC;
+
+        &:hover {
+          background: #475569;
+        }
+      }
+    }
+  }
+
+  /* Manual Log Form */
+  .manual-log-card {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    padding: 0.9rem;
+    margin-bottom: 1rem;
+
+    h5 {
+      margin: 0 0 0.65rem 0;
+      font-size: 0.82rem;
+      color: #334155;
+      font-weight: 600;
+    }
+
+    .log-input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+
+      .input-field-sm {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        width: 110px;
+
+        label {
+          font-size: 0.7rem;
+          color: #64748B;
+          font-weight: 600;
+        }
+
+        .log-num-input {
+          padding: 6px 8px;
+          border: 1px solid #CBD5E1;
+          border-radius: 4px;
+          font-size: 0.85rem;
+
+          &:focus {
+            outline: none;
+            border-color: #006022;
+          }
+        }
+      }
+
+      .input-field-desc {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        flex: 1;
+        min-width: 160px;
+
+        label {
+          font-size: 0.7rem;
+          color: #64748B;
+          font-weight: 600;
+        }
+
+        .log-text-input {
+          padding: 6px 8px;
+          border: 1px solid #CBD5E1;
+          border-radius: 4px;
+          font-size: 0.85rem;
+
+          &:focus {
+            outline: none;
+            border-color: #006022;
+          }
+        }
+      }
+
+      .btn-log-submit {
+        padding: 7px 16px;
+        background: #006022;
+        color: #FFFFFF;
+        border: none;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.82rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        white-space: nowrap;
+
+        &:hover:not(:disabled) {
+          background: #004D1A;
+        }
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+      }
+    }
+  }
+
+  /* Past Logs List */
+  .past-logs-wrap {
+    .past-logs-title {
+      font-size: 0.78rem;
+      color: #64748B;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 0 0 0.5rem 0;
+    }
+
+    .past-logs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .time-log-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.6rem;
+      background: #FFFFFF;
+      padding: 0.6rem 0.8rem;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      font-size: 0.8rem;
+
+      .log-user-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 140px;
+      }
+
+      .user-avatar-tiny {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #E2E8F0;
+        color: #334155;
+        font-weight: 700;
+        font-size: 0.65rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .user-info-tiny {
+        display: flex;
+        flex-direction: column;
+
+        .user-name-txt {
+          font-weight: 600;
+          color: #0F172A;
+        }
+
+        .user-role-txt {
+          font-size: 0.68rem;
+          color: #94A3B8;
+        }
+      }
+
+      .log-desc-txt {
+        flex: 1;
+        color: #475569;
+        font-size: 0.78rem;
+      }
+
+      .log-right-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        .hours-spent-tag {
+          font-weight: 700;
+          color: #006022;
+          background: #E7F3EC;
+          padding: 2px 7px;
+          border-radius: 4px;
+          font-size: 0.75rem;
+        }
+
+        .btn-del-log {
+          background: transparent;
+          border: none;
+          color: #94A3B8;
+          cursor: pointer;
+          font-size: 1.1rem;
+          line-height: 1;
+          padding: 0 4px;
+          border-radius: 3px;
+
+          &:hover {
+            color: #DC2626;
+            background: #FEE2E2;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* ==========================================================================
+   COLLECTIVE TIME REPORT MODAL
+   ========================================================================== */
+.time-report-modal {
+  background: #FFFFFF;
+  border-radius: 12px;
+  width: 90vw;
+  max-width: 900px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.2);
+  border: 1px solid #CBD5E1;
+  animation: fadeIn 0.25s ease-out;
+
+  .dialog-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .time-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+
+    .time-kpi-card {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+
+      &.highlight {
+        background: #E7F3EC;
+        border-color: #006022;
+
+        .kpi-label {
+          color: #004D1A;
+          font-weight: 700;
+        }
+
+        .kpi-value {
+          color: #006022;
+        }
+      }
+
+      .kpi-label {
+        font-size: 0.75rem;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.35rem;
+      }
+
+      .kpi-value {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #0F172A;
+      }
+
+      .kpi-sub {
+        font-size: 0.72rem;
+        color: #94A3B8;
+        margin-top: 0.35rem;
+      }
+
+      .kpi-mini-bar {
+        height: 5px;
+        background: #CBD5E1;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+
+        .kpi-mini-fill {
+          height: 100%;
+          background: #006022;
+          border-radius: 3px;
+        }
+      }
+    }
+  }
+
+  .report-section {
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 1.25rem;
+
+    .report-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+
+      h4 {
+        margin: 0;
+        font-size: 0.95rem;
+        color: #0F172A;
+        font-weight: 700;
+      }
+
+      .section-tag {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: #475569;
+        background: #F1F5F9;
+        padding: 3px 8px;
+        border-radius: 12px;
+      }
+    }
+  }
+
+  /* Dev breakdown list */
+  .dev-breakdown-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+
+    .dev-breakdown-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem;
+      padding: 0.75rem 1rem;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+
+      .dev-main-info {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        min-width: 200px;
+
+        .dev-avatar-md {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          background: #006022;
+          color: #FFFFFF;
+          font-weight: 700;
+          font-size: 0.8rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .dev-meta-text {
+          display: flex;
+          flex-direction: column;
+
+          .dev-name {
+            font-weight: 700;
+            color: #0F172A;
+            font-size: 0.88rem;
+          }
+
+          .dev-role-badge {
+            font-size: 0.7rem;
+            color: #64748B;
+          }
+        }
+      }
+
+      .dev-progress-col {
+        flex: 1;
+
+        .dev-progress-nums {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.78rem;
+          margin-bottom: 0.35rem;
+
+          .dev-hrs-txt {
+            color: #0F172A;
+
+            strong {
+              color: #006022;
+              font-size: 0.9rem;
+            }
+          }
+
+          .dev-pct-txt {
+            color: #64748B;
+            font-weight: 600;
+          }
+        }
+
+        .dev-progress-track {
+          height: 8px;
+          background: #E2E8F0;
+          border-radius: 4px;
+          overflow: hidden;
+
+          .dev-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #006022, #00A63E);
+            border-radius: 4px;
+            transition: width 0.4s ease;
+          }
+        }
+      }
+    }
+  }
+
+  /* Stage Grid */
+  .stage-time-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.85rem;
+
+    .stage-time-card {
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      padding: 0.85rem;
+
+      .stage-card-top {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.78rem;
+        margin-bottom: 0.35rem;
+
+        .stage-card-name {
+          font-weight: 700;
+          color: #0F172A;
+        }
+
+        .stage-card-tasks {
+          color: #64748B;
+          font-size: 0.7rem;
+        }
+      }
+
+      .stage-card-hrs {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #006022;
+        margin-bottom: 0.4rem;
+      }
+
+      .stage-progress-track {
+        height: 5px;
+        background: #E2E8F0;
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 0.35rem;
+
+        .stage-progress-fill {
+          height: 100%;
+          background: #006022;
+          border-radius: 3px;
+        }
+      }
+
+      .stage-pct-hint {
+        font-size: 0.68rem;
+        color: #94A3B8;
+      }
+    }
+  }
+
+  /* Recent Logs Table */
+  .recent-logs-table-wrap {
+    overflow-x: auto;
+
+    .recent-logs-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+
+      th {
+        text-align: left;
+        padding: 0.6rem 0.8rem;
+        background: #F1F5F9;
+        color: #475569;
+        font-weight: 600;
+        border-bottom: 1px solid #CBD5E1;
+      }
+
+      td {
+        padding: 0.65rem 0.8rem;
+        border-bottom: 1px solid #F1F5F9;
+        color: #334155;
+      }
+
+      tr:hover td {
+        background: #F8FAFC;
+      }
+
+      .contributor-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        color: #0F172A;
+
+        .mini-circle {
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: #E7F3EC;
+          color: #006022;
+          font-size: 0.65rem;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+      }
+
+      .task-cell-txt {
+        font-weight: 600;
+        color: #0F172A;
+      }
+
+      .hrs-cell-txt {
+        font-weight: 700;
+        color: #006022;
+      }
+
+      .date-cell-txt {
+        color: #64748B;
+        font-size: 0.75rem;
+      }
+
+      .note-cell-txt {
+        color: #64748B;
+        font-style: italic;
+      }
+    }
+  }
+}
+
+@keyframes pulseLed {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulseText {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+
 
 
 

@@ -9,7 +9,8 @@ import {
   AutomationRule,
   ProjectFinancials,
   TeamCapacity,
-  WebhookSubscription
+  WebhookSubscription,
+  ProjectTimeSummary
 } from '../models/project.models';
 import { IProjectPort } from '../ports/project.port';
 
@@ -105,5 +106,10 @@ export class ProjectService implements IProjectPort {
 
   deleteWebhook(webhookId: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/webhooks/${webhookId}`);
+  }
+
+  // --- Collective Project Time Tracking ---
+  getProjectTimeSummary(projectId: number): Observable<ProjectTimeSummary> {
+    return this.http.get<ProjectTimeSummary>(`${this.apiUrl}/${projectId}/time-summary`);
   }
 }

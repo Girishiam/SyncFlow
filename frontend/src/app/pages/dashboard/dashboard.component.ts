@@ -202,6 +202,19 @@ export class DashboardComponent implements OnInit {
   isSavingWorkLog = this.boardFacade.isSavingWorkLog;
   workLogSaveSuccess = this.boardFacade.workLogSaveSuccess;
 
+  // Task Work Logs & Collective Project Time Tracking
+  projectTimeSummary = this.boardFacade.projectTimeSummary;
+  activeTaskTimeLogs = this.boardFacade.activeTaskTimeLogs;
+  isProjectTimeModalOpen = this.boardFacade.isProjectTimeModalOpen;
+  isLoadingTimeLogs = this.boardFacade.isLoadingTimeLogs;
+  isTimerActive = this.boardFacade.isTimerActive;
+  timerTaskId = this.boardFacade.timerTaskId;
+  timerElapsedSeconds = this.boardFacade.timerElapsedSeconds;
+  logHoursInput = this.boardFacade.logHoursInput;
+  logNoteInput = this.boardFacade.logNoteInput;
+  logEstimatedHoursInput = this.boardFacade.logEstimatedHoursInput;
+  isLoggingTime = this.boardFacade.isLoggingTime;
+
   // Chat Facade State Delegates
   channels = this.chatFacade.channels;
   activeChannel = this.chatFacade.activeChannel;
@@ -910,4 +923,46 @@ export class DashboardComponent implements OnInit {
   rebalanceTask(fromUser: string, toUser: string, taskId: number): void {
     this.boardFacade.rebalanceMemberTask(fromUser, toUser, taskId);
   }
+
+  // --- Task Work Logs & Time Tracking Helpers ---
+  openProjectTimeModal(): void {
+    this.boardFacade.isProjectTimeModalOpen.set(true);
+    this.boardFacade.loadProjectTimeSummary();
+  }
+
+  closeProjectTimeModal(): void {
+    this.boardFacade.isProjectTimeModalOpen.set(false);
+  }
+
+  startTimer(taskId: number, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.boardFacade.startTimer(taskId);
+  }
+
+  pauseTimer(event?: Event): void {
+    if (event) event.stopPropagation();
+    this.boardFacade.pauseTimer();
+  }
+
+  stopTimerAndLog(taskId: number, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.boardFacade.stopTimerAndLog(taskId);
+  }
+
+  resetTimer(): void {
+    this.boardFacade.resetTimer();
+  }
+
+  logTaskTime(taskId: number): void {
+    this.boardFacade.logTaskTime(taskId);
+  }
+
+  deleteTaskTimeLog(logId: number, taskId: number): void {
+    this.boardFacade.deleteTaskTimeLog(logId, taskId);
+  }
+
+  formatTimerDisplay(seconds: number): string {
+    return this.boardFacade.formatTimerDisplay(seconds);
+  }
 }
+

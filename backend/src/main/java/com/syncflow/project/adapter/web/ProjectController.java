@@ -134,4 +134,10 @@ public class ProjectController {
         projectUseCase.deleteWebhook(webhookId);
         return ResponseEntity.ok().build();
     }
+
+    // --- Collective Project Time Tracking ---
+    @GetMapping("/{id}/time-summary")
+    public ResponseEntity<com.syncflow.dto.ProjectTimeSummaryDTO> getProjectTimeSummary(@PathVariable Long id) {
+        return ResponseEntity.ok(projectUseCase.getProjectTimeSummary(id));
+    }
 }

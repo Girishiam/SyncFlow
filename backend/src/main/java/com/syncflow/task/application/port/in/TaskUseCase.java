@@ -54,5 +54,10 @@ public interface TaskUseCase {
 
     // Git / VCS Connectors
     TaskDTO linkGit(Long taskId, com.syncflow.dto.GitLinkRequest request);
+
+    // Time Tracking & Work Logs
+    com.syncflow.dto.TaskTimeLogDTO logTime(Long taskId, com.syncflow.dto.LogTimeRequest request, String userEmail);
+    List<com.syncflow.dto.TaskTimeLogDTO> getTaskTimeLogs(Long taskId);
+    void deleteTimeLog(Long logId, String userEmail);
 }
 

@@ -221,4 +221,28 @@ public class TaskController {
             @RequestBody com.syncflow.dto.GitLinkRequest request) {
         return ResponseEntity.ok(taskUseCase.linkGit(id, request));
     }
+
+    // --- Task Work Logs & Time Tracking ---
+    @PostMapping("/{id}/time-logs")
+    public ResponseEntity<com.syncflow.dto.TaskTimeLogDTO> logTime(
+            @PathVariable Long id,
+            @Valid @RequestBody com.syncflow.dto.LogTimeRequest request,
+            org.springframework.security.core.Authentication authentication) {
+        String userEmail = authentication != null ? authentication.getName() : null;
+        return ResponseEntity.ok(taskUseCase.logTime(id, request, userEmail));
+    }
+
+    @GetMapping("/{id}/time-logs")
+    public ResponseEntity<List<com.syncflow.dto.TaskTimeLogDTO>> getTaskTimeLogs(@PathVariable Long id) {
+        return ResponseEntity.ok(taskUseCase.getTaskTimeLogs(id));
+    }
+
+    @DeleteMapping("/time-logs/{logId}")
+    public ResponseEntity<Void> deleteTimeLog(
+            @PathVariable Long logId,
+            org.springframework.security.core.Authentication authentication) {
+        String userEmail = authentication != null ? authentication.getName() : null;
+        taskUseCase.deleteTimeLog(logId, userEmail);
+        return ResponseEntity.ok().build();
+    }
 }

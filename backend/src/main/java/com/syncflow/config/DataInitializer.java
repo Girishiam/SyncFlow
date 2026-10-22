@@ -36,6 +36,7 @@ public class DataInitializer implements CommandLineRunner {
     private final TaskDependencyRepository taskDependencyRepository;
     private final AutomationRuleRepository automationRuleRepository;
     private final WebhookSubscriptionRepository webhookSubscriptionRepository;
+    private final com.syncflow.repository.TaskTimeLogRepository taskTimeLogRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -667,7 +668,58 @@ public class DataInitializer implements CommandLineRunner {
                     }
                 }
 
-                log.info("Seeded Initial Webhooks, Bank Budgets, and Git Links!");
+                // Seed initial Time Tracking Logs
+                if (taskTimeLogRepository.count() == 0 && !tasks.isEmpty()) {
+                    Task t1 = tasks.get(0);
+                    taskTimeLogRepository.save(com.syncflow.model.TaskTimeLog.builder()
+                            .task(t1)
+                            .user(dev)
+                            .hoursSpent(4.5)
+                            .description("Developed core token validation and database schemas")
+                            .loggedDate(java.time.LocalDate.now().minusDays(2))
+                            .createdAt(java.time.Instant.now().minusSeconds(172800))
+                            .build());
+
+                    taskTimeLogRepository.save(com.syncflow.model.TaskTimeLog.builder()
+                            .task(t1)
+                            .user(sqa)
+                            .hoursSpent(2.0)
+                            .description("Integration smoke test and boundary condition validation")
+                            .loggedDate(java.time.LocalDate.now().minusDays(1))
+                            .createdAt(java.time.Instant.now().minusSeconds(86400))
+                            .build());
+
+                    t1.setEstimatedHours(8.0);
+                    t1.setTotalHoursSpent(6.5);
+                    taskRepository.save(t1);
+
+                    if (tasks.size() > 2) {
+                        Task t3 = tasks.get(2);
+                        taskTimeLogRepository.save(com.syncflow.model.TaskTimeLog.builder()
+                                .task(t3)
+                                .user(lead)
+                                .hoursSpent(3.5)
+                                .description("Partition boundary alignment and query execution plan tuning")
+                                .loggedDate(java.time.LocalDate.now().minusDays(1))
+                                .createdAt(java.time.Instant.now().minusSeconds(72000))
+                                .build());
+
+                        taskTimeLogRepository.save(com.syncflow.model.TaskTimeLog.builder()
+                                .task(t3)
+                                .user(dev)
+                                .hoursSpent(5.0)
+                                .description("Data migration scripts and index reorg")
+                                .loggedDate(java.time.LocalDate.now())
+                                .createdAt(java.time.Instant.now().minusSeconds(14400))
+                                .build());
+
+                        t3.setEstimatedHours(12.0);
+                        t3.setTotalHoursSpent(8.5);
+                        taskRepository.save(t3);
+                    }
+                }
+
+                log.info("Seeded Initial Webhooks, Bank Budgets, Git Links, and Time Logs!");
             }
         }
 

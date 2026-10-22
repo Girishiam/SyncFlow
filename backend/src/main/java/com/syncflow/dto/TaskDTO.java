@@ -34,4 +34,6 @@ public class TaskDTO {
     private String gitBranch;
     private String gitCommitHash;
     private String gitPrUrl;
+    private Double estimatedHours;
+    private Double totalHoursSpent;
 }
