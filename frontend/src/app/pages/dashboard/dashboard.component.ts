@@ -335,6 +335,13 @@ export class DashboardComponent implements OnInit {
     this.boardFacade.onProgressChange(task);
   }
 
+  cycleTaskProgress(task: TaskCard, event: Event): void {
+    event.stopPropagation();
+    const nextProgress = task.progress >= 100 ? 0 : Math.min(100, task.progress + 25);
+    task.progress = nextProgress;
+    this.boardFacade.onProgressChange(task);
+  }
+
   openBlocker(task: TaskCard): void {
     this.boardFacade.openBlocker(task);
   }

@@ -472,60 +472,67 @@
               cdkDrag
             >
               <div class="card-meta">
-                <span class="card-project">{{ task.projectName || 'Core' }}</span>
-                <span *ngIf="task.deadline" class="deadline-pill" title="Due Date">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                    <line x1="16" y1="2" x2="16" y2="6"/>
-                    <line x1="8" y1="2" x2="8" y2="6"/>
-                    <line x1="3" y1="10" x2="21" y2="10"/>
-                  </svg>
-                  <span>{{ task.deadline | date:'MMM d' }}</span>
-                </span>
-                <span *ngIf="task.progress === 100 || col.isDoneStage" class="done-tag-mini" title="Verified Complete">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  DONE
-                </span>
-                <span
-                  class="priority-chip"
-                  [class.critical]="task.priority === 'CRITICAL'"
-                  [class.high]="task.priority === 'HIGH'"
-                  [class.medium]="task.priority === 'MEDIUM'"
-                  [class.low]="task.priority === 'LOW'"
-                >
-                  {{ task.priority }}
-                </span>
-                <span class="points-badge" title="Story Points">{{ task.storyPoints || 3 }} pts</span>
-
-                <!-- Time Logged Badge & Quick Stopwatch on Card -->
-                <span class="time-tracker-chip" [class.running]="isTimerActive() && timerTaskId() === task.id" title="Logged hours / estimated">
-                  <span class="time-chip-icon">⏱️</span>
-                  <span>{{ task.totalHoursSpent || 0 }}h</span>
-                  <span *ngIf="task.estimatedHours" class="est-hint">/{{ task.estimatedHours }}h</span>
-                  <button
-                    *ngIf="isTimerActive() && timerTaskId() === task.id; else startTimerBtn"
-                    class="quick-timer-btn active"
-                    (click)="stopTimerAndLog(task.id, $event)"
-                    title="Stop timer and log elapsed time"
+                <div class="meta-left">
+                  <span class="task-id-badge">#{{ task.id }}</span>
+                  <span
+                    class="priority-chip"
+                    [class.critical]="task.priority === 'CRITICAL'"
+                    [class.high]="task.priority === 'HIGH'"
+                    [class.medium]="task.priority === 'MEDIUM'"
+                    [class.low]="task.priority === 'LOW'"
                   >
-                    ⏹ {{ formatTimerDisplay(timerElapsedSeconds()) }}
-                  </button>
-                  <ng-template #startTimerBtn>
+                    {{ task.priority }}
+                  </span>
+                </div>
+
+                <div class="meta-right">
+                  <span *ngIf="task.progress === 100 || col.isDoneStage" class="done-tag-mini" title="Verified Complete">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    DONE
+                  </span>
+                  <span class="points-badge" title="Story Points">{{ task.storyPoints || 3 }} pts</span>
+
+                  <!-- Time Tracker Badge & 1-Click Live Stopwatch on Card -->
+                  <span class="time-tracker-chip" [class.running]="isTimerActive() && timerTaskId() === task.id" title="Logged hours / estimated">
+                    <span class="time-chip-icon">⏱️</span>
+                    <span class="time-hrs-val">{{ task.totalHoursSpent || 0 }}h</span>
                     <button
-                      class="quick-timer-btn"
-                      (click)="startTimer(task.id, $event)"
-                      title="Start live stopwatch timer"
+                      *ngIf="isTimerActive() && timerTaskId() === task.id; else startTimerBtn"
+                      class="quick-timer-btn active"
+                      (click)="stopTimerAndLog(task.id, $event)"
+                      title="Stop live stopwatch and log time"
                     >
-                      ▶
+                      ⏹ {{ formatTimerDisplay(timerElapsedSeconds()) }}
                     </button>
-                  </ng-template>
-                </span>
+                    <ng-template #startTimerBtn>
+                      <button
+                        class="quick-timer-btn"
+                        (click)="startTimer(task.id, $event)"
+                        title="Start live stopwatch timer"
+                      >
+                        ▶
+                      </button>
+                    </ng-template>
+                  </span>
+                </div>
               </div>
 
+              <!-- Task Title -->
               <div class="card-title" (click)="openTaskDetail(task)" title="Click to view details & discussion">
                 {{ task.title }}
+              </div>
+
+              <!-- Deadline if set -->
+              <div *ngIf="task.deadline" class="card-deadline-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                <span>Due {{ task.deadline | date:'MMM d' }}</span>
               </div>
 
               <!-- Blocker Badge if Active -->
@@ -538,26 +545,21 @@
                 <span>{{ task.blockerReason || 'Blocker reported' }}</span>
               </div>
 
-              <!-- Slider / Progress -->
+              <!-- Sleek Progress Bar -->
               <div class="progress-wrap">
                 <div class="progress-header">
-                  <span>Progress</span>
-                  <span>{{ task.progress }}%</span>
+                  <span class="p-label">Progress</span>
+                  <span class="p-val">{{ task.progress }}%</span>
                 </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  [(ngModel)]="task.progress"
-                  (change)="onProgressChange(task)"
-                  class="range-slider"
-                />
+                <div class="sleek-progress-bar" (click)="cycleTaskProgress(task, $event)" title="Click to increment progress (+25%)">
+                  <div class="sleek-progress-fill" [style.width.%]="task.progress"></div>
+                </div>
               </div>
 
               <!-- Card Footer -->
               <div class="card-footer">
                 <div class="assignee-wrap" (click)="openTaskDetail(task)" title="View Task Details">
-                  <div class="user-avatar-sm">{{ task.avatar || 'UN' }}</div>
+                  <div class="user-avatar-sm">{{ task.avatar || (task.assignee ? task.assignee.substring(0, 2).toUpperCase() : 'UN') }}</div>
                   <span class="assignee-name">{{ task.assignee || 'Unassigned' }}</span>
                 </div>
 
@@ -4280,7 +4282,7 @@
   </div>
 
   <!-- Collective Project Time Report Modal -->
-  <div *ngIf="isProjectTimeModalOpen()" class="modal-backdrop" (click)="closeProjectTimeModal()">
+  <div *ngIf="isProjectTimeModalOpen()" class="dialog-backdrop" (click)="closeProjectTimeModal()">
     <div class="time-report-modal" (click)="$event.stopPropagation()">
       <div class="dialog-header">
         <div class="dialog-title-group">
