@@ -776,7 +776,7 @@
       <!-- Grooming & Backlog Tasks Table -->
       <div class="backlog-tasks-section">
         <div class="backlog-section-bar">
-          <span class="backlog-sec-title">Product Backlog Items & Sizing ({{ columns().length > 0 ? columns()[0].tasks.length : 0 }} tasks)</span>
+          <span class="backlog-sec-title">Product Backlog Items & Sizing ({{ totalTasksCount() }} tasks)</span>
         </div>
 
         <div class="backlog-table">
@@ -792,30 +792,30 @@
             <div *ngFor="let task of col.tasks" class="table-task-row" (click)="openTaskDetail(task)">
               <div class="task-title-cell">
                 <span class="stage-tag-mini">{{ col.title }}</span>
-                <span class="title-bold">#{{ task.id }} - {{ task.title }}</span>
+                <span class="title-bold" [title]="task.title">#{{ task.id }} - {{ task.title }}</span>
               </div>
               <div class="task-prio-cell">
                 <span class="prio-tag" [class]="task.priority.toLowerCase()">{{ task.priority }}</span>
               </div>
               <div class="task-pts-cell" (click)="$event.stopPropagation()">
                 <select class="mini-select" [value]="task.storyPoints || 3" (change)="updateTaskStoryPoints(task.id, $event)">
-                  <option [value]="1">1 pt</option>
-                  <option [value]="2">2 pts</option>
-                  <option [value]="3">3 pts</option>
-                  <option [value]="5">5 pts</option>
-                  <option [value]="8">8 pts</option>
-                  <option [value]="13">13 pts</option>
+                  <option value="1" [selected]="(task.storyPoints || 3) == 1">1 pt</option>
+                  <option value="2" [selected]="(task.storyPoints || 3) == 2">2 pts</option>
+                  <option value="3" [selected]="(task.storyPoints || 3) == 3">3 pts</option>
+                  <option value="5" [selected]="(task.storyPoints || 3) == 5">5 pts</option>
+                  <option value="8" [selected]="(task.storyPoints || 3) == 8">8 pts</option>
+                  <option value="13" [selected]="(task.storyPoints || 3) == 13">13 pts</option>
                 </select>
               </div>
               <div class="task-sprint-cell" (click)="$event.stopPropagation()">
                 <select class="mini-select" [value]="task.sprintId || ''" (change)="assignTaskSprint(task.id, $event)">
-                  <option value="">Backlog</option>
-                  <option *ngFor="let s of projectSprints()" [value]="s.id">{{ s.name }}</option>
+                  <option value="" [selected]="!task.sprintId">Backlog</option>
+                  <option *ngFor="let s of projectSprints()" [value]="s.id" [selected]="task.sprintId === s.id">{{ s.name }}</option>
                 </select>
               </div>
               <div class="task-assignee-cell">
-                <span class="avatar-mini">{{ task.avatar || 'UN' }}</span>
-                <span class="name-mini">{{ task.assignee || 'Unassigned' }}</span>
+                <span class="avatar-mini">{{ task.avatar || (task.assignee ? task.assignee.substring(0, 2).toUpperCase() : 'UN') }}</span>
+                <span class="name-mini" [title]="task.assignee || 'Unassigned'">{{ task.assignee || 'Unassigned' }}</span>
               </div>
             </div>
           </ng-container>
