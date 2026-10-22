@@ -31,7 +31,7 @@ export class DashboardComponent implements OnInit {
   currentUser = computed(() => this.authService.currentUserSignal());
 
   // Active navigation view
-  activeNav = signal<'overview' | 'board' | 'discussions' | 'analytics' | 'rbac' | 'compliance'>('board');
+  activeNav = signal<'overview' | 'board' | 'roadmap' | 'backlog' | 'discussions' | 'analytics' | 'rbac' | 'compliance'>('board');
 
   // Subtasks & Deliverables Checklist Delegates
   taskSubtasks = this.boardFacade.taskSubtasks;
@@ -57,6 +57,34 @@ export class DashboardComponent implements OnInit {
   auditFilterAction = this.boardFacade.auditFilterAction;
   auditFilterEntity = this.boardFacade.auditFilterEntity;
   isExportingCsv = this.boardFacade.isExportingCsv;
+
+  // --- Feature 1: Card Archiving & "Active Only" View Toggle Delegates ---
+  archivedTasks = this.boardFacade.archivedTasks;
+  isArchivedDrawerOpen = this.boardFacade.isArchivedDrawerOpen;
+  hideCompletedFilter = this.boardFacade.hideCompletedFilter;
+
+  // --- Feature 2: Interactive Sprint Roadmap & Gantt Timeline Delegates ---
+  timelineTasks = this.boardFacade.timelineTasks;
+  isLoadingTimeline = this.boardFacade.isLoadingTimeline;
+
+  // --- Feature 3: Task Dependency Engine & Blocker Links Delegates ---
+  taskDependencies = this.boardFacade.taskDependencies;
+  isLoadingDependencies = this.boardFacade.isLoadingDependencies;
+  newDependencyTargetId = this.boardFacade.newDependencyTargetId;
+  newDependencyType = this.boardFacade.newDependencyType;
+
+  // --- Feature 4: Sprint Planning & Dedicated Backlog Grooming Delegates ---
+  projectSprints = this.boardFacade.projectSprints;
+  isLoadingSprints = this.boardFacade.isLoadingSprints;
+  isCreateSprintModalOpen = this.boardFacade.isCreateSprintModalOpen;
+  newSprintName = this.boardFacade.newSprintName;
+  newSprintGoal = this.boardFacade.newSprintGoal;
+  newSprintTargetPoints = this.boardFacade.newSprintTargetPoints;
+
+  // --- Feature 5: Smart Automation Rules Engine (Butler Automations) Delegates ---
+  automationRules = this.boardFacade.automationRules;
+  isAutomationsModalOpen = this.boardFacade.isAutomationsModalOpen;
+  isTogglingRule = this.boardFacade.isTogglingRule;
 
   // Notification State Delegates
   notifications = this.notificationFacade.filteredNotifications;
@@ -232,8 +260,8 @@ export class DashboardComponent implements OnInit {
   ngOnInit(): void {
     this.route.queryParams.subscribe(params => {
       const tab = params['tab'];
-      if (tab === 'rbac' || tab === 'discussions' || tab === 'analytics' || tab === 'board' || tab === 'compliance') {
-        this.activeNav.set(tab);
+      if (tab === 'rbac' || tab === 'discussions' || tab === 'analytics' || tab === 'board' || tab === 'compliance' || tab === 'roadmap' || tab === 'backlog') {
+        this.switchNav(tab as any);
       }
     });
 
@@ -663,5 +691,121 @@ export class DashboardComponent implements OnInit {
 
   exportAuditCsv(): void {
     this.boardFacade.exportAuditCsv();
+  }
+
+  // --- Navigation Switcher ---
+  switchNav(nav: 'overview' | 'board' | 'roadmap' | 'backlog' | 'discussions' | 'analytics' | 'rbac' | 'compliance'): void {
+    this.activeNav.set(nav);
+    if (nav === 'roadmap') {
+      this.boardFacade.loadTimeline();
+    } else if (nav === 'backlog') {
+      this.boardFacade.loadSprints();
+    } else if (nav === 'analytics') {
+      this.boardFacade.loadBurndown();
+    } else if (nav === 'compliance') {
+      this.boardFacade.loadAuditData();
+    }
+  }
+
+  // --- Feature 1: Card Archiving & Active Only Methods ---
+  archiveTask(task: TaskCard): void {
+    this.boardFacade.archiveTask(task);
+  }
+
+  restoreTask(task: TaskCard): void {
+    this.boardFacade.restoreTask(task);
+  }
+
+  openArchivedDrawer(): void {
+    this.boardFacade.isArchivedDrawerOpen.set(true);
+    this.boardFacade.loadArchivedTasks();
+  }
+
+  closeArchivedDrawer(): void {
+    this.boardFacade.isArchivedDrawerOpen.set(false);
+  }
+
+  toggleHideCompleted(): void {
+    this.boardFacade.hideCompletedFilter.update(v => !v);
+  }
+
+  // --- Feature 2: Interactive Sprint Roadmap & Gantt Timeline Methods ---
+  refreshTimeline(): void {
+    this.boardFacade.loadTimeline();
+  }
+
+  getGanttBarLeft(startDateStr: string): number {
+    if (!startDateStr) return 10;
+    const start = new Date(startDateStr).getTime();
+    const minTime = Date.now() - (7 * 86400000);
+    const totalSpan = 28 * 86400000;
+    const diff = Math.max(0, start - minTime);
+    return Math.min(85, Math.round((diff / totalSpan) * 100));
+  }
+
+  getGanttBarWidth(startDateStr: string, deadlineStr: string): number {
+    if (!startDateStr || !deadlineStr) return 20;
+    const start = new Date(startDateStr).getTime();
+    const end = new Date(deadlineStr).getTime();
+    const duration = Math.max(86400000, end - start);
+    const totalSpan = 28 * 86400000;
+    return Math.min(60, Math.max(12, Math.round((duration / totalSpan) * 100)));
+  }
+
+  // --- Feature 3: Task Dependency Engine & Blocker Links Methods ---
+  addDependency(): void {
+    const targetId = this.newDependencyTargetId();
+    const type = this.newDependencyType();
+    if (!targetId) return;
+    this.boardFacade.addDependency(targetId, type);
+  }
+
+  deleteDependency(depId: number): void {
+    this.boardFacade.deleteDependency(depId);
+  }
+
+  // --- Feature 4: Sprint Planning & Dedicated Backlog Grooming Methods ---
+  openCreateSprintModal(): void {
+    this.boardFacade.isCreateSprintModalOpen.set(true);
+  }
+
+  closeCreateSprintModal(): void {
+    this.boardFacade.isCreateSprintModalOpen.set(false);
+  }
+
+  submitCreateSprint(): void {
+    this.boardFacade.createSprint();
+  }
+
+  startSprint(sprintId: number): void {
+    this.boardFacade.startSprint(sprintId);
+  }
+
+  completeSprint(sprintId: number): void {
+    this.boardFacade.completeSprint(sprintId);
+  }
+
+  updateTaskStoryPoints(taskId: number, event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    this.boardFacade.updateStoryPoints(taskId, Number(select.value));
+  }
+
+  assignTaskSprint(taskId: number, event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    this.boardFacade.assignSprint(taskId, Number(select.value));
+  }
+
+  // --- Feature 5: Smart Automation Rules Engine (Butler Automations) Methods ---
+  openAutomationsModal(): void {
+    this.boardFacade.isAutomationsModalOpen.set(true);
+    this.boardFacade.loadAutomationRules();
+  }
+
+  closeAutomationsModal(): void {
+    this.boardFacade.isAutomationsModalOpen.set(false);
+  }
+
+  toggleAutomationRule(ruleId: number): void {
+    this.boardFacade.toggleAutomationRule(ruleId);
   }
 }

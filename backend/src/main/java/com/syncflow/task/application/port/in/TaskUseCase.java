@@ -34,4 +34,18 @@ public interface TaskUseCase {
     List<com.syncflow.dto.TaskAttachmentDTO> getAttachments(Long taskId);
     com.syncflow.dto.TaskAttachmentDTO addAttachment(Long taskId, String fileName, String fileType, String fileSize, String fileUrl, String uploadedBy);
     void deleteAttachment(Long taskId, Long attachmentId);
+
+    // Archiving & Lifecycle
+    TaskDTO archiveTask(Long id, String operatorName);
+    TaskDTO restoreTask(Long id, String operatorName);
+    List<TaskDTO> getArchivedTasks(Long projectId);
+
+    // Dependencies & Blocker Links
+    List<com.syncflow.dto.TaskDependencyDTO> getDependencies(Long taskId);
+    com.syncflow.dto.TaskDependencyDTO addDependency(Long sourceTaskId, Long targetTaskId, String type, String operatorName);
+    void deleteDependency(Long dependencyId);
+
+    // Sprint & Story Points
+    TaskDTO updateStoryPoints(Long taskId, Integer points);
+    TaskDTO assignSprint(Long taskId, Long sprintId);
 }

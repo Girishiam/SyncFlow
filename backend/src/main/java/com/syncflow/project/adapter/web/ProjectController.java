@@ -53,4 +53,44 @@ public class ProjectController {
     public ResponseEntity<BurndownAnalyticsDTO> getBurndownAnalytics(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getBurndownAnalytics(id));
     }
+
+    // --- Roadmap & Gantt Timeline ---
+    @GetMapping("/{id}/timeline")
+    public ResponseEntity<List<TimelineTaskDTO>> getProjectTimeline(@PathVariable Long id) {
+        return ResponseEntity.ok(projectUseCase.getProjectTimeline(id));
+    }
+
+    // --- Agile Sprints & Planning ---
+    @GetMapping("/{id}/sprints")
+    public ResponseEntity<List<SprintDTO>> getProjectSprints(@PathVariable Long id) {
+        return ResponseEntity.ok(projectUseCase.getProjectSprints(id));
+    }
+
+    @PostMapping("/{id}/sprints")
+    public ResponseEntity<SprintDTO> createSprint(
+            @PathVariable Long id,
+            @RequestBody SprintDTO request) {
+        return ResponseEntity.ok(projectUseCase.createSprint(id, request));
+    }
+
+    @PutMapping("/sprints/{sprintId}/start")
+    public ResponseEntity<SprintDTO> startSprint(@PathVariable Long sprintId) {
+        return ResponseEntity.ok(projectUseCase.startSprint(sprintId));
+    }
+
+    @PutMapping("/sprints/{sprintId}/complete")
+    public ResponseEntity<SprintDTO> completeSprint(@PathVariable Long sprintId) {
+        return ResponseEntity.ok(projectUseCase.completeSprint(sprintId));
+    }
+
+    // --- Butler Automation Rules ---
+    @GetMapping("/{id}/automations")
+    public ResponseEntity<List<AutomationRuleDTO>> getAutomationRules(@PathVariable Long id) {
+        return ResponseEntity.ok(projectUseCase.getAutomationRules(id));
+    }
+
+    @PutMapping("/automations/{ruleId}/toggle")
+    public ResponseEntity<AutomationRuleDTO> toggleAutomationRule(@PathVariable Long ruleId) {
+        return ResponseEntity.ok(projectUseCase.toggleAutomationRule(ruleId));
+    }
 }

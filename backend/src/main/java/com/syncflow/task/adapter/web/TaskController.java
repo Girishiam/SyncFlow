@@ -143,4 +143,66 @@ public class TaskController {
         taskUseCase.deleteAttachment(id, attachmentId);
         return ResponseEntity.ok().build();
     }
+
+    // --- Task Archiving & Board Lifecycle Endpoints ---
+    @PutMapping("/{id}/archive")
+    public ResponseEntity<com.syncflow.dto.TaskDTO> archiveTask(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        String operator = userDetails != null ? userDetails.getUsername() : "Operator";
+        return ResponseEntity.ok(taskUseCase.archiveTask(id, operator));
+    }
+
+    @PutMapping("/{id}/restore")
+    public ResponseEntity<com.syncflow.dto.TaskDTO> restoreTask(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        String operator = userDetails != null ? userDetails.getUsername() : "Operator";
+        return ResponseEntity.ok(taskUseCase.restoreTask(id, operator));
+    }
+
+    @GetMapping("/archived")
+    public ResponseEntity<List<com.syncflow.dto.TaskDTO>> getArchivedTasks(@RequestParam Long projectId) {
+        return ResponseEntity.ok(taskUseCase.getArchivedTasks(projectId));
+    }
+
+    // --- Task Dependencies Endpoints ---
+    @GetMapping("/{id}/dependencies")
+    public ResponseEntity<List<com.syncflow.dto.TaskDependencyDTO>> getDependencies(@PathVariable Long id) {
+        return ResponseEntity.ok(taskUseCase.getDependencies(id));
+    }
+
+    @PostMapping("/{id}/dependencies")
+    public ResponseEntity<com.syncflow.dto.TaskDependencyDTO> addDependency(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails,
+            @RequestBody java.util.Map<String, String> body) {
+        Long targetTaskId = Long.parseLong(body.get("targetTaskId"));
+        String type = body.getOrDefault("dependencyType", "BLOCKS");
+        String operator = userDetails != null ? userDetails.getUsername() : "Operator";
+        return ResponseEntity.ok(taskUseCase.addDependency(id, targetTaskId, type, operator));
+    }
+
+    @DeleteMapping("/dependencies/{dependencyId}")
+    public ResponseEntity<Void> deleteDependency(@PathVariable Long dependencyId) {
+        taskUseCase.deleteDependency(dependencyId);
+        return ResponseEntity.ok().build();
+    }
+
+    // --- Story Points & Sprint Assignment Endpoints ---
+    @PutMapping("/{id}/story-points")
+    public ResponseEntity<com.syncflow.dto.TaskDTO> updateStoryPoints(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, Integer> body) {
+        Integer points = body.getOrDefault("storyPoints", 3);
+        return ResponseEntity.ok(taskUseCase.updateStoryPoints(id, points));
+    }
+
+    @PutMapping("/{id}/sprint")
+    public ResponseEntity<com.syncflow.dto.TaskDTO> assignSprint(
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, Long> body) {
+        Long sprintId = body.get("sprintId");
+        return ResponseEntity.ok(taskUseCase.assignSprint(id, sprintId));
+    }
 }

@@ -24,4 +24,11 @@ public class TaskDTO {
     private Boolean isBlocked;
     private String blockerReason;
     private java.time.Instant deadline;
+    private Boolean isArchived;
+    private java.time.Instant archivedAt;
+    private String archivedBy;
+    private java.time.Instant startDate;
+    private Long sprintId;
+    private String sprintName;
+    private Integer storyPoints;
 }

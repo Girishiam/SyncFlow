@@ -14,6 +14,13 @@ export interface TaskCard {
   isBlocked: boolean;
   blockerReason?: string;
   deadline?: string;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  startDate?: string;
+  sprintId?: number;
+  sprintName?: string;
+  storyPoints?: number;
 }
 
 export interface BankUser {
@@ -175,4 +182,57 @@ export interface AuditMetrics {
   integrityAlgorithm: string;
 }
 
+export interface Sprint {
+  id: number;
+  projectId: number;
+  name: string;
+  goal?: string;
+  startDate?: string;
+  endDate?: string;
+  status: 'PLANNING' | 'ACTIVE' | 'COMPLETED';
+  targetStoryPoints: number;
+  totalTasks: number;
+  completedTasks: number;
+  totalStoryPoints: number;
+  completedStoryPoints: number;
+}
 
+export interface TaskDependency {
+  id: number;
+  sourceTaskId: number;
+  targetTaskId: number;
+  targetTaskTitle: string;
+  dependencyType: 'BLOCKS' | 'BLOCKED_BY' | 'RELATES_TO';
+  createdBy?: string;
+  createdAt?: string;
+}
+
+export interface TimelineTask {
+  id: number;
+  title: string;
+  priority: string;
+  progress: number;
+  stageId?: number;
+  stageName?: string;
+  isDoneStage: boolean;
+  assignee?: string;
+  avatar?: string;
+  startDate: string;
+  deadline: string;
+  isBlocked: boolean;
+  storyPoints: number;
+  blockedByTaskIds: number[];
+}
+
+export interface AutomationRule {
+  id: number;
+  projectId: number;
+  name: string;
+  description: string;
+  triggerEvent: string;
+  actionType: string;
+  targetRole?: string;
+  isEnabled: boolean;
+  executionCount: number;
+  lastExecutedAt?: string;
+}

@@ -1,13 +1,7 @@
 package com.syncflow.project.application.service;
 
 import com.syncflow.common.domain.DomainException;
-import com.syncflow.dto.CreateStageRequest;
-import com.syncflow.dto.ProjectBoardDTO;
-import com.syncflow.dto.ProjectDTO;
-import com.syncflow.dto.ReorderStagesRequest;
-import com.syncflow.dto.StageDTO;
-import com.syncflow.dto.TaskDTO;
-import com.syncflow.dto.BurndownAnalyticsDTO;
+import com.syncflow.dto.*;
 import com.syncflow.model.Project;
 import com.syncflow.model.Stage;
 import com.syncflow.model.Task;
@@ -20,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,6 +26,10 @@ public class ProjectApplicationService implements ProjectUseCase {
     private final ProjectRepositoryPort projectRepositoryPort;
     private final StageRepositoryPort stageRepositoryPort;
     private final TaskRepositoryPort taskRepositoryPort;
+    private final com.syncflow.repository.SprintRepository sprintRepository;
+    private final com.syncflow.repository.TaskDependencyRepository taskDependencyRepository;
+    private final com.syncflow.repository.AutomationRuleRepository automationRuleRepository;
+    private final com.syncflow.audit.application.port.in.AuditLogUseCase auditLogUseCase;
 
     @Override
     @Transactional(readOnly = true)
@@ -94,6 +93,10 @@ public class ProjectApplicationService implements ProjectUseCase {
         for (Stage stage : stages) {
             List<TaskDTO> stageTasks = new ArrayList<>();
             for (Task t : allTasks) {
+                if (Boolean.TRUE.equals(t.getIsArchived())) {
+                    continue; // Archived tasks are hidden from the active board view (Trello/Linear lifecycle)
+                }
+
                 if (t.getStage() != null && t.getStage().getId().equals(stage.getId())) {
                     if (Boolean.TRUE.equals(t.getIsBlocked())) {
                         blockedTasks++;
@@ -121,6 +124,12 @@ public class ProjectApplicationService implements ProjectUseCase {
                             .isBlocked(Boolean.TRUE.equals(t.getIsBlocked()))
                             .blockerReason(t.getBlockerReason())
                             .deadline(t.getDeadline())
+                            .isArchived(Boolean.TRUE.equals(t.getIsArchived()))
+                            .archivedAt(t.getArchivedAt())
+                            .archivedBy(t.getArchivedBy())
+                            .startDate(t.getStartDate())
+                            .sprintId(t.getSprintId())
+                            .storyPoints(t.getStoryPoints() != null ? t.getStoryPoints() : 3)
                             .build());
                 }
             }
@@ -259,6 +268,240 @@ public class ProjectApplicationService implements ProjectUseCase {
                 .averageCycleTimeDays(2.4)
                 .daysRemainingInSprint(daysRemaining)
                 .dailyProgress(dailyProgress)
+                .build();
+    }
+
+    // --- Roadmap & Gantt Timeline ---
+    @Override
+    @Transactional(readOnly = true)
+    public List<TimelineTaskDTO> getProjectTimeline(Long projectId) {
+        List<Task> tasks = taskRepositoryPort.findByProjectId(projectId).stream()
+                .filter(t -> !Boolean.TRUE.equals(t.getIsArchived()))
+                .toList();
+
+        List<TimelineTaskDTO> timeline = new ArrayList<>();
+
+        for (Task t : tasks) {
+            String assigneeName = t.getAssignee() != null ? t.getAssignee().getFullName() : "Unassigned";
+            String avatar = getInitials(assigneeName);
+
+            Instant start = t.getStartDate() != null ? t.getStartDate() : t.getCreatedAt();
+            Instant end = t.getDeadline() != null ? t.getDeadline() : start.plus(7, java.time.temporal.ChronoUnit.DAYS);
+
+            List<Long> blockedBy = taskDependencyRepository.findBySourceTaskId(t.getId()).stream()
+                    .filter(d -> "BLOCKED_BY".equalsIgnoreCase(d.getDependencyType()) || "BLOCKS".equalsIgnoreCase(d.getDependencyType()))
+                    .map(com.syncflow.model.TaskDependency::getTargetTaskId)
+                    .toList();
+
+            timeline.add(TimelineTaskDTO.builder()
+                    .id(t.getId())
+                    .title(t.getTitle())
+                    .priority(t.getPriority())
+                    .progress(t.getProgressPercentage() != null ? t.getProgressPercentage() : 0)
+                    .stageId(t.getStage() != null ? t.getStage().getId() : null)
+                    .stageName(t.getStage() != null ? t.getStage().getName() : "")
+                    .isDoneStage(t.getStage() != null && Boolean.TRUE.equals(t.getStage().getIsDoneStage()))
+                    .assignee(assigneeName)
+                    .avatar(avatar)
+                    .startDate(start)
+                    .deadline(end)
+                    .isBlocked(Boolean.TRUE.equals(t.getIsBlocked()))
+                    .storyPoints(t.getStoryPoints() != null ? t.getStoryPoints() : 3)
+                    .blockedByTaskIds(blockedBy)
+                    .build());
+        }
+
+        return timeline;
+    }
+
+    // --- Agile Sprints & Planning ---
+    @Override
+    @Transactional(readOnly = true)
+    public List<SprintDTO> getProjectSprints(Long projectId) {
+        List<com.syncflow.model.Sprint> sprints = sprintRepository.findByProjectIdOrderByStartDateDesc(projectId);
+        List<Task> projectTasks = taskRepositoryPort.findByProjectId(projectId);
+
+        List<SprintDTO> result = new ArrayList<>();
+        for (com.syncflow.model.Sprint s : sprints) {
+            List<Task> sprintTasks = projectTasks.stream()
+                    .filter(t -> s.getId().equals(t.getSprintId()))
+                    .toList();
+
+            int totalTasks = sprintTasks.size();
+            int completedTasks = (int) sprintTasks.stream()
+                    .filter(t -> (t.getStage() != null && Boolean.TRUE.equals(t.getStage().getIsDoneStage())) || (t.getProgressPercentage() != null && t.getProgressPercentage() == 100))
+                    .count();
+
+            int totalPoints = sprintTasks.stream()
+                    .mapToInt(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 3)
+                    .sum();
+
+            int completedPoints = sprintTasks.stream()
+                    .filter(t -> (t.getStage() != null && Boolean.TRUE.equals(t.getStage().getIsDoneStage())) || (t.getProgressPercentage() != null && t.getProgressPercentage() == 100))
+                    .mapToInt(t -> t.getStoryPoints() != null ? t.getStoryPoints() : 3)
+                    .sum();
+
+            result.add(SprintDTO.builder()
+                    .id(s.getId())
+                    .projectId(s.getProjectId())
+                    .name(s.getName())
+                    .goal(s.getGoal())
+                    .startDate(s.getStartDate())
+                    .endDate(s.getEndDate())
+                    .status(s.getStatus())
+                    .targetStoryPoints(s.getTargetStoryPoints())
+                    .totalTasks(totalTasks)
+                    .completedTasks(completedTasks)
+                    .totalStoryPoints(totalPoints)
+                    .completedStoryPoints(completedPoints)
+                    .build());
+        }
+
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public SprintDTO createSprint(Long projectId, SprintDTO request) {
+        com.syncflow.model.Sprint sprint = com.syncflow.model.Sprint.builder()
+                .projectId(projectId)
+                .name(request.getName().trim())
+                .goal(request.getGoal())
+                .startDate(request.getStartDate() != null ? request.getStartDate() : java.time.LocalDate.now())
+                .endDate(request.getEndDate() != null ? request.getEndDate() : java.time.LocalDate.now().plusDays(14))
+                .status("PLANNING")
+                .targetStoryPoints(request.getTargetStoryPoints() != null ? request.getTargetStoryPoints() : 30)
+                .createdAt(Instant.now())
+                .build();
+
+        com.syncflow.model.Sprint saved = sprintRepository.save(sprint);
+
+        try {
+            auditLogUseCase.recordLog("SPRINT_CREATED", "SPRINT", saved.getId(), saved.getName(),
+                    "Manager", null, "PROJECT_MANAGER", "Created sprint with target " + saved.getTargetStoryPoints() + " pts");
+        } catch (Exception e) {
+            log.warn("Failed to audit sprint creation: {}", e.getMessage());
+        }
+
+        return SprintDTO.builder()
+                .id(saved.getId())
+                .projectId(saved.getProjectId())
+                .name(saved.getName())
+                .goal(saved.getGoal())
+                .startDate(saved.getStartDate())
+                .endDate(saved.getEndDate())
+                .status(saved.getStatus())
+                .targetStoryPoints(saved.getTargetStoryPoints())
+                .totalTasks(0)
+                .completedTasks(0)
+                .totalStoryPoints(0)
+                .completedStoryPoints(0)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public SprintDTO startSprint(Long sprintId) {
+        com.syncflow.model.Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new DomainException("Sprint not found: " + sprintId));
+
+        sprint.setStatus("ACTIVE");
+        com.syncflow.model.Sprint saved = sprintRepository.save(sprint);
+
+        try {
+            auditLogUseCase.recordLog("SPRINT_STARTED", "SPRINT", saved.getId(), saved.getName(),
+                    "Manager", null, "PROJECT_MANAGER", "Activated sprint: " + saved.getName());
+        } catch (Exception e) {
+            log.warn("Failed to audit sprint start: {}", e.getMessage());
+        }
+
+        return SprintDTO.builder()
+                .id(saved.getId())
+                .projectId(saved.getProjectId())
+                .name(saved.getName())
+                .goal(saved.getGoal())
+                .startDate(saved.getStartDate())
+                .endDate(saved.getEndDate())
+                .status(saved.getStatus())
+                .targetStoryPoints(saved.getTargetStoryPoints())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public SprintDTO completeSprint(Long sprintId) {
+        com.syncflow.model.Sprint sprint = sprintRepository.findById(sprintId)
+                .orElseThrow(() -> new DomainException("Sprint not found: " + sprintId));
+
+        sprint.setStatus("COMPLETED");
+        com.syncflow.model.Sprint saved = sprintRepository.save(sprint);
+
+        try {
+            auditLogUseCase.recordLog("SPRINT_COMPLETED", "SPRINT", saved.getId(), saved.getName(),
+                    "Manager", null, "PROJECT_MANAGER", "Completed and closed sprint: " + saved.getName());
+        } catch (Exception e) {
+            log.warn("Failed to audit sprint completion: {}", e.getMessage());
+        }
+
+        return SprintDTO.builder()
+                .id(saved.getId())
+                .projectId(saved.getProjectId())
+                .name(saved.getName())
+                .goal(saved.getGoal())
+                .startDate(saved.getStartDate())
+                .endDate(saved.getEndDate())
+                .status(saved.getStatus())
+                .targetStoryPoints(saved.getTargetStoryPoints())
+                .build();
+    }
+
+    // --- Butler Automation Rules ---
+    @Override
+    @Transactional(readOnly = true)
+    public List<AutomationRuleDTO> getAutomationRules(Long projectId) {
+        return automationRuleRepository.findByProjectId(projectId).stream()
+                .map(r -> AutomationRuleDTO.builder()
+                        .id(r.getId())
+                        .projectId(r.getProjectId())
+                        .name(r.getName())
+                        .description(r.getDescription())
+                        .triggerEvent(r.getTriggerEvent())
+                        .actionType(r.getActionType())
+                        .targetRole(r.getTargetRole())
+                        .isEnabled(r.getIsEnabled())
+                        .executionCount(r.getExecutionCount())
+                        .lastExecutedAt(r.getLastExecutedAt())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public AutomationRuleDTO toggleAutomationRule(Long ruleId) {
+        com.syncflow.model.AutomationRule rule = automationRuleRepository.findById(ruleId)
+                .orElseThrow(() -> new DomainException("Automation rule not found: " + ruleId));
+
+        rule.setIsEnabled(!Boolean.TRUE.equals(rule.getIsEnabled()));
+        com.syncflow.model.AutomationRule saved = automationRuleRepository.save(rule);
+
+        try {
+            auditLogUseCase.recordLog("AUTOMATION_TOGGLED", "AUTOMATION", saved.getId(), saved.getName(),
+                    "Lead", null, "TEAM_LEAD", "Automation rule is now " + (saved.getIsEnabled() ? "ENABLED" : "DISABLED"));
+        } catch (Exception e) {
+            log.warn("Failed to audit automation toggle: {}", e.getMessage());
+        }
+
+        return AutomationRuleDTO.builder()
+                .id(saved.getId())
+                .projectId(saved.getProjectId())
+                .name(saved.getName())
+                .description(saved.getDescription())
+                .triggerEvent(saved.getTriggerEvent())
+                .actionType(saved.getActionType())
+                .targetRole(saved.getTargetRole())
+                .isEnabled(saved.getIsEnabled())
+                .executionCount(saved.getExecutionCount())
+                .lastExecutedAt(saved.getLastExecutedAt())
                 .build();
     }
 

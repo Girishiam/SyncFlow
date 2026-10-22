@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { TaskCard, BankUser } from '../models/project.models';
+import { TaskCard, BankUser, TaskDependency } from '../models/project.models';
 import { ITaskPort, CreateTaskPayload, TaskComment } from '../ports/task.port';
 
 @Injectable({
@@ -81,5 +81,43 @@ export class TaskService implements ITaskPort {
 
   deleteAttachment(taskId: number, attachmentId: number): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${taskId}/attachments/${attachmentId}`);
+  }
+
+  // --- Task Archiving & Board Lifecycle ---
+  archiveTask(taskId: number): Observable<TaskCard> {
+    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/archive`, {});
+  }
+
+  restoreTask(taskId: number): Observable<TaskCard> {
+    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/restore`, {});
+  }
+
+  getArchivedTasks(projectId: number): Observable<TaskCard[]> {
+    return this.http.get<TaskCard[]>(`${this.apiUrl}/archived`, { params: { projectId: String(projectId) } });
+  }
+
+  // --- Task Dependencies ---
+  getDependencies(taskId: number): Observable<TaskDependency[]> {
+    return this.http.get<TaskDependency[]>(`${this.apiUrl}/${taskId}/dependencies`);
+  }
+
+  addDependency(taskId: number, targetTaskId: number, dependencyType: string): Observable<TaskDependency> {
+    return this.http.post<TaskDependency>(`${this.apiUrl}/${taskId}/dependencies`, {
+      targetTaskId: String(targetTaskId),
+      dependencyType
+    });
+  }
+
+  deleteDependency(dependencyId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/dependencies/${dependencyId}`);
+  }
+
+  // --- Story Points & Sprint Assignment ---
+  updateStoryPoints(taskId: number, storyPoints: number): Observable<TaskCard> {
+    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/story-points`, { storyPoints });
+  }
+
+  assignSprint(taskId: number, sprintId: number): Observable<TaskCard> {
+    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/sprint`, { sprintId });
   }
 }

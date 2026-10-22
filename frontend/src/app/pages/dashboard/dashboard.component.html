@@ -48,6 +48,34 @@
       </button>
 
       <button
+        id="sidebar-nav-roadmap"
+        class="nav-item"
+        [class.active]="activeNav() === 'roadmap'"
+        (click)="switchNav('roadmap')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="4" y1="6" x2="16" y2="6" stroke-linecap="round"/>
+          <line x1="8" y1="12" x2="20" y2="12" stroke-linecap="round"/>
+          <line x1="4" y1="18" x2="12" y2="18" stroke-linecap="round"/>
+        </svg>
+        <span>Roadmap & Gantt</span>
+      </button>
+
+      <button
+        id="sidebar-nav-backlog"
+        class="nav-item"
+        [class.active]="activeNav() === 'backlog'"
+        (click)="switchNav('backlog')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+          <path d="M9 14l2 2 4-4"/>
+        </svg>
+        <span>Backlog & Sprints</span>
+      </button>
+
+      <button
         id="sidebar-nav-new-proj"
         class="nav-item new-proj-item"
         (click)="openCreateProject()"
@@ -337,6 +365,28 @@
           >
             Critical & High
           </button>
+          <button
+            class="filter-pill toggle-active-pill"
+            [class.active]="hideCompletedFilter()"
+            (click)="toggleHideCompleted()"
+            title="Toggle active tasks only (hide completed cards)"
+          >
+            Active Only
+          </button>
+          <button
+            class="filter-pill automations-pill"
+            (click)="openAutomationsModal()"
+            title="Butler Automations Rules"
+          >
+            ⚡ Butler Rules
+          </button>
+          <button
+            class="filter-pill archive-pill"
+            (click)="openArchivedDrawer()"
+            title="View Archived Tasks"
+          >
+            📦 Archived ({{ archivedTasks().length }})
+          </button>
         </div>
 
         <div *ngIf="searchQuery()" class="search-active-hint">
@@ -396,6 +446,7 @@
                 >
                   {{ task.priority }}
                 </span>
+                <span class="points-badge" title="Story Points">{{ task.storyPoints || 3 }} pts</span>
               </div>
 
               <div class="card-title" (click)="openTaskDetail(task)" title="Click to view details & discussion">
@@ -458,6 +509,19 @@
                       <line x1="12" y1="17" x2="12.01" y2="17" />
                     </svg>
                   </button>
+
+                  <button
+                    *ngIf="task.progress === 100 || col.isDoneStage"
+                    class="card-archive-btn"
+                    (click)="$event.stopPropagation(); archiveTask(task)"
+                    title="Archive completed card from active board"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                      <rect x="1" y="3" width="22" height="5"></rect>
+                      <line x1="10" y1="12" x2="14" y2="12"></line>
+                    </svg>
+                  </button>
                 </div>
               </div>
             </div>
@@ -473,6 +537,213 @@
             </svg>
             <span>Add Stage</span>
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT: ROADMAP & GANTT TIMELINE -->
+    <div *ngIf="activeNav() === 'roadmap'" class="roadmap-view">
+      <div class="roadmap-header">
+        <div class="roadmap-title-wrap">
+          <div class="roadmap-icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="4" y1="6" x2="16" y2="6" stroke-linecap="round"/>
+              <line x1="8" y1="12" x2="20" y2="12" stroke-linecap="round"/>
+              <line x1="4" y1="18" x2="12" y2="18" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="view-title">Sprint Roadmap & Gantt Timeline</h2>
+            <p class="view-subtitle">Interactive schedule projection, delivery milestones, and task dependency critical path.</p>
+          </div>
+        </div>
+
+        <div class="roadmap-actions">
+          <button class="roadmap-refresh-btn" (click)="refreshTimeline()" title="Recalculate timeline">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6"></path>
+              <path d="M1 20v-6h6"></path>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Refresh Schedule</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Roadmap Metrics Summary -->
+      <div class="roadmap-metrics-row">
+        <div class="roadmap-metric-pill">
+          <span class="label">Total Tasks</span>
+          <span class="val">{{ timelineTasks().length }}</span>
+        </div>
+        <div class="roadmap-metric-pill">
+          <span class="label">Critical Path</span>
+          <span class="val gold">{{ (timelineTasks() | slice:0:3).length }} Milestones</span>
+        </div>
+        <div class="roadmap-metric-pill">
+          <span class="label">Sprint Velocity</span>
+          <span class="val emerald">34 pts / sprint</span>
+        </div>
+        <div class="roadmap-metric-pill">
+          <span class="label">Delivery SLA</span>
+          <span class="val emerald">98.2% On-Time</span>
+        </div>
+      </div>
+
+      <!-- Interactive Gantt Chart Container -->
+      <div class="gantt-container">
+        <!-- Gantt Header Days Bar -->
+        <div class="gantt-timeline-header">
+          <div class="task-col-header">Task & Deliverable</div>
+          <div class="days-scale">
+            <div class="scale-mark" *ngFor="let day of [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27]">
+              Day {{ day }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Gantt Task Rows -->
+        <div class="gantt-body">
+          <div *ngFor="let t of timelineTasks()" class="gantt-row" [class.blocked-row]="t.isBlocked">
+            <div class="task-info-col" (click)="openTaskDetail(t)">
+              <span class="task-prio-dot" [class]="t.priority.toLowerCase()"></span>
+              <span class="task-title-text">{{ t.title }}</span>
+              <span class="task-pts-badge">{{ t.storyPoints || 3 }} pts</span>
+            </div>
+
+            <div class="timeline-track">
+              <!-- Grid background guides -->
+              <div class="track-guides">
+                <div class="guide-line" *ngFor="let i of [1,2,3,4,5,6,7,8]"></div>
+              </div>
+
+              <!-- Gantt Progress Bar -->
+              <div
+                class="gantt-bar"
+                [class.done]="t.progress === 100 || t.isDoneStage"
+                [class.blocked]="t.isBlocked"
+                [style.left.%]="getGanttBarLeft(t.startDate)"
+                [style.width.%]="getGanttBarWidth(t.startDate, t.deadline)"
+                (click)="openTaskDetail(t)"
+                [title]="t.title + ' (' + t.progress + '%) - Assignee: ' + t.assignee"
+              >
+                <div class="bar-fill" [style.width.%]="t.progress"></div>
+                <div class="bar-content">
+                  <span class="bar-avatar">{{ t.avatar || 'UN' }}</span>
+                  <span class="bar-text">{{ t.progress }}%</span>
+                </div>
+              </div>
+
+              <!-- Blocker Indicator Link -->
+              <div *ngIf="t.blockedByTaskIds && t.blockedByTaskIds.length > 0" class="dependency-connector-flag" [style.left.%]="getGanttBarLeft(t.startDate) + 2">
+                ⚠️ Blocked by #{{ t.blockedByTaskIds.join(', #') }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT: SPRINT PLANNING & BACKLOG GROOMING -->
+    <div *ngIf="activeNav() === 'backlog'" class="backlog-view">
+      <div class="backlog-header">
+        <div class="backlog-title-wrap">
+          <div class="backlog-icon-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+              <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+              <path d="M9 14l2 2 4-4"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="view-title">Sprint Planning & Backlog Grooming</h2>
+            <p class="view-subtitle">Manage sprint cadence, story point commitments, and stage tasks for upcoming cycles.</p>
+          </div>
+        </div>
+
+        <div class="backlog-header-actions">
+          <button class="btn-create-sprint" (click)="openCreateSprintModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"/>
+              <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            <span>Create Sprint</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Sprints Section -->
+      <div class="sprints-container">
+        <div *ngFor="let sprint of projectSprints()" class="sprint-card-block" [class.active-sprint]="sprint.status === 'ACTIVE'">
+          <div class="sprint-card-header">
+            <div class="sprint-title-area">
+              <span class="sprint-status-tag" [class]="sprint.status.toLowerCase()">{{ sprint.status }}</span>
+              <h3 class="sprint-card-name">{{ sprint.name }}</h3>
+              <span class="sprint-dates" *ngIf="sprint.startDate">{{ sprint.startDate }} → {{ sprint.endDate }}</span>
+            </div>
+
+            <div class="sprint-header-controls">
+              <div class="sprint-point-tally">
+                <span class="tally-num">{{ sprint.completedStoryPoints || 0 }} / {{ sprint.totalStoryPoints || sprint.targetStoryPoints }} pts</span>
+                <span class="tally-label">Velocity</span>
+              </div>
+              <button *ngIf="sprint.status === 'PLANNING'" class="btn-sprint-action start-btn" (click)="startSprint(sprint.id)">Start Sprint</button>
+              <button *ngIf="sprint.status === 'ACTIVE'" class="btn-sprint-action complete-btn" (click)="completeSprint(sprint.id)">Complete Sprint</button>
+            </div>
+          </div>
+
+          <div *ngIf="sprint.goal" class="sprint-goal-box">
+            <strong>Sprint Goal:</strong> {{ sprint.goal }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Grooming & Backlog Tasks Table -->
+      <div class="backlog-tasks-section">
+        <div class="backlog-section-bar">
+          <span class="backlog-sec-title">Product Backlog Items & Sizing ({{ columns().length > 0 ? columns()[0].tasks.length : 0 }} tasks)</span>
+        </div>
+
+        <div class="backlog-table">
+          <div class="table-header-row">
+            <div class="col-title-hdr">Task Title</div>
+            <div class="col-prio-hdr">Priority</div>
+            <div class="col-pts-hdr">Story Points</div>
+            <div class="col-sprint-hdr">Sprint Allocation</div>
+            <div class="col-assignee-hdr">Assignee</div>
+          </div>
+
+          <ng-container *ngFor="let col of columns()">
+            <div *ngFor="let task of col.tasks" class="table-task-row" (click)="openTaskDetail(task)">
+              <div class="task-title-cell">
+                <span class="stage-tag-mini">{{ col.title }}</span>
+                <span class="title-bold">#{{ task.id }} - {{ task.title }}</span>
+              </div>
+              <div class="task-prio-cell">
+                <span class="prio-tag" [class]="task.priority.toLowerCase()">{{ task.priority }}</span>
+              </div>
+              <div class="task-pts-cell" (click)="$event.stopPropagation()">
+                <select class="mini-select" [value]="task.storyPoints || 3" (change)="updateTaskStoryPoints(task.id, $event)">
+                  <option [value]="1">1 pt</option>
+                  <option [value]="2">2 pts</option>
+                  <option [value]="3">3 pts</option>
+                  <option [value]="5">5 pts</option>
+                  <option [value]="8">8 pts</option>
+                  <option [value]="13">13 pts</option>
+                </select>
+              </div>
+              <div class="task-sprint-cell" (click)="$event.stopPropagation()">
+                <select class="mini-select" [value]="task.sprintId || ''" (change)="assignTaskSprint(task.id, $event)">
+                  <option value="">Backlog</option>
+                  <option *ngFor="let s of projectSprints()" [value]="s.id">{{ s.name }}</option>
+                </select>
+              </div>
+              <div class="task-assignee-cell">
+                <span class="avatar-mini">{{ task.avatar || 'UN' }}</span>
+                <span class="name-mini">{{ task.assignee || 'Unassigned' }}</span>
+              </div>
+            </div>
+          </ng-container>
         </div>
       </div>
     </div>
@@ -1809,6 +2080,36 @@
           />
         </div>
 
+        <div class="meta-item">
+          <label>Story Points</label>
+          <select
+            class="meta-select"
+            [value]="activeDetailTask()!.storyPoints || 3"
+            (change)="updateTaskStoryPoints(activeDetailTask()!.id, $event)"
+          >
+            <option [value]="1">1 pt (Trivial)</option>
+            <option [value]="2">2 pts (Small)</option>
+            <option [value]="3">3 pts (Standard)</option>
+            <option [value]="5">5 pts (Medium)</option>
+            <option [value]="8">8 pts (Complex)</option>
+            <option [value]="13">13 pts (Epic)</option>
+          </select>
+        </div>
+
+        <div class="meta-item">
+          <label>Agile Sprint</label>
+          <select
+            class="meta-select"
+            [value]="activeDetailTask()!.sprintId || ''"
+            (change)="assignTaskSprint(activeDetailTask()!.id, $event)"
+          >
+            <option value="">No Sprint (Product Backlog)</option>
+            <option *ngFor="let s of projectSprints()" [value]="s.id">
+              {{ s.name }} ({{ s.status }})
+            </option>
+          </select>
+        </div>
+
         <div class="meta-item full-width">
           <label>Progress</label>
           <div class="progress-display">
@@ -1851,6 +2152,19 @@
             <span>Reopen Task</span>
           </button>
 
+          <button
+            class="btn-archive-task"
+            (click)="archiveTask(activeDetailTask()!)"
+            title="Archive this card to remove from active sprint board"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="21 8 21 21 3 21 3 8"></polyline>
+              <rect x="1" y="3" width="22" height="5"></rect>
+              <line x1="10" y1="12" x2="14" y2="12"></line>
+            </svg>
+            <span>Archive Card</span>
+          </button>
+
           <span *ngIf="isTaskCompleted(activeDetailTask()!)" class="completion-verified-note">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
@@ -1871,6 +2185,60 @@
           <span>Active Blocker</span>
         </div>
         <p>{{ activeDetailTask()!.blockerReason }}</p>
+      </div>
+
+      <hr class="drawer-divider" />
+
+      <!-- Task Dependencies & Blocker Links Section -->
+      <div class="drawer-section dependencies-section">
+        <div class="section-header-row">
+          <div class="header-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+            </svg>
+            <span class="section-title">Dependencies & Blockers</span>
+            <span class="count-badge">{{ taskDependencies().length }}</span>
+          </div>
+        </div>
+
+        <!-- Dependency List -->
+        <div class="dependency-list" *ngIf="taskDependencies().length > 0">
+          <div *ngFor="let dep of taskDependencies()" class="dependency-card" [class]="dep.dependencyType.toLowerCase()">
+            <div class="dep-badge" [class]="dep.dependencyType.toLowerCase()">
+              {{ dep.dependencyType === 'BLOCKS' ? '⛔ BLOCKS' : dep.dependencyType === 'BLOCKED_BY' ? '⚠️ BLOCKED BY' : '🔗 RELATES TO' }}
+            </div>
+            <div class="dep-title-wrap">
+              <span class="dep-title">{{ dep.targetTaskTitle }}</span>
+              <span class="dep-meta">Linked by {{ dep.createdBy || 'Lead' }}</span>
+            </div>
+            <button class="dep-delete-btn" (click)="deleteDependency(dep.id)" title="Remove dependency link">×</button>
+          </div>
+        </div>
+
+        <div *ngIf="taskDependencies().length === 0" class="empty-dependencies-hint">
+          No upstream or downstream blocker dependencies linked yet.
+        </div>
+
+        <!-- Add Dependency Form -->
+        <div class="add-dependency-bar">
+          <select class="dep-type-select" [(ngModel)]="newDependencyType">
+            <option value="BLOCKS">Blocks</option>
+            <option value="BLOCKED_BY">Blocked By</option>
+            <option value="RELATES_TO">Relates To</option>
+          </select>
+          <select class="dep-target-select" [(ngModel)]="newDependencyTargetId">
+            <option [ngValue]="null">Select target task...</option>
+            <ng-container *ngFor="let col of columns()">
+              <option *ngFor="let t of col.tasks" [ngValue]="t.id" [disabled]="t.id === activeDetailTask()!.id">
+                #{{ t.id }} - {{ t.title }}
+              </option>
+            </ng-container>
+          </select>
+          <button class="btn-add-dep" [disabled]="!newDependencyTargetId()" (click)="addDependency()">
+            + Link
+          </button>
+        </div>
       </div>
 
       <hr class="drawer-divider" />
@@ -2908,5 +3276,136 @@
     <div class="celebration-icon">🎉</div>
     <div class="celebration-text">{{ completionCelebrationMsg() }}</div>
     <button class="celebration-close" (click)="completionCelebrationMsg.set(null)">×</button>
+  </div>
+
+  <!-- Archived Cards Drawer -->
+  <div *ngIf="isArchivedDrawerOpen()" class="drawer-overlay" (click)="closeArchivedDrawer()"></div>
+  <div *ngIf="isArchivedDrawerOpen()" class="task-detail-drawer archived-drawer">
+    <div class="drawer-header">
+      <div class="drawer-header-left">
+        <div class="archive-icon-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="21 8 21 21 3 21 3 8"></polyline>
+            <rect x="1" y="3" width="22" height="5"></rect>
+            <line x1="10" y1="12" x2="14" y2="12"></line>
+          </svg>
+        </div>
+        <div>
+          <h3 class="drawer-task-title">Archived Cards</h3>
+          <span class="drawer-task-id">{{ archivedTasks().length }} tasks archived in project</span>
+        </div>
+      </div>
+      <button class="drawer-close" (click)="closeArchivedDrawer()">×</button>
+    </div>
+
+    <div class="drawer-body">
+      <p class="drawer-desc-text">
+        Completed tasks archived from the board are safely preserved here for audit and compliance. You can inspect or restore them to the active board anytime.
+      </p>
+
+      <div class="archived-list">
+        <div *ngFor="let task of archivedTasks()" class="archived-card-item">
+          <div class="archived-info">
+            <span class="archived-item-title">{{ task.title }}</span>
+            <div class="archived-item-meta">
+              <span class="prio-pill-mini" [class]="task.priority.toLowerCase()">{{ task.priority }}</span>
+              <span class="stage-pill-mini">{{ task.stageName || 'Done' }}</span>
+              <span class="archived-date" *ngIf="task.archivedAt">Archived on {{ task.archivedAt | date:'MMM d, h:mm a' }}</span>
+            </div>
+          </div>
+          <button class="btn-restore-card" (click)="restoreTask(task)" title="Restore card back to active board">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            </svg>
+            <span>Restore to Board</span>
+          </button>
+        </div>
+
+        <div *ngIf="archivedTasks().length === 0" class="empty-archive-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="21 8 21 21 3 21 3 8"></polyline>
+            <rect x="1" y="3" width="22" height="5"></rect>
+            <line x1="10" y1="12" x2="14" y2="12"></line>
+          </svg>
+          <h4>No Archived Cards</h4>
+          <p>When tasks are completed, click "Archive" on the card or in the detail drawer to store them here.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Butler Automations Modal -->
+  <div *ngIf="isAutomationsModalOpen()" class="dialog-backdrop" (click)="closeAutomationsModal()">
+    <div class="dialog-card automations-dialog-card" (click)="$event.stopPropagation()">
+      <div class="dialog-header">
+        <div class="automations-header-title">
+          <div class="automations-bolt-icon">⚡</div>
+          <div>
+            <h3 class="dialog-title">Workspace Butler Automation Rules</h3>
+            <p class="dialog-subtitle">Event-driven automations that trigger actions based on card movements, checklist completion, and blockers.</p>
+          </div>
+        </div>
+        <button class="dialog-close" (click)="closeAutomationsModal()">×</button>
+      </div>
+
+      <div class="dialog-body automations-body">
+        <div class="rules-list">
+          <div *ngFor="let rule of automationRules()" class="rule-card" [class.enabled]="rule.isEnabled">
+            <div class="rule-info">
+              <div class="rule-name-row">
+                <span class="rule-name">{{ rule.name }}</span>
+                <span class="rule-trigger-tag">{{ rule.triggerEvent }} → {{ rule.actionType }}</span>
+              </div>
+              <p class="rule-desc">{{ rule.description }}</p>
+              <div class="rule-stats-row">
+                <span class="rule-stat">⚡ Executed {{ rule.executionCount }} times</span>
+                <span class="rule-stat" *ngIf="rule.lastExecutedAt">Last run {{ rule.lastExecutedAt | date:'short' }}</span>
+              </div>
+            </div>
+
+            <div class="rule-toggle-wrap">
+              <label class="switch">
+                <input type="checkbox" [checked]="rule.isEnabled" (change)="toggleAutomationRule(rule.id)">
+                <span class="slider round"></span>
+              </label>
+              <span class="toggle-status-text">{{ rule.isEnabled ? 'Active' : 'Paused' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="btn-secondary" (click)="closeAutomationsModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Sprint Modal -->
+  <div *ngIf="isCreateSprintModalOpen()" class="dialog-backdrop" (click)="closeCreateSprintModal()">
+    <div class="dialog-card" (click)="$event.stopPropagation()">
+      <div class="dialog-header">
+        <h3 class="dialog-title">Create Agile Sprint</h3>
+        <button class="dialog-close" (click)="closeCreateSprintModal()">×</button>
+      </div>
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>Sprint Name *</label>
+          <input type="text" [(ngModel)]="newSprintName" placeholder="e.g. Sprint 44 - Hardening & Security" class="dialog-input" />
+        </div>
+        <div class="form-group">
+          <label>Sprint Goal</label>
+          <textarea [(ngModel)]="newSprintGoal" placeholder="Describe the outcome and definition of done..." class="dialog-textarea"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Target Story Points</label>
+          <input type="number" [(ngModel)]="newSprintTargetPoints" class="dialog-input" />
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-secondary" (click)="closeCreateSprintModal()">Cancel</button>
+        <button class="btn-primary" [disabled]="!newSprintName().trim()" (click)="submitCreateSprint()">Create Sprint</button>
+      </div>
+    </div>
   </div>
 </div>

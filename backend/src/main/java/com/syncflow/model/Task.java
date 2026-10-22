@@ -82,6 +82,29 @@ public class Task {
     @Builder.Default
     private Set<Task> dependencies = new HashSet<>();
 
+    // Archiving & Lifecycle
+    @Column(name = "is_archived", nullable = false)
+    @Builder.Default
+    private Boolean isArchived = false;
+
+    @Column(name = "archived_at")
+    private Instant archivedAt;
+
+    @Column(name = "archived_by", length = 100)
+    private String archivedBy;
+
+    // Timeline & Scheduling
+    @Column(name = "start_date")
+    private Instant startDate;
+
+    // Sprint & Agile Sizing
+    @Column(name = "sprint_id")
+    private Long sprintId;
+
+    @Column(name = "story_points")
+    @Builder.Default
+    private Integer storyPoints = 3;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

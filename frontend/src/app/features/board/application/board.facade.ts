@@ -16,7 +16,11 @@ import {
   TaskAttachmentItem,
   BurndownAnalytics,
   AuditLogItem,
-  AuditMetrics
+  AuditMetrics,
+  TimelineTask,
+  Sprint,
+  TaskDependency,
+  AutomationRule
 } from '../../../core/models/project.models';
 import { TaskComment } from '../../../core/ports/task.port';
 import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
@@ -120,6 +124,34 @@ export class BoardFacade implements OnDestroy {
   public auditFilterEntity = signal<string>('ALL');
   public isExportingCsv = signal<boolean>(false);
 
+  // --- Feature 1: Card Archiving & "Active Only" View Toggle ---
+  public archivedTasks = signal<TaskCard[]>([]);
+  public isArchivedDrawerOpen = signal<boolean>(false);
+  public hideCompletedFilter = signal<boolean>(false);
+
+  // --- Feature 2: Interactive Sprint Roadmap & Gantt Timeline ---
+  public timelineTasks = signal<TimelineTask[]>([]);
+  public isLoadingTimeline = signal<boolean>(false);
+
+  // --- Feature 3: Task Dependency Engine & Blocker Links ---
+  public taskDependencies = signal<TaskDependency[]>([]);
+  public isLoadingDependencies = signal<boolean>(false);
+  public newDependencyTargetId = signal<number | null>(null);
+  public newDependencyType = signal<'BLOCKS' | 'BLOCKED_BY' | 'RELATES_TO'>('BLOCKS');
+
+  // --- Feature 4: Sprint Planning & Dedicated Backlog Grooming ---
+  public projectSprints = signal<Sprint[]>([]);
+  public isLoadingSprints = signal<boolean>(false);
+  public isCreateSprintModalOpen = signal<boolean>(false);
+  public newSprintName = signal<string>('');
+  public newSprintGoal = signal<string>('');
+  public newSprintTargetPoints = signal<number>(30);
+
+  // --- Feature 5: Smart Automation Rules Engine (Butler Automations) ---
+  public automationRules = signal<AutomationRule[]>([]);
+  public isAutomationsModalOpen = signal<boolean>(false);
+  public isTogglingRule = signal<boolean>(false);
+
   public filteredAuditLogs = computed(() => {
     const logs = this.auditLogs();
     const action = this.auditFilterAction();
@@ -135,10 +167,18 @@ export class BoardFacade implements OnDestroy {
   public filteredColumns = computed(() => {
     const query = this.searchQuery().trim().toLowerCase();
     const mode = this.filterMode();
+    const hideCompleted = this.hideCompletedFilter();
     const cols = this.columns();
 
     return cols.map(col => {
       let tasks = col.tasks;
+
+      // Hide completed tasks if filter enabled
+      if (hideCompleted && col.isDoneStage) {
+        tasks = [];
+      } else if (hideCompleted) {
+        tasks = tasks.filter(t => t.progress < 100);
+      }
 
       // Text Search Filter
       if (query) {
@@ -413,6 +453,7 @@ export class BoardFacade implements OnDestroy {
     this.loadTaskComments(task.id);
     this.loadSubtasks(task.id);
     this.loadAttachments(task.id);
+    this.loadDependencies(task.id);
   }
 
   public closeTaskDetail(): void {
@@ -426,6 +467,8 @@ export class BoardFacade implements OnDestroy {
     this.taskAttachments.set([]);
     this.newAttachmentName.set('');
     this.newAttachmentUrl.set('');
+    this.taskDependencies.set([]);
+    this.newDependencyTargetId.set(null);
   }
 
   public assignTaskTo(task: TaskCard, assigneeId: string | null): void {
@@ -877,6 +920,219 @@ export class BoardFacade implements OnDestroy {
       error: (err) => {
         this.isExportingCsv.set(false);
         console.error('BoardFacade: Failed to export audit CSV', err);
+      }
+    });
+  }
+
+  // --- Feature 1: Card Archiving & "Active Only" View Toggle Actions ---
+  public loadArchivedTasks(projectId?: number): void {
+    const pId = projectId || this.selectedProjectId();
+    if (!pId) return;
+    this.taskService.getArchivedTasks(pId).subscribe({
+      next: (tasks) => this.archivedTasks.set(tasks),
+      error: (err) => console.error('BoardFacade: Failed to load archived tasks', err)
+    });
+  }
+
+  public archiveTask(task: TaskCard): void {
+    this.taskService.archiveTask(task.id).subscribe({
+      next: () => {
+        // Remove task from board columns
+        this.columns.update(cols =>
+          cols.map(c => ({
+            ...c,
+            tasks: c.tasks.filter(t => t.id !== task.id)
+          }))
+        );
+        this.recalculateMetrics();
+        if (this.activeDetailTask()?.id === task.id) {
+          this.closeTaskDetail();
+        }
+        this.loadArchivedTasks();
+      },
+      error: (err) => console.error('BoardFacade: Failed to archive task', err)
+    });
+  }
+
+  public restoreTask(task: TaskCard): void {
+    this.taskService.restoreTask(task.id).subscribe({
+      next: () => {
+        this.archivedTasks.update(list => list.filter(t => t.id !== task.id));
+        this.loadBoard(this.selectedProjectId());
+      },
+      error: (err) => console.error('BoardFacade: Failed to restore task', err)
+    });
+  }
+
+  // --- Feature 2: Interactive Sprint Roadmap & Gantt Timeline Actions ---
+  public loadTimeline(projectId?: number): void {
+    const pId = projectId || this.selectedProjectId();
+    if (!pId) return;
+    this.isLoadingTimeline.set(true);
+    this.projectService.getTimeline(pId).subscribe({
+      next: (tasks) => {
+        this.timelineTasks.set(tasks);
+        this.isLoadingTimeline.set(false);
+      },
+      error: (err) => {
+        this.isLoadingTimeline.set(false);
+        console.error('BoardFacade: Failed to load timeline tasks', err);
+      }
+    });
+  }
+
+  // --- Feature 3: Task Dependency Engine & Blocker Links Actions ---
+  public loadDependencies(taskId: number): void {
+    this.isLoadingDependencies.set(true);
+    this.taskService.getDependencies(taskId).subscribe({
+      next: (deps) => {
+        this.taskDependencies.set(deps);
+        this.isLoadingDependencies.set(false);
+      },
+      error: (err) => {
+        this.isLoadingDependencies.set(false);
+        console.error('BoardFacade: Failed to load dependencies', err);
+      }
+    });
+  }
+
+  public addDependency(targetTaskId: number, dependencyType: string): void {
+    const task = this.activeDetailTask();
+    if (!task) return;
+    this.taskService.addDependency(task.id, targetTaskId, dependencyType).subscribe({
+      next: (dep) => {
+        this.taskDependencies.update(list => [...list, dep]);
+        this.newDependencyTargetId.set(null);
+      },
+      error: (err) => console.error('BoardFacade: Failed to add dependency', err)
+    });
+  }
+
+  public deleteDependency(dependencyId: number): void {
+    this.taskService.deleteDependency(dependencyId).subscribe({
+      next: () => {
+        this.taskDependencies.update(list => list.filter(d => d.id !== dependencyId));
+      },
+      error: (err) => console.error('BoardFacade: Failed to delete dependency', err)
+    });
+  }
+
+  // --- Feature 4: Sprint Planning & Dedicated Backlog Grooming Actions ---
+  public loadSprints(projectId?: number): void {
+    const pId = projectId || this.selectedProjectId();
+    if (!pId) return;
+    this.isLoadingSprints.set(true);
+    this.projectService.getSprints(pId).subscribe({
+      next: (sprints) => {
+        this.projectSprints.set(sprints);
+        this.isLoadingSprints.set(false);
+      },
+      error: (err) => {
+        this.isLoadingSprints.set(false);
+        console.error('BoardFacade: Failed to load sprints', err);
+      }
+    });
+  }
+
+  public createSprint(): void {
+    const pId = this.selectedProjectId();
+    const name = this.newSprintName().trim();
+    if (!name || !pId) return;
+
+    this.projectService.createSprint(pId, {
+      name,
+      goal: this.newSprintGoal().trim(),
+      targetStoryPoints: this.newSprintTargetPoints() || 30
+    }).subscribe({
+      next: (sprint) => {
+        this.projectSprints.update(list => [sprint, ...list]);
+        this.isCreateSprintModalOpen.set(false);
+        this.newSprintName.set('');
+        this.newSprintGoal.set('');
+      },
+      error: (err) => console.error('BoardFacade: Failed to create sprint', err)
+    });
+  }
+
+  public startSprint(sprintId: number): void {
+    this.projectService.startSprint(sprintId).subscribe({
+      next: (updated) => {
+        this.projectSprints.update(list =>
+          list.map(s => s.id === sprintId ? updated : s)
+        );
+      },
+      error: (err) => console.error('BoardFacade: Failed to start sprint', err)
+    });
+  }
+
+  public completeSprint(sprintId: number): void {
+    this.projectService.completeSprint(sprintId).subscribe({
+      next: (updated) => {
+        this.projectSprints.update(list =>
+          list.map(s => s.id === sprintId ? updated : s)
+        );
+      },
+      error: (err) => console.error('BoardFacade: Failed to complete sprint', err)
+    });
+  }
+
+  public updateStoryPoints(taskId: number, storyPoints: number): void {
+    this.taskService.updateStoryPoints(taskId, storyPoints).subscribe({
+      next: (updated) => {
+        this.columns.update(cols =>
+          cols.map(c => ({
+            ...c,
+            tasks: c.tasks.map(t => t.id === taskId ? { ...t, storyPoints: updated.storyPoints } : t)
+          }))
+        );
+        if (this.activeDetailTask()?.id === taskId) {
+          this.activeDetailTask.update(t => t ? { ...t, storyPoints: updated.storyPoints } : null);
+        }
+      },
+      error: (err) => console.error('BoardFacade: Failed to update story points', err)
+    });
+  }
+
+  public assignSprint(taskId: number, sprintId: number): void {
+    this.taskService.assignSprint(taskId, sprintId).subscribe({
+      next: (updated) => {
+        this.columns.update(cols =>
+          cols.map(c => ({
+            ...c,
+            tasks: c.tasks.map(t => t.id === taskId ? { ...t, sprintId: updated.sprintId, sprintName: updated.sprintName } : t)
+          }))
+        );
+        if (this.activeDetailTask()?.id === taskId) {
+          this.activeDetailTask.update(t => t ? { ...t, sprintId: updated.sprintId, sprintName: updated.sprintName } : null);
+        }
+        this.loadSprints();
+      },
+      error: (err) => console.error('BoardFacade: Failed to assign sprint', err)
+    });
+  }
+
+  // --- Feature 5: Smart Automation Rules Engine (Butler Automations) Actions ---
+  public loadAutomationRules(projectId?: number): void {
+    const pId = projectId || this.selectedProjectId();
+    if (!pId) return;
+    this.projectService.getAutomationRules(pId).subscribe({
+      next: (rules) => this.automationRules.set(rules),
+      error: (err) => console.error('BoardFacade: Failed to load automation rules', err)
+    });
+  }
+
+  public toggleAutomationRule(ruleId: number): void {
+    this.isTogglingRule.set(true);
+    this.projectService.toggleAutomationRule(ruleId).subscribe({
+      next: (updated) => {
+        this.automationRules.update(list =>
+          list.map(r => r.id === ruleId ? updated : r)
+        );
+        this.isTogglingRule.set(false);
+      },
+      error: (err) => {
+        this.isTogglingRule.set(false);
+        console.error('BoardFacade: Failed to toggle automation rule', err);
       }
     });
   }

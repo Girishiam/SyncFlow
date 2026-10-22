@@ -32,6 +32,9 @@ public class DataInitializer implements CommandLineRunner {
     private final com.syncflow.audit.infrastructure.persistence.SpringDataAuditLogRepository auditLogRepository;
     private final com.syncflow.task.infrastructure.persistence.SpringDataSubtaskRepository subtaskRepository;
     private final com.syncflow.task.infrastructure.persistence.SpringDataTaskAttachmentRepository attachmentRepository;
+    private final SprintRepository sprintRepository;
+    private final TaskDependencyRepository taskDependencyRepository;
+    private final AutomationRuleRepository automationRuleRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -490,6 +493,126 @@ public class DataInitializer implements CommandLineRunner {
                     .build());
 
             log.info("Seeded Initial Compliance Audit Trail Ledger!");
+        }
+
+        // 10. Seed Agile Sprints, Story Points, Dependencies & Butler Automations
+        if (sprintRepository.count() == 0 && projectRepository.count() > 0) {
+            Project p1 = projectRepository.findAll().get(0);
+            LocalDate today = LocalDate.now();
+
+            Sprint s42 = sprintRepository.save(Sprint.builder()
+                    .projectId(p1.getId())
+                    .name("Sprint 42 - Payment Core")
+                    .goal("Core Payment Gateway v2.4 hardening & multi-currency settlement")
+                    .startDate(today.minusDays(5))
+                    .endDate(today.plusDays(9))
+                    .status("ACTIVE")
+                    .targetStoryPoints(34)
+                    .createdAt(java.time.Instant.now().minusSeconds(86400 * 5))
+                    .build());
+
+            Sprint s43 = sprintRepository.save(Sprint.builder()
+                    .projectId(p1.getId())
+                    .name("Sprint 43 - Biometric 2FA & FIDO2")
+                    .goal("Biometric hardware keys and audit trail compliance")
+                    .startDate(today.plusDays(10))
+                    .endDate(today.plusDays(24))
+                    .status("PLANNING")
+                    .targetStoryPoints(40)
+                    .createdAt(java.time.Instant.now())
+                    .build());
+
+            // Assign story points and sprint to existing tasks
+            List<Task> tasks = taskRepository.findByProjectId(p1.getId());
+            int[] pointsArr = {5, 3, 8, 5, 3, 5, 5};
+            for (int i = 0; i < tasks.size(); i++) {
+                Task t = tasks.get(i);
+                t.setSprintId(s42.getId());
+                t.setStoryPoints(i < pointsArr.length ? pointsArr[i] : 3);
+                t.setIsArchived(false);
+                if (t.getStartDate() == null) {
+                    t.setStartDate(java.time.Instant.now().minusSeconds(86400 * (4 - Math.min(i, 4))));
+                }
+                taskRepository.save(t);
+            }
+
+            // Seed Task Dependencies if any
+            if (tasks.size() >= 4) {
+                Task t1 = tasks.get(0);
+                Task t3 = tasks.get(2);
+                Task t4 = tasks.get(3);
+
+                taskDependencyRepository.save(TaskDependency.builder()
+                        .sourceTaskId(t1.getId())
+                        .targetTaskId(t3.getId())
+                        .targetTaskTitle(t3.getTitle())
+                        .dependencyType("BLOCKS")
+                        .createdBy("Arman Lead")
+                        .createdAt(java.time.Instant.now())
+                        .build());
+
+                taskDependencyRepository.save(TaskDependency.builder()
+                        .sourceTaskId(t4.getId())
+                        .targetTaskId(t1.getId())
+                        .targetTaskTitle(t1.getTitle())
+                        .dependencyType("BLOCKED_BY")
+                        .createdBy("Farhan Senior Dev")
+                        .createdAt(java.time.Instant.now())
+                        .build());
+            }
+
+            // Seed 4 Butler Automation Rules
+            automationRuleRepository.save(AutomationRule.builder()
+                    .projectId(p1.getId())
+                    .name("Auto-Mark Done on Checklist Completion")
+                    .description("When all subtasks in a task checklist are completed, automatically move card to Done stage.")
+                    .triggerEvent("ALL_SUBTASKS_COMPLETE")
+                    .actionType("MOVE_TO_DONE")
+                    .isEnabled(true)
+                    .executionCount(14)
+                    .lastExecutedAt(java.time.Instant.now().minusSeconds(7200))
+                    .createdAt(java.time.Instant.now())
+                    .build());
+
+            automationRuleRepository.save(AutomationRule.builder()
+                    .projectId(p1.getId())
+                    .name("Auto-Assign QA Lead on Review Stage")
+                    .description("When a card enters the Review / QA column, automatically assign Sarah SQA Engineer.")
+                    .triggerEvent("MOVED_TO_REVIEW")
+                    .actionType("ASSIGN_ROLE")
+                    .targetRole("SQA")
+                    .isEnabled(true)
+                    .executionCount(28)
+                    .lastExecutedAt(java.time.Instant.now().minusSeconds(3600))
+                    .createdAt(java.time.Instant.now())
+                    .build());
+
+            automationRuleRepository.save(AutomationRule.builder()
+                    .projectId(p1.getId())
+                    .name("Dependency Blocker Escalation to PM")
+                    .description("When a task is marked blocked with critical priority, alert Project Manager immediately.")
+                    .triggerEvent("TASK_BLOCKED")
+                    .actionType("NOTIFY_MANAGER")
+                    .targetRole("REPORTING_MANAGER")
+                    .isEnabled(true)
+                    .executionCount(6)
+                    .lastExecutedAt(java.time.Instant.now().minusSeconds(1800))
+                    .createdAt(java.time.Instant.now())
+                    .build());
+
+            automationRuleRepository.save(AutomationRule.builder()
+                    .projectId(p1.getId())
+                    .name("Sprint Closure Auto-Archive")
+                    .description("When an active sprint is marked completed, automatically archive all finished tasks.")
+                    .triggerEvent("SPRINT_CLOSED")
+                    .actionType("ARCHIVE_DONE_TASKS")
+                    .isEnabled(false)
+                    .executionCount(2)
+                    .lastExecutedAt(java.time.Instant.now().minusSeconds(86400 * 7))
+                    .createdAt(java.time.Instant.now())
+                    .build());
+
+            log.info("Seeded Initial Sprints, Task Dependencies, and Butler Automation Rules!");
         }
 
         log.info("SyncFlow Bank Enterprise initialization complete!");

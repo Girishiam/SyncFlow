@@ -45,6 +45,9 @@ public class TaskApplicationService implements TaskUseCase {
     private final com.syncflow.task.infrastructure.persistence.SpringDataSubtaskRepository subtaskRepository;
     private final com.syncflow.task.infrastructure.persistence.SpringDataTaskAttachmentRepository attachmentRepository;
     private final com.syncflow.audit.application.port.in.AuditLogUseCase auditLogUseCase;
+    private final com.syncflow.repository.TaskDependencyRepository taskDependencyRepository;
+    private final com.syncflow.repository.SprintRepository sprintRepository;
+    private final com.syncflow.repository.AutomationRuleRepository automationRuleRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -452,9 +455,222 @@ public class TaskApplicationService implements TaskUseCase {
         attachmentRepository.deleteById(attachmentId);
     }
 
+    // --- Archiving & Lifecycle ---
+    @Override
+    @Transactional
+    public TaskDTO archiveTask(Long id, String operatorName) {
+        Task task = taskRepositoryPort.findById(id)
+                .orElseThrow(() -> new DomainException("Task not found: " + id));
+
+        task.setIsArchived(true);
+        task.setArchivedAt(Instant.now());
+        task.setArchivedBy(operatorName != null ? operatorName : "Operator");
+
+        Task saved = taskRepositoryPort.save(task);
+        log.info("Task {} archived by {}", id, operatorName);
+
+        try {
+            auditLogUseCase.recordLog("TASK_ARCHIVED", "TASK", saved.getId(), saved.getTitle(),
+                    operatorName != null ? operatorName : "Operator", null, "COORDINATOR",
+                    "Task archived from active Kanban board");
+        } catch (Exception e) {
+            log.warn("Failed to audit task archive: {}", e.getMessage());
+        }
+
+        TaskDTO dto = toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public TaskDTO restoreTask(Long id, String operatorName) {
+        Task task = taskRepositoryPort.findById(id)
+                .orElseThrow(() -> new DomainException("Task not found: " + id));
+
+        task.setIsArchived(false);
+        task.setArchivedAt(null);
+        task.setArchivedBy(null);
+
+        Task saved = taskRepositoryPort.save(task);
+        log.info("Task {} restored to board by {}", id, operatorName);
+
+        try {
+            auditLogUseCase.recordLog("TASK_RESTORED", "TASK", saved.getId(), saved.getTitle(),
+                    operatorName != null ? operatorName : "Operator", null, "COORDINATOR",
+                    "Task restored to active Kanban board");
+        } catch (Exception e) {
+            log.warn("Failed to audit task restore: {}", e.getMessage());
+        }
+
+        TaskDTO dto = toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TaskDTO> getArchivedTasks(Long projectId) {
+        return taskRepositoryPort.findByProjectId(projectId).stream()
+                .filter(t -> Boolean.TRUE.equals(t.getIsArchived()))
+                .map(this::toDTO)
+                .toList();
+    }
+
+    // --- Task Dependencies & Blocker Links ---
+    @Override
+    @Transactional(readOnly = true)
+    public List<com.syncflow.dto.TaskDependencyDTO> getDependencies(Long taskId) {
+        List<com.syncflow.model.TaskDependency> outgoing = taskDependencyRepository.findBySourceTaskId(taskId);
+        List<com.syncflow.model.TaskDependency> incoming = taskDependencyRepository.findByTargetTaskId(taskId);
+
+        List<com.syncflow.dto.TaskDependencyDTO> list = new java.util.ArrayList<>();
+
+        for (com.syncflow.model.TaskDependency dep : outgoing) {
+            Task target = taskRepositoryPort.findById(dep.getTargetTaskId()).orElse(null);
+            String title = target != null ? target.getTitle() : dep.getTargetTaskTitle();
+            String priority = target != null ? target.getPriority() : "MEDIUM";
+            int progress = target != null && target.getProgressPercentage() != null ? target.getProgressPercentage() : 0;
+            String stage = target != null && target.getStage() != null ? target.getStage().getName() : "";
+            String assignee = target != null && target.getAssignee() != null ? target.getAssignee().getFullName() : "Unassigned";
+            boolean isBlocked = target != null && Boolean.TRUE.equals(target.getIsBlocked());
+
+            list.add(com.syncflow.dto.TaskDependencyDTO.builder()
+                    .id(dep.getId())
+                    .sourceTaskId(dep.getSourceTaskId())
+                    .targetTaskId(dep.getTargetTaskId())
+                    .targetTaskTitle(title)
+                    .targetTaskPriority(priority)
+                    .targetTaskProgress(progress)
+                    .targetTaskStageName(stage)
+                    .targetTaskAssignee(assignee)
+                    .dependencyType(dep.getDependencyType())
+                    .isBlocked(isBlocked)
+                    .createdBy(dep.getCreatedBy())
+                    .createdAt(dep.getCreatedAt())
+                    .build());
+        }
+
+        for (com.syncflow.model.TaskDependency dep : incoming) {
+            Task source = taskRepositoryPort.findById(dep.getSourceTaskId()).orElse(null);
+            String title = source != null ? source.getTitle() : "Task #" + dep.getSourceTaskId();
+            String priority = source != null ? source.getPriority() : "MEDIUM";
+            int progress = source != null && source.getProgressPercentage() != null ? source.getProgressPercentage() : 0;
+            String stage = source != null && source.getStage() != null ? source.getStage().getName() : "";
+            String assignee = source != null && source.getAssignee() != null ? source.getAssignee().getFullName() : "Unassigned";
+
+            String invertedType = "BLOCKS".equalsIgnoreCase(dep.getDependencyType()) ? "BLOCKED_BY" :
+                    ("BLOCKED_BY".equalsIgnoreCase(dep.getDependencyType()) ? "BLOCKS" : "RELATES_TO");
+
+            list.add(com.syncflow.dto.TaskDependencyDTO.builder()
+                    .id(dep.getId())
+                    .sourceTaskId(taskId)
+                    .targetTaskId(dep.getSourceTaskId())
+                    .targetTaskTitle(title)
+                    .targetTaskPriority(priority)
+                    .targetTaskProgress(progress)
+                    .targetTaskStageName(stage)
+                    .targetTaskAssignee(assignee)
+                    .dependencyType(invertedType)
+                    .isBlocked(source != null && Boolean.TRUE.equals(source.getIsBlocked()))
+                    .createdBy(dep.getCreatedBy())
+                    .createdAt(dep.getCreatedAt())
+                    .build());
+        }
+
+        return list;
+    }
+
+    @Override
+    @Transactional
+    public com.syncflow.dto.TaskDependencyDTO addDependency(Long sourceTaskId, Long targetTaskId, String type, String operatorName) {
+        if (sourceTaskId.equals(targetTaskId)) {
+            throw new DomainException("Task cannot depend on itself");
+        }
+
+        Task source = taskRepositoryPort.findById(sourceTaskId)
+                .orElseThrow(() -> new DomainException("Source task not found: " + sourceTaskId));
+        Task target = taskRepositoryPort.findById(targetTaskId)
+                .orElseThrow(() -> new DomainException("Target task not found: " + targetTaskId));
+
+        com.syncflow.model.TaskDependency dep = com.syncflow.model.TaskDependency.builder()
+                .sourceTaskId(sourceTaskId)
+                .targetTaskId(targetTaskId)
+                .targetTaskTitle(target.getTitle())
+                .dependencyType(type != null ? type.toUpperCase() : "BLOCKS")
+                .createdBy(operatorName != null ? operatorName : "Operator")
+                .createdAt(Instant.now())
+                .build();
+
+        com.syncflow.model.TaskDependency saved = taskDependencyRepository.save(dep);
+
+        try {
+            auditLogUseCase.recordLog("TASK_DEPENDENCY_LINKED", "TASK", sourceTaskId, source.getTitle(),
+                    operatorName != null ? operatorName : "Operator", null, "COORDINATOR",
+                    String.format("Linked dependency '%s' to target task #%d: %s", type, targetTaskId, target.getTitle()));
+        } catch (Exception e) {
+            log.warn("Failed to audit dependency link: {}", e.getMessage());
+        }
+
+        return com.syncflow.dto.TaskDependencyDTO.builder()
+                .id(saved.getId())
+                .sourceTaskId(sourceTaskId)
+                .targetTaskId(targetTaskId)
+                .targetTaskTitle(target.getTitle())
+                .targetTaskPriority(target.getPriority())
+                .targetTaskProgress(target.getProgressPercentage() != null ? target.getProgressPercentage() : 0)
+                .targetTaskStageName(target.getStage() != null ? target.getStage().getName() : "")
+                .targetTaskAssignee(target.getAssignee() != null ? target.getAssignee().getFullName() : "Unassigned")
+                .dependencyType(saved.getDependencyType())
+                .isBlocked(Boolean.TRUE.equals(target.getIsBlocked()))
+                .createdBy(saved.getCreatedBy())
+                .createdAt(saved.getCreatedAt())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void deleteDependency(Long dependencyId) {
+        taskDependencyRepository.deleteById(dependencyId);
+    }
+
+    // --- Sprint & Story Points ---
+    @Override
+    @Transactional
+    public TaskDTO updateStoryPoints(Long taskId, Integer points) {
+        Task task = taskRepositoryPort.findById(taskId)
+                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
+
+        task.setStoryPoints(points != null ? points : 3);
+        Task saved = taskRepositoryPort.save(task);
+
+        TaskDTO dto = toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public TaskDTO assignSprint(Long taskId, Long sprintId) {
+        Task task = taskRepositoryPort.findById(taskId)
+                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
+
+        task.setSprintId(sprintId);
+        Task saved = taskRepositoryPort.save(task);
+
+        TaskDTO dto = toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
     public TaskDTO toDTO(Task task) {
         String assigneeName = task.getAssignee() != null ? task.getAssignee().getFullName() : "Unassigned";
         String avatar = getInitials(assigneeName);
+
+        String sprintName = null;
+        if (task.getSprintId() != null) {
+            sprintName = sprintRepository.findById(task.getSprintId()).map(com.syncflow.model.Sprint::getName).orElse(null);
+        }
 
         return TaskDTO.builder()
                 .id(task.getId())
@@ -472,6 +688,13 @@ public class TaskApplicationService implements TaskUseCase {
                 .isBlocked(Boolean.TRUE.equals(task.getIsBlocked()))
                 .blockerReason(task.getBlockerReason())
                 .deadline(task.getDeadline())
+                .isArchived(Boolean.TRUE.equals(task.getIsArchived()))
+                .archivedAt(task.getArchivedAt())
+                .archivedBy(task.getArchivedBy())
+                .startDate(task.getStartDate())
+                .sprintId(task.getSprintId())
+                .sprintName(sprintName)
+                .storyPoints(task.getStoryPoints() != null ? task.getStoryPoints() : 3)
                 .build();
     }
 
