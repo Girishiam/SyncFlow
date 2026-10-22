@@ -21,6 +21,9 @@ export interface TaskCard {
   sprintId?: number;
   sprintName?: string;
   storyPoints?: number;
+  gitBranch?: string;
+  gitCommitHash?: string;
+  gitPrUrl?: string;
 }
 
 export interface BankUser {
@@ -236,3 +239,86 @@ export interface AutomationRule {
   executionCount: number;
   lastExecutedAt?: string;
 }
+
+export interface ProjectFinancials {
+  projectId: number;
+  projectName: string;
+  currency: string;
+  totalBudget: number;
+  allocatedBudget: number;
+  spentBudget: number;
+  remainingBudget: number;
+  burnRatePercent: number;
+  estimatedCostPerStoryPoint: number;
+  totalStoryPoints: number;
+  completedStoryPoints: number;
+  roleHourlyRates: { [role: string]: number };
+  spentByRole: { [role: string]: number };
+  projectedCostAtCompletion: number;
+}
+
+export interface WorkflowGateValidationResult {
+  allowed: boolean;
+  targetStageName: string;
+  requiresOverride: boolean;
+  violations: string[];
+  blockingTaskTitles: string[];
+  uncompletedSubtasksCount: number;
+  hasDeliverableAttachment: boolean;
+}
+
+export interface WebhookSubscription {
+  id: number;
+  projectId: number;
+  name: string;
+  targetUrl: string;
+  secretToken?: string;
+  events: string[];
+  isEnabled: boolean;
+  deliveryCount: number;
+  lastDeliveredAt?: string;
+  lastResponseStatus?: string;
+}
+
+export interface MemberCapacity {
+  userId: string;
+  fullName: string;
+  role: string;
+  avatar: string;
+  maxCapacityStoryPoints: number;
+  assignedStoryPoints: number;
+  utilizationPercent: number;
+  assignedTaskCount: number;
+  isOverloaded: boolean;
+  onLeave: boolean;
+  status: 'OPTIMAL' | 'OVERLOADED' | 'UNDERUTILIZED' | 'ON_LEAVE';
+  assignedTaskTitles: string[];
+}
+
+export interface TeamCapacity {
+  projectId: number;
+  projectName: string;
+  totalSprintCapacity: number;
+  totalAssignedPoints: number;
+  overallUtilizationPercent: number;
+  overloadedMembersCount: number;
+  members: MemberCapacity[];
+}
+
+export interface BiometricAuthChallenge {
+  challengeId: string;
+  challengeToken: string;
+  rpName: string;
+  rpId: string;
+  userEmail: string;
+  expiresAtMillis: number;
+}
+
+export interface PasskeyVerificationResponse {
+  verified: boolean;
+  elevatedApprovalToken: string;
+  message: string;
+  verifiedMethod: string;
+  expiresAtMillis: number;
+}
+

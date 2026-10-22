@@ -48,4 +48,11 @@ public interface TaskUseCase {
     // Sprint & Story Points
     TaskDTO updateStoryPoints(Long taskId, Integer points);
     TaskDTO assignSprint(Long taskId, Long sprintId);
+
+    // Quality Gates & Enterprise Transition Policies
+    com.syncflow.dto.WorkflowGateValidationResultDTO validateTransitionGate(Long taskId, Long targetStageId);
+
+    // Git / VCS Connectors
+    TaskDTO linkGit(Long taskId, com.syncflow.dto.GitLinkRequest request);
 }
+

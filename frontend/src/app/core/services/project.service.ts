@@ -1,7 +1,16 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Project, ProjectBoard, TimelineTask, Sprint, AutomationRule } from '../models/project.models';
+import {
+  Project,
+  ProjectBoard,
+  TimelineTask,
+  Sprint,
+  AutomationRule,
+  ProjectFinancials,
+  TeamCapacity,
+  WebhookSubscription
+} from '../models/project.models';
 import { IProjectPort } from '../ports/project.port';
 
 @Injectable({
@@ -65,5 +74,36 @@ export class ProjectService implements IProjectPort {
 
   toggleAutomationRule(ruleId: number): Observable<AutomationRule> {
     return this.http.put<AutomationRule>(`${this.apiUrl}/automations/${ruleId}/toggle`, {});
+  }
+
+  // --- Executive Financial Budget & Resource Cost Tracking ---
+  getFinancials(projectId: number): Observable<ProjectFinancials> {
+    return this.http.get<ProjectFinancials>(`${this.apiUrl}/${projectId}/financials`);
+  }
+
+  // --- Team Workload Capacity & Resource Allocation Matrix ---
+  getTeamCapacity(projectId: number): Observable<TeamCapacity> {
+    return this.http.get<TeamCapacity>(`${this.apiUrl}/${projectId}/capacity`);
+  }
+
+  // --- Real-Time Webhooks & Enterprise Connectors ---
+  getWebhooks(projectId: number): Observable<WebhookSubscription[]> {
+    return this.http.get<WebhookSubscription[]>(`${this.apiUrl}/${projectId}/webhooks`);
+  }
+
+  createWebhook(projectId: number, request: Partial<WebhookSubscription>): Observable<WebhookSubscription> {
+    return this.http.post<WebhookSubscription>(`${this.apiUrl}/${projectId}/webhooks`, request);
+  }
+
+  toggleWebhook(webhookId: number): Observable<WebhookSubscription> {
+    return this.http.put<WebhookSubscription>(`${this.apiUrl}/webhooks/${webhookId}/toggle`, {});
+  }
+
+  testWebhook(webhookId: number): Observable<WebhookSubscription> {
+    return this.http.post<WebhookSubscription>(`${this.apiUrl}/webhooks/${webhookId}/test`, {});
+  }
+
+  deleteWebhook(webhookId: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/webhooks/${webhookId}`);
   }
 }

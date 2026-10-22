@@ -48,6 +48,7 @@ public class TaskApplicationService implements TaskUseCase {
     private final com.syncflow.repository.TaskDependencyRepository taskDependencyRepository;
     private final com.syncflow.repository.SprintRepository sprintRepository;
     private final com.syncflow.repository.AutomationRuleRepository automationRuleRepository;
+    private final com.syncflow.service.WebhookDispatcherService webhookDispatcherService;
 
     @Override
     @Transactional(readOnly = true)
@@ -142,6 +143,12 @@ public class TaskApplicationService implements TaskUseCase {
             }
         }
 
+        try {
+            webhookDispatcherService.dispatchEvent(saved.getProject().getId(), "TASK_CREATED", saved);
+        } catch (Exception e) {
+            log.warn("Failed to dispatch TASK_CREATED webhook: {}", e.getMessage());
+        }
+
         TaskDTO dto = toDTO(saved);
         taskNotificationPort.broadcastBoardUpdate(dto);
         return dto;
@@ -155,6 +162,23 @@ public class TaskApplicationService implements TaskUseCase {
 
         Stage targetStage = stageRepositoryPort.findById(request.getTargetStageId())
                 .orElseThrow(() -> new DomainException("Target Stage not found: " + request.getTargetStageId()));
+
+        // Workflow Policy & Quality Gate Check
+        com.syncflow.dto.WorkflowGateValidationResultDTO gate = validateTransitionGate(id, request.getTargetStageId());
+        if (Boolean.TRUE.equals(gate.getRequiresOverride()) && !Boolean.TRUE.equals(request.getOverrideGate())) {
+            throw new DomainException("WORKFLOW_GATE_VIOLATION: " + String.join("; ", gate.getViolations()));
+        }
+
+        if (Boolean.TRUE.equals(gate.getRequiresOverride()) && Boolean.TRUE.equals(request.getOverrideGate())) {
+            String reason = request.getOverrideReason() != null && !request.getOverrideReason().isBlank()
+                    ? request.getOverrideReason()
+                    : "Manager override with elevated privilege";
+            try {
+                auditLogUseCase.recordLog("WORKFLOW_GATE_OVERRIDE", "TASK", id, task.getTitle(), "Manager", null, "MANAGER", reason);
+            } catch (Exception e) {
+                log.warn("Failed to record workflow gate override audit log: {}", e.getMessage());
+            }
+        }
 
         task.setStage(targetStage);
         if (Boolean.TRUE.equals(targetStage.getIsDoneStage())) {
@@ -172,6 +196,12 @@ public class TaskApplicationService implements TaskUseCase {
             } catch (Exception e) {
                 log.warn("Failed to dispatch task completion notification: {}", e.getMessage());
             }
+        }
+
+        try {
+            webhookDispatcherService.dispatchEvent(saved.getProject().getId(), "TASK_MOVED", saved);
+        } catch (Exception e) {
+            log.warn("Failed to dispatch TASK_MOVED webhook: {}", e.getMessage());
         }
 
         TaskDTO dto = toDTO(saved);
@@ -232,6 +262,11 @@ public class TaskApplicationService implements TaskUseCase {
                 notificationUseCase.notifyBlockerAlert(saved, request.getBlockerReason(), null);
             } catch (Exception e) {
                 log.warn("Failed to dispatch blocker notification for task {}: {}", saved.getId(), e.getMessage());
+            }
+            try {
+                webhookDispatcherService.dispatchEvent(saved.getProject().getId(), "TASK_BLOCKED", saved);
+            } catch (Exception e) {
+                log.warn("Failed to dispatch TASK_BLOCKED webhook: {}", e.getMessage());
             }
         }
         return dto;
@@ -663,6 +698,105 @@ public class TaskApplicationService implements TaskUseCase {
         return dto;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public com.syncflow.dto.WorkflowGateValidationResultDTO validateTransitionGate(Long taskId, Long targetStageId) {
+        Task task = taskRepositoryPort.findById(taskId)
+                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
+
+        Stage targetStage = stageRepositoryPort.findById(targetStageId)
+                .orElseThrow(() -> new DomainException("Target stage not found: " + targetStageId));
+
+        String stageName = targetStage.getName() != null ? targetStage.getName().toLowerCase() : "";
+        List<String> violations = new java.util.ArrayList<>();
+        List<String> blockingTaskTitles = new java.util.ArrayList<>();
+        int uncompletedSubtasks = 0;
+        boolean hasDeliverable = false;
+
+        // Gate 1: Review / QA requires 100% Checklist Completion
+        if (stageName.contains("review") || stageName.contains("qa")) {
+            List<com.syncflow.model.Subtask> subtasks = subtaskRepository.findByTaskIdOrderByPositionAsc(taskId);
+            for (com.syncflow.model.Subtask st : subtasks) {
+                if (!Boolean.TRUE.equals(st.getIsCompleted())) {
+                    uncompletedSubtasks++;
+                }
+            }
+            if (uncompletedSubtasks > 0) {
+                violations.add("Review Gate Policy: " + uncompletedSubtasks + " subtask(s) or QA checklist items remain uncompleted. 100% checklist completion is required.");
+            }
+        }
+
+        // Gate 2: Done requires zero blocking dependencies and at least 1 deliverable / PR link
+        if (stageName.contains("done") || Boolean.TRUE.equals(targetStage.getIsDoneStage())) {
+            // Check direct blocker flag
+            if (Boolean.TRUE.equals(task.getIsBlocked())) {
+                violations.add("Done Gate Policy: Task is currently flagged as blocked: " + (task.getBlockerReason() != null ? task.getBlockerReason() : "Unspecified blocker"));
+            }
+
+            // Check outgoing dependency links (this task is blocked by target task)
+            List<com.syncflow.model.TaskDependency> dependencies = taskDependencyRepository.findBySourceTaskId(taskId);
+            for (com.syncflow.model.TaskDependency dep : dependencies) {
+                if ("BLOCKED_BY".equalsIgnoreCase(dep.getDependencyType())) {
+                    Task blocker = taskRepositoryPort.findById(dep.getTargetTaskId()).orElse(null);
+                    if (blocker != null && (blocker.getStage() == null || !Boolean.TRUE.equals(blocker.getStage().getIsDoneStage()))) {
+                        blockingTaskTitles.add(blocker.getTitle());
+                    }
+                }
+            }
+
+            // Check incoming dependency links (source task blocks this task)
+            List<com.syncflow.model.TaskDependency> incoming = taskDependencyRepository.findByTargetTaskId(taskId);
+            for (com.syncflow.model.TaskDependency dep : incoming) {
+                if ("BLOCKS".equalsIgnoreCase(dep.getDependencyType())) {
+                    Task blocker = taskRepositoryPort.findById(dep.getSourceTaskId()).orElse(null);
+                    if (blocker != null && (blocker.getStage() == null || !Boolean.TRUE.equals(blocker.getStage().getIsDoneStage()))) {
+                        blockingTaskTitles.add(blocker.getTitle());
+                    }
+                }
+            }
+
+            if (!blockingTaskTitles.isEmpty()) {
+                violations.add("Done Gate Policy: Unresolved blocker tasks: " + String.join(", ", blockingTaskTitles));
+            }
+
+            // Check deliverable attachment or PR link
+            List<com.syncflow.model.TaskAttachment> attachments = attachmentRepository.findByTaskIdOrderByUploadedAtDesc(taskId);
+            hasDeliverable = (!attachments.isEmpty()) || (task.getGitPrUrl() != null && !task.getGitPrUrl().isBlank());
+            if (!hasDeliverable) {
+                violations.add("Done Gate Policy: Verification requires at least 1 deliverable attachment or linked Pull Request URL.");
+            }
+        }
+
+        boolean requiresOverride = !violations.isEmpty();
+        return com.syncflow.dto.WorkflowGateValidationResultDTO.builder()
+                .allowed(!requiresOverride)
+                .targetStageName(targetStage.getName())
+                .requiresOverride(requiresOverride)
+                .violations(violations)
+                .blockingTaskTitles(blockingTaskTitles)
+                .uncompletedSubtasksCount(uncompletedSubtasks)
+                .hasDeliverableAttachment(hasDeliverable)
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public TaskDTO linkGit(Long taskId, com.syncflow.dto.GitLinkRequest request) {
+        Task task = taskRepositoryPort.findById(taskId)
+                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
+
+        task.setGitBranch(request.getGitBranch());
+        task.setGitCommitHash(request.getGitCommitHash());
+        task.setGitPrUrl(request.getGitPrUrl());
+
+        Task saved = taskRepositoryPort.save(task);
+        log.info("Linked Git repository to task {}: branch={}, commit={}, pr={}", taskId, request.getGitBranch(), request.getGitCommitHash(), request.getGitPrUrl());
+
+        TaskDTO dto = toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
     public TaskDTO toDTO(Task task) {
         String assigneeName = task.getAssignee() != null ? task.getAssignee().getFullName() : "Unassigned";
         String avatar = getInitials(assigneeName);
@@ -695,6 +829,9 @@ public class TaskApplicationService implements TaskUseCase {
                 .sprintId(task.getSprintId())
                 .sprintName(sprintName)
                 .storyPoints(task.getStoryPoints() != null ? task.getStoryPoints() : 3)
+                .gitBranch(task.getGitBranch())
+                .gitCommitHash(task.getGitCommitHash())
+                .gitPrUrl(task.getGitPrUrl())
                 .build();
     }
 

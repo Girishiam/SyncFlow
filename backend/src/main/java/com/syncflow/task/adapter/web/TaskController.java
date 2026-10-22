@@ -205,4 +205,20 @@ public class TaskController {
         Long sprintId = body.get("sprintId");
         return ResponseEntity.ok(taskUseCase.assignSprint(id, sprintId));
     }
+
+    // --- Enterprise Transition Policy & Quality Gate Check ---
+    @GetMapping("/{id}/validate-gate")
+    public ResponseEntity<com.syncflow.dto.WorkflowGateValidationResultDTO> validateTransitionGate(
+            @PathVariable Long id,
+            @RequestParam Long targetStageId) {
+        return ResponseEntity.ok(taskUseCase.validateTransitionGate(id, targetStageId));
+    }
+
+    // --- Git Repository & Pull Request Integration ---
+    @PutMapping("/{id}/git")
+    public ResponseEntity<com.syncflow.dto.TaskDTO> linkGit(
+            @PathVariable Long id,
+            @RequestBody com.syncflow.dto.GitLinkRequest request) {
+        return ResponseEntity.ok(taskUseCase.linkGit(id, request));
+    }
 }

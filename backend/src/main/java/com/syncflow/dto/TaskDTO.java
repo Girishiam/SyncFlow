@@ -31,4 +31,7 @@ public class TaskDTO {
     private Long sprintId;
     private String sprintName;
     private Integer storyPoints;
+    private String gitBranch;
+    private String gitCommitHash;
+    private String gitPrUrl;
 }

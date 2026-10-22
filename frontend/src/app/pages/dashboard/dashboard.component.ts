@@ -27,11 +27,12 @@ export class DashboardComponent implements OnInit {
   public notificationFacade = inject(NotificationFacade);
   public wsService = inject(WebSocketService);
   private route = inject(ActivatedRoute);
+  readonly Math = Math;
 
   currentUser = computed(() => this.authService.currentUserSignal());
 
   // Active navigation view
-  activeNav = signal<'overview' | 'board' | 'roadmap' | 'backlog' | 'discussions' | 'analytics' | 'rbac' | 'compliance'>('board');
+  activeNav = signal<'overview' | 'board' | 'roadmap' | 'backlog' | 'discussions' | 'analytics' | 'financials' | 'capacity' | 'webhooks' | 'rbac' | 'compliance'>('board');
 
   // Subtasks & Deliverables Checklist Delegates
   taskSubtasks = this.boardFacade.taskSubtasks;
@@ -85,6 +86,42 @@ export class DashboardComponent implements OnInit {
   automationRules = this.boardFacade.automationRules;
   isAutomationsModalOpen = this.boardFacade.isAutomationsModalOpen;
   isTogglingRule = this.boardFacade.isTogglingRule;
+
+  // --- Enterprise Feature 1: Executive Financial Budget & Cost Tracking Delegates ---
+  projectFinancials = this.boardFacade.projectFinancials;
+  isLoadingFinancials = this.boardFacade.isLoadingFinancials;
+
+  // --- Enterprise Feature 2: Strict Workflow Transition Gates Delegates ---
+  gateValidationResult = this.boardFacade.gateValidationResult;
+  isGateViolationModalOpen = this.boardFacade.isGateViolationModalOpen;
+  pendingGateMove = this.boardFacade.pendingGateMove;
+  gateOverrideReason = this.boardFacade.gateOverrideReason;
+  isSubmittingGateOverride = this.boardFacade.isSubmittingGateOverride;
+
+  // --- Enterprise Feature 3: Real-Time Webhooks & Connectors Delegates ---
+  webhooks = this.boardFacade.webhooks;
+  isWebhooksModalOpen = this.boardFacade.isWebhooksModalOpen;
+  isLoadingWebhooks = this.boardFacade.isLoadingWebhooks;
+  newWebhookName = this.boardFacade.newWebhookName;
+  newWebhookUrl = this.boardFacade.newWebhookUrl;
+  newWebhookSecret = this.boardFacade.newWebhookSecret;
+  isTestingWebhook = this.boardFacade.isTestingWebhook;
+  webhookTestResult = this.boardFacade.webhookTestResult;
+  detailGitBranch = this.boardFacade.detailGitBranch;
+  detailGitCommit = this.boardFacade.detailGitCommit;
+  detailGitPrUrl = this.boardFacade.detailGitPrUrl;
+  isSavingGit = this.boardFacade.isSavingGit;
+
+  // --- Enterprise Feature 4: Hardware Token 2FA & WebAuthn / Passkeys Delegates ---
+  isPasskeyModalOpen = this.boardFacade.isPasskeyModalOpen;
+  passkeyChallenge = this.boardFacade.passkeyChallenge;
+  passkeyVerificationResult = this.boardFacade.passkeyVerificationResult;
+  isAuthenticatingPasskey = this.boardFacade.isAuthenticatingPasskey;
+  elevatedToken = this.boardFacade.elevatedToken;
+
+  // --- Enterprise Feature 5: Team Workload Capacity & Resource Matrix Delegates ---
+  teamCapacity = this.boardFacade.teamCapacity;
+  isLoadingCapacity = this.boardFacade.isLoadingCapacity;
 
   // Notification State Delegates
   notifications = this.notificationFacade.filteredNotifications;
@@ -694,17 +731,15 @@ export class DashboardComponent implements OnInit {
   }
 
   // --- Navigation Switcher ---
-  switchNav(nav: 'overview' | 'board' | 'roadmap' | 'backlog' | 'discussions' | 'analytics' | 'rbac' | 'compliance'): void {
+  switchNav(nav: 'overview' | 'board' | 'roadmap' | 'backlog' | 'discussions' | 'analytics' | 'financials' | 'capacity' | 'webhooks' | 'rbac' | 'compliance'): void {
     this.activeNav.set(nav);
-    if (nav === 'roadmap') {
-      this.boardFacade.loadTimeline();
-    } else if (nav === 'backlog') {
-      this.boardFacade.loadSprints();
-    } else if (nav === 'analytics') {
-      this.boardFacade.loadBurndown();
-    } else if (nav === 'compliance') {
-      this.boardFacade.loadAuditData();
-    }
+    if (nav === 'roadmap') this.boardFacade.loadTimeline();
+    if (nav === 'backlog') this.boardFacade.loadSprints();
+    if (nav === 'analytics') this.boardFacade.loadBurndown();
+    if (nav === 'compliance') this.boardFacade.loadAuditData();
+    if (nav === 'financials') this.boardFacade.loadFinancials();
+    if (nav === 'capacity') this.boardFacade.loadTeamCapacity();
+    if (nav === 'webhooks') this.boardFacade.loadWebhooks();
   }
 
   // --- Feature 1: Card Archiving & Active Only Methods ---
@@ -807,5 +842,72 @@ export class DashboardComponent implements OnInit {
 
   toggleAutomationRule(ruleId: number): void {
     this.boardFacade.toggleAutomationRule(ruleId);
+  }
+
+
+  // --- Enterprise Feature 1: Financials Helpers ---
+  refreshFinancials(): void {
+    this.boardFacade.loadFinancials();
+  }
+
+  // --- Enterprise Feature 2: Quality Gate Override Helpers ---
+  confirmGateOverride(): void {
+    this.boardFacade.confirmGateOverride();
+  }
+
+  cancelGateOverride(): void {
+    this.boardFacade.cancelGateOverride();
+  }
+
+  // --- Enterprise Feature 3: Webhooks & Git Linker Helpers ---
+  openWebhooksModal(): void {
+    this.boardFacade.isWebhooksModalOpen.set(true);
+    this.boardFacade.loadWebhooks();
+  }
+
+  closeWebhooksModal(): void {
+    this.boardFacade.isWebhooksModalOpen.set(false);
+  }
+
+  createWebhook(): void {
+    this.boardFacade.createWebhook();
+  }
+
+  toggleWebhook(id: number): void {
+    this.boardFacade.toggleWebhook(id);
+  }
+
+  testWebhook(id: number): void {
+    this.boardFacade.testWebhook(id);
+  }
+
+  deleteWebhook(id: number): void {
+    this.boardFacade.deleteWebhook(id);
+  }
+
+  saveGitLink(): void {
+    this.boardFacade.saveGitLink();
+  }
+
+  // --- Enterprise Feature 4: Passkey & Hardware Biometrics Helpers ---
+  openPasskeyModal(scope: string = 'WORKFLOW_GATE_OVERRIDE'): void {
+    this.boardFacade.openPasskeyModal(scope);
+  }
+
+  closePasskeyModal(): void {
+    this.boardFacade.isPasskeyModalOpen.set(false);
+  }
+
+  triggerBiometricScan(): void {
+    this.boardFacade.triggerBiometricScan();
+  }
+
+  // --- Enterprise Feature 5: Team Capacity Matrix Helpers ---
+  refreshCapacity(): void {
+    this.boardFacade.loadTeamCapacity();
+  }
+
+  rebalanceTask(fromUser: string, toUser: string, taskId: number): void {
+    this.boardFacade.rebalanceMemberTask(fromUser, toUser, taskId);
   }
 }

@@ -11,4 +11,6 @@ public class MoveTaskRequest {
     @NotNull
     private Long targetStageId;
     private Integer newPosition;
+    private Boolean overrideGate;
+    private String overrideReason;
 }

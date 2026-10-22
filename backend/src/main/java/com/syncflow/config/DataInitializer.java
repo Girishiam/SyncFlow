@@ -35,6 +35,7 @@ public class DataInitializer implements CommandLineRunner {
     private final SprintRepository sprintRepository;
     private final TaskDependencyRepository taskDependencyRepository;
     private final AutomationRuleRepository automationRuleRepository;
+    private final WebhookSubscriptionRepository webhookSubscriptionRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -613,6 +614,61 @@ public class DataInitializer implements CommandLineRunner {
                     .build());
 
             log.info("Seeded Initial Sprints, Task Dependencies, and Butler Automation Rules!");
+        }
+
+        // 11. Seed Initial Webhook Subscriptions & Bank Budgets
+        if (webhookSubscriptionRepository.count() == 0) {
+            Project p1 = projectRepository.findAll().stream().findFirst().orElse(null);
+            if (p1 != null) {
+                p1.setTotalBudget(250000.0);
+                p1.setAllocatedBudget(195000.0);
+                p1.setCurrency("USD");
+                projectRepository.save(p1);
+
+                webhookSubscriptionRepository.save(WebhookSubscription.builder()
+                        .projectId(p1.getId())
+                        .name("Slack #core-banking-ops Alerts")
+                        .targetUrl("https://hooks.slack.com/services/T00/B00/syncflow-bank-ops")
+                        .secretToken("whsec_bank_prod_98765")
+                        .events("TASK_CREATED,TASK_MOVED,TASK_BLOCKED,SPRINT_COMPLETED")
+                        .isEnabled(true)
+                        .deliveryCount(14)
+                        .lastDeliveredAt(java.time.Instant.now().minusSeconds(1800))
+                        .lastResponseStatus("200 OK")
+                        .build());
+
+                webhookSubscriptionRepository.save(WebhookSubscription.builder()
+                        .projectId(p1.getId())
+                        .name("Jenkins CI/CD QA Pipeline Connector")
+                        .targetUrl("https://ci.syncflow.internal/job/qa-smoke-tests/buildWithParameters")
+                        .secretToken("whsec_jenkins_ci_54321")
+                        .events("TASK_MOVED,TASK_CREATED")
+                        .isEnabled(true)
+                        .deliveryCount(28)
+                        .lastDeliveredAt(java.time.Instant.now().minusSeconds(3600))
+                        .lastResponseStatus("200 OK")
+                        .build());
+
+                // Seed sample Git commits / PRs on existing tasks
+                List<Task> tasks = taskRepository.findByProjectId(p1.getId());
+                if (!tasks.isEmpty()) {
+                    Task t1 = tasks.get(0);
+                    t1.setGitBranch("feature/CORE-101-oauth2-mfa");
+                    t1.setGitCommitHash("c8f42d1");
+                    t1.setGitPrUrl("https://github.com/syncflow-bank/core-auth/pull/412");
+                    taskRepository.save(t1);
+
+                    if (tasks.size() > 2) {
+                        Task t3 = tasks.get(2);
+                        t3.setGitBranch("refactor/CORE-204-mssql-partitioning");
+                        t3.setGitCommitHash("9a1e7b4");
+                        t3.setGitPrUrl("https://github.com/syncflow-bank/core-ledger/pull/189");
+                        taskRepository.save(t3);
+                    }
+                }
+
+                log.info("Seeded Initial Webhooks, Bank Budgets, and Git Links!");
+            }
         }
 
         log.info("SyncFlow Bank Enterprise initialization complete!");

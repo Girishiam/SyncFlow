@@ -24,4 +24,17 @@ public interface ProjectUseCase {
     // Butler Automation Rules
     List<AutomationRuleDTO> getAutomationRules(Long projectId);
     AutomationRuleDTO toggleAutomationRule(Long ruleId);
+
+    // Executive Financial Budget & Resource Cost Tracking
+    ProjectFinancialsDTO getProjectFinancials(Long projectId);
+
+    // Team Workload Capacity & Resource Allocation Matrix
+    TeamCapacityDTO getTeamCapacity(Long projectId);
+
+    // Real-Time Webhooks & Enterprise Connectors
+    List<WebhookSubscriptionDTO> getWebhooks(Long projectId);
+    WebhookSubscriptionDTO createWebhook(Long projectId, CreateWebhookRequest request);
+    WebhookSubscriptionDTO toggleWebhook(Long webhookId);
+    WebhookSubscriptionDTO testWebhook(Long webhookId);
+    void deleteWebhook(Long webhookId);
 }

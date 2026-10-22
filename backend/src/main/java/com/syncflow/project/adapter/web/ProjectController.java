@@ -93,4 +93,45 @@ public class ProjectController {
     public ResponseEntity<AutomationRuleDTO> toggleAutomationRule(@PathVariable Long ruleId) {
         return ResponseEntity.ok(projectUseCase.toggleAutomationRule(ruleId));
     }
+
+    // --- Executive Financial Budget & Resource Cost Tracking ---
+    @GetMapping("/{id}/financials")
+    public ResponseEntity<com.syncflow.dto.ProjectFinancialsDTO> getProjectFinancials(@PathVariable Long id) {
+        return ResponseEntity.ok(projectUseCase.getProjectFinancials(id));
+    }
+
+    // --- Team Workload Capacity & Resource Allocation Matrix ---
+    @GetMapping("/{id}/capacity")
+    public ResponseEntity<com.syncflow.dto.TeamCapacityDTO> getTeamCapacity(@PathVariable Long id) {
+        return ResponseEntity.ok(projectUseCase.getTeamCapacity(id));
+    }
+
+    // --- Real-Time Webhooks & Enterprise Connectors ---
+    @GetMapping("/{id}/webhooks")
+    public ResponseEntity<List<com.syncflow.dto.WebhookSubscriptionDTO>> getWebhooks(@PathVariable Long id) {
+        return ResponseEntity.ok(projectUseCase.getWebhooks(id));
+    }
+
+    @PostMapping("/{id}/webhooks")
+    public ResponseEntity<com.syncflow.dto.WebhookSubscriptionDTO> createWebhook(
+            @PathVariable Long id,
+            @RequestBody com.syncflow.dto.CreateWebhookRequest request) {
+        return ResponseEntity.ok(projectUseCase.createWebhook(id, request));
+    }
+
+    @PutMapping("/webhooks/{webhookId}/toggle")
+    public ResponseEntity<com.syncflow.dto.WebhookSubscriptionDTO> toggleWebhook(@PathVariable Long webhookId) {
+        return ResponseEntity.ok(projectUseCase.toggleWebhook(webhookId));
+    }
+
+    @PostMapping("/webhooks/{webhookId}/test")
+    public ResponseEntity<com.syncflow.dto.WebhookSubscriptionDTO> testWebhook(@PathVariable Long webhookId) {
+        return ResponseEntity.ok(projectUseCase.testWebhook(webhookId));
+    }
+
+    @DeleteMapping("/webhooks/{webhookId}")
+    public ResponseEntity<Void> deleteWebhook(@PathVariable Long webhookId) {
+        projectUseCase.deleteWebhook(webhookId);
+        return ResponseEntity.ok().build();
+    }
 }

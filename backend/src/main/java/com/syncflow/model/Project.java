@@ -45,6 +45,19 @@ public class Project {
     @JoinColumn(name = "team_id")
     private Team team;
 
+    // Financial Budgeting & Resource Cost Tracking
+    @Column(name = "total_budget")
+    @Builder.Default
+    private Double totalBudget = 150000.0;
+
+    @Column(name = "allocated_budget")
+    @Builder.Default
+    private Double allocatedBudget = 120000.0;
+
+    @Column(name = "currency", length = 10)
+    @Builder.Default
+    private String currency = "USD";
+
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     @OrderBy("position ASC")
     @Builder.Default

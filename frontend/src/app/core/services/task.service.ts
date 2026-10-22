@@ -21,8 +21,8 @@ export class TaskService implements ITaskPort {
     return this.http.post<TaskCard>(this.apiUrl, payload);
   }
 
-  moveTask(taskId: number, targetStageId: number): Observable<TaskCard> {
-    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/move`, { targetStageId });
+  moveTask(taskId: number, targetStageId: number, overrideGate?: boolean, overrideReason?: string): Observable<TaskCard> {
+    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/move`, { targetStageId, overrideGate, overrideReason });
   }
 
   updateProgress(taskId: number, progress: number): Observable<TaskCard> {
@@ -119,5 +119,28 @@ export class TaskService implements ITaskPort {
 
   assignSprint(taskId: number, sprintId: number): Observable<TaskCard> {
     return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/sprint`, { sprintId });
+  }
+
+  // --- Enterprise Transition Policy & Quality Gate Check ---
+  validateTransitionGate(taskId: number, targetStageId: number): Observable<import('../models/project.models').WorkflowGateValidationResult> {
+    return this.http.get<import('../models/project.models').WorkflowGateValidationResult>(`${this.apiUrl}/${taskId}/validate-gate`, {
+      params: { targetStageId: String(targetStageId) }
+    });
+  }
+
+  // --- Git Repository & Pull Request Integration ---
+  linkGit(taskId: number, payload: { gitBranch?: string; gitCommitHash?: string; gitPrUrl?: string }): Observable<TaskCard> {
+    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/git`, payload);
+  }
+
+  // --- WebAuthn / FIDO2 Biometric Challenge & Verification ---
+  getPasskeyChallenge(actionScope: string = 'WORKFLOW_GATE_OVERRIDE'): Observable<import('../models/project.models').BiometricAuthChallenge> {
+    return this.http.get<import('../models/project.models').BiometricAuthChallenge>(`${this.authApiUrl}/passkey/challenge`, {
+      params: { actionScope }
+    });
+  }
+
+  verifyPasskey(payload: { challengeId: string; clientDataJSON?: string; authenticatorData?: string; signature?: string; actionScope?: string }): Observable<import('../models/project.models').PasskeyVerificationResponse> {
+    return this.http.post<import('../models/project.models').PasskeyVerificationResponse>(`${this.authApiUrl}/passkey/verify`, payload);
   }
 }

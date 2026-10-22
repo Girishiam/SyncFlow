@@ -105,6 +105,16 @@ public class Task {
     @Builder.Default
     private Integer storyPoints = 3;
 
+    // Git / Enterprise VCS Integration
+    @Column(name = "git_branch", length = 150)
+    private String gitBranch;
+
+    @Column(name = "git_commit_hash", length = 64)
+    private String gitCommitHash;
+
+    @Column(name = "git_pr_url", length = 500)
+    private String gitPrUrl;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

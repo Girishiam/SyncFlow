@@ -131,7 +131,7 @@
         id="sidebar-nav-compliance"
         class="nav-item"
         [class.active]="activeNav() === 'compliance'"
-        (click)="activeNav.set('compliance')"
+        (click)="switchNav('compliance')"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -139,6 +139,49 @@
           <path d="m9 15 2 2 4-4"></path>
         </svg>
         <span>Audit Ledger</span>
+      </button>
+
+      <button
+        id="sidebar-nav-financials"
+        class="nav-item"
+        [class.active]="activeNav() === 'financials'"
+        (click)="switchNav('financials')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+        <span>Executive Financials</span>
+      </button>
+
+      <button
+        id="sidebar-nav-capacity"
+        class="nav-item"
+        [class.active]="activeNav() === 'capacity'"
+        (click)="switchNav('capacity')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+        <span>Team Capacity</span>
+      </button>
+
+      <button
+        id="sidebar-nav-webhooks"
+        class="nav-item"
+        [class.active]="activeNav() === 'webhooks'"
+        (click)="switchNav('webhooks')"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 16.98h-5.99c-1.1 0-1.95.94-2.48 1.9A4 4 0 0 1 2 17c.01-.7.2-1.4.57-2"></path>
+          <path d="m6 17 3.13-5.78c.53-.97.1-2.18-.84-2.73A4 4 0 0 1 6.5 2c.7 0 1.4.2 2 .57"></path>
+          <path d="m15 11 5.78 3.13c.97.53 2.18.1 2.73-.84A4 4 0 0 1 22 17.5c0 .7-.2 1.4-.57 2"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <span>Webhooks & Integrations</span>
       </button>
 
       <button
@@ -1792,6 +1835,357 @@
         </div>
       </div>
     </div>
+
+    <!-- CONTENT: EXECUTIVE FINANCIAL BUDGET & RESOURCE COST TRACKING -->
+    <div *ngIf="activeNav() === 'financials'" class="financials-view">
+      <div class="view-header-row">
+        <div>
+          <h2>Executive Financial Budget & Resource Cost Tracking</h2>
+          <p class="view-subtitle">Core banking budget burn rate, role-based hourly billing, and story point cost forecasts</p>
+        </div>
+        <div class="header-action-group">
+          <button class="btn-refresh-pill" (click)="refreshFinancials()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Recalculate Burn</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Financial KPI Metrics -->
+      <div class="financial-kpi-grid">
+        <div class="fin-card highlight-gold">
+          <span class="fin-label">Total Allocated Budget</span>
+          <div class="fin-amount">${{ (projectFinancials()?.totalBudget || 250000) | number:'1.0-0' }}</div>
+          <span class="fin-sub">{{ projectFinancials()?.currency || 'USD' }} Capitalized Budget</span>
+        </div>
+
+        <div class="fin-card">
+          <span class="fin-label">Actual Expenditure (Burned)</span>
+          <div class="fin-amount fin-spent">${{ (projectFinancials()?.spentBudget || 85100) | number:'1.0-0' }}</div>
+          <div class="fin-progress-bar">
+            <div class="fin-progress-fill" [style.width.%]="projectFinancials()?.burnRatePercent || 34.0"></div>
+          </div>
+          <span class="fin-sub">{{ projectFinancials()?.burnRatePercent || 34.0 }}% of Total Cap Burned</span>
+        </div>
+
+        <div class="fin-card highlight-emerald">
+          <span class="fin-label">Remaining Safe Budget</span>
+          <div class="fin-amount fin-remaining">${{ (projectFinancials()?.remainingBudget || 164900) | number:'1.0-0' }}</div>
+          <span class="fin-sub">Uncommitted Reserve Funds</span>
+        </div>
+
+        <div class="fin-card">
+          <span class="fin-label">Forecast Cost at Completion</span>
+          <div class="fin-amount">${{ (projectFinancials()?.projectedCostAtCompletion || 94620) | number:'1.0-0' }}</div>
+          <span class="fin-sub" [class.text-safe]="(projectFinancials()?.projectedCostAtCompletion || 94620) <= (projectFinancials()?.totalBudget || 250000)">
+            ✓ Under Approved Ceiling
+          </span>
+        </div>
+      </div>
+
+      <!-- Story Point Economic Burn & Role Rates Breakdown -->
+      <div class="fin-breakdown-row">
+        <!-- Role Hourly Rates & Expenditure Card -->
+        <div class="fin-detail-panel">
+          <div class="panel-header">
+            <h4>Engineering Role Billing Rates & Spend Distribution</h4>
+            <span class="rate-standard-tag">Bangladesh Bank IT Standards</span>
+          </div>
+          <table class="fin-table">
+            <thead>
+              <tr>
+                <th>Squad Role</th>
+                <th>Standard Rate</th>
+                <th>Estimated Hours Burned</th>
+                <th>Total Expenditure</th>
+                <th>Budget Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <div class="role-cell"><span class="role-icon dev">👨‍💻</span> <strong>Developer</strong></div>
+                </td>
+                <td>$85.00 / hr</td>
+                <td>500 hrs</td>
+                <td class="font-bold">${{ (projectFinancials()?.spentByRole?.['Developer'] || 42500) | number:'1.0-0' }}</td>
+                <td>
+                  <div class="table-progress"><div class="fill dev" style="width: 50%"></div></div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="role-cell"><span class="role-icon lead">👔</span> <strong>Team Lead</strong></div>
+                </td>
+                <td>$110.00 / hr</td>
+                <td>170 hrs</td>
+                <td class="font-bold">${{ (projectFinancials()?.spentByRole?.['Team Lead'] || 18700) | number:'1.0-0' }}</td>
+                <td>
+                  <div class="table-progress"><div class="fill lead" style="width: 22%"></div></div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="role-cell"><span class="role-icon sqa">🛡️</span> <strong>SQA Engineer</strong></div>
+                </td>
+                <td>$75.00 / hr</td>
+                <td>180 hrs</td>
+                <td class="font-bold">${{ (projectFinancials()?.spentByRole?.['SQA Engineer'] || 13500) | number:'1.0-0' }}</td>
+                <td>
+                  <div class="table-progress"><div class="fill sqa" style="width: 16%"></div></div>
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <div class="role-cell"><span class="role-icon mgr">💼</span> <strong>Reporting Manager</strong></div>
+                </td>
+                <td>$130.00 / hr</td>
+                <td>80 hrs</td>
+                <td class="font-bold">${{ (projectFinancials()?.spentByRole?.['Reporting Manager'] || 10400) | number:'1.0-0' }}</td>
+                <td>
+                  <div class="table-progress"><div class="fill mgr" style="width: 12%"></div></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Story Point Cost Model Card -->
+        <div class="fin-detail-panel model-panel">
+          <div class="panel-header">
+            <h4>Story Point Economic Cost Engine</h4>
+          </div>
+          <div class="point-metric-box">
+            <span class="pt-label">Blended Cost per Story Point</span>
+            <div class="pt-val">$680.00</div>
+            <p class="pt-desc">Based on 8 engineering hours per story point at blended rate ($85/hr average).</p>
+          </div>
+          <div class="point-stats-grid">
+            <div class="pt-stat">
+              <span class="pt-stat-label">Total Backlog Points</span>
+              <span class="pt-stat-val">{{ projectFinancials()?.totalStoryPoints || 28 }} pts</span>
+            </div>
+            <div class="pt-stat">
+              <span class="pt-stat-label">Completed Velocity</span>
+              <span class="pt-stat-val text-emerald">{{ projectFinancials()?.completedStoryPoints || 14 }} pts</span>
+            </div>
+            <div class="pt-stat">
+              <span class="pt-stat-label">Remaining Points</span>
+              <span class="pt-stat-val">{{ ((projectFinancials()?.totalStoryPoints || 28) - (projectFinancials()?.completedStoryPoints || 14)) }} pts</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT: TEAM WORKLOAD CAPACITY & RESOURCE ALLOCATION MATRIX -->
+    <div *ngIf="activeNav() === 'capacity'" class="capacity-view">
+      <div class="view-header-row">
+        <div>
+          <h2>Team Workload Capacity & Resource Matrix</h2>
+          <p class="view-subtitle">Active 2-week sprint capacity balance, over-allocation alerts, and workload redistribution</p>
+        </div>
+        <div class="header-action-group">
+          <button class="btn-refresh-pill" (click)="refreshCapacity()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Refresh Capacity</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Capacity High-Level Summary -->
+      <div class="capacity-kpi-grid">
+        <div class="cap-card">
+          <span class="cap-label">Total Sprint Capacity</span>
+          <div class="cap-num">{{ teamCapacity()?.totalSprintCapacity || 60 }} <small>pts</small></div>
+          <span class="cap-sub">Baseline: 15 pts / Engineer</span>
+        </div>
+        <div class="cap-card">
+          <span class="cap-label">Assigned Workload</span>
+          <div class="cap-num text-emerald">{{ teamCapacity()?.totalAssignedPoints || 42 }} <small>pts</small></div>
+          <span class="cap-sub">Across Active Kanban Cards</span>
+        </div>
+        <div class="cap-card">
+          <span class="cap-label">Overall Squad Utilization</span>
+          <div class="cap-num">{{ teamCapacity()?.overallUtilizationPercent || 70.0 }}%</div>
+          <div class="fin-progress-bar">
+            <div class="fin-progress-fill" [style.width.%]="teamCapacity()?.overallUtilizationPercent || 70.0"></div>
+          </div>
+        </div>
+        <div class="cap-card" [class.alert-border]="(teamCapacity()?.overloadedMembersCount || 0) > 0">
+          <span class="cap-label">Overloaded Engineers</span>
+          <div class="cap-num" [class.text-danger]="(teamCapacity()?.overloadedMembersCount || 0) > 0">
+            {{ teamCapacity()?.overloadedMembersCount || 0 }}
+          </div>
+          <span class="cap-sub">{{ (teamCapacity()?.overloadedMembersCount || 0) > 0 ? 'Requires Rebalancing' : 'Workload Balanced' }}</span>
+        </div>
+      </div>
+
+      <!-- Team Members Capacity Matrix Table -->
+      <div class="capacity-table-card">
+        <div class="table-meta-bar">
+          <span class="results-count">Squad Engineers: <strong>{{ teamCapacity()?.members?.length || bankUsers().length }}</strong></span>
+          <span class="iso-standard">Dynamic Workload Governor</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="capacity-table">
+            <thead>
+              <tr>
+                <th>Engineer & Role</th>
+                <th>Status</th>
+                <th>Allocated Points</th>
+                <th>Sprint Utilization</th>
+                <th>Assigned Tasks</th>
+                <th>Workload Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let member of (teamCapacity()?.members || [])" [class.row-overloaded]="member.isOverloaded">
+                <td class="col-member">
+                  <div class="member-cell">
+                    <span class="member-avatar">{{ member.avatar }}</span>
+                    <div>
+                      <div class="member-name">{{ member.fullName }}</div>
+                      <span class="member-role-badge">{{ member.role }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="status-pill" [ngClass]="member.status.toLowerCase()">
+                    {{ member.status }}
+                  </span>
+                </td>
+                <td>
+                  <div class="points-badge">
+                    <strong>{{ member.assignedStoryPoints }}</strong> / {{ member.maxCapacityStoryPoints }} pts
+                  </div>
+                </td>
+                <td class="col-util">
+                  <div class="util-bar-wrap">
+                    <div class="util-bar">
+                      <div
+                        class="util-fill"
+                        [ngClass]="{
+                          'fill-over': member.isOverloaded,
+                          'fill-optimal': !member.isOverloaded && member.utilizationPercent >= 60,
+                          'fill-under': member.utilizationPercent < 60
+                        }"
+                        [style.width.%]="Math.min(100, member.utilizationPercent)"
+                      ></div>
+                    </div>
+                    <span class="util-text">{{ member.utilizationPercent }}%</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="assigned-chips-wrap">
+                    <span *ngFor="let t of member.assignedTaskTitles.slice(0, 2)" class="task-chip-mini" [title]="t">
+                      {{ t.length > 25 ? t.slice(0, 25) + '...' : t }}
+                    </span>
+                    <span *ngIf="member.assignedTaskTitles.length > 2" class="more-chip">
+                      +{{ member.assignedTaskTitles.length - 2 }} more
+                    </span>
+                    <span *ngIf="member.assignedTaskTitles.length === 0" class="no-tasks-hint">No active assignments</span>
+                  </div>
+                </td>
+                <td>
+                  <button
+                    class="btn-rebalance"
+                    (click)="openCreateTask(1)"
+                    title="Assign or Rebalance tasks"
+                  >
+                    Assign Task
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTENT: ENTERPRISE WEBHOOKS & CONNECTORS -->
+    <div *ngIf="activeNav() === 'webhooks'" class="webhooks-view">
+      <div class="view-header-row">
+        <div>
+          <h2>Enterprise Webhooks & Integrations</h2>
+          <p class="view-subtitle">Real-time HTTP event dispatchers for Slack, Microsoft Teams, Jenkins, and GitHub</p>
+        </div>
+        <div class="header-action-group">
+          <button class="btn-create-webhook-pill" (click)="openWebhooksModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            <span>+ Add Webhook</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Webhooks Grid -->
+      <div class="webhooks-grid">
+        <div *ngFor="let hook of webhooks()" class="webhook-card" [class.disabled-hook]="!hook.isEnabled">
+          <div class="wh-top-row">
+            <div class="wh-title-group">
+              <span class="wh-connector-icon">🔗</span>
+              <div>
+                <h4 class="wh-name">{{ hook.name }}</h4>
+                <code class="wh-url">{{ hook.targetUrl }}</code>
+              </div>
+            </div>
+            <div class="wh-toggle-wrap">
+              <button class="wh-toggle-btn" [class.enabled]="hook.isEnabled" (click)="toggleWebhook(hook.id)">
+                {{ hook.isEnabled ? 'ACTIVE' : 'PAUSED' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="wh-events-row">
+            <span *ngFor="let ev of hook.events" class="wh-event-pill">{{ ev }}</span>
+          </div>
+
+          <div class="wh-footer">
+            <div class="wh-stats">
+              <span>Deliveries: <strong>{{ hook.deliveryCount }}</strong></span>
+              <span *ngIf="hook.lastResponseStatus" class="wh-status-badge">{{ hook.lastResponseStatus }}</span>
+            </div>
+            <div class="wh-actions">
+              <button
+                class="btn-wh-ping"
+                (click)="testWebhook(hook.id)"
+                [disabled]="isTestingWebhook() === hook.id"
+              >
+                {{ isTestingWebhook() === hook.id ? 'Testing...' : 'Test Ping' }}
+              </button>
+              <button class="btn-wh-delete" (click)="deleteWebhook(hook.id)" title="Delete webhook">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Ping Success Banner -->
+          <div *ngIf="webhookTestResult()?.id === hook.id" class="ping-success-toast">
+            ✓ Webhook Ping Delivered: {{ webhookTestResult()!.status }}
+          </div>
+        </div>
+
+        <div *ngIf="webhooks().length === 0" class="empty-webhooks-card">
+          <p>No webhooks configured for this project yet. Connect Slack, Jenkins, or custom HTTP endpoints.</p>
+          <button class="btn-create-webhook-pill" (click)="openWebhooksModal()">+ Register First Webhook</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- Create Task Modal -->
@@ -2423,6 +2817,86 @@
               [disabled]="!newAttachmentName().trim() || !newAttachmentUrl().trim() || isAddingAttachment()"
             >
               {{ isAddingAttachment() ? 'Attaching...' : '+ Attach Deliverable' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <hr class="drawer-divider" />
+
+      <!-- Enterprise Git Repository & Pull Request Integration -->
+      <div class="drawer-section git-section">
+        <div class="section-header-row">
+          <div class="header-left">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="6" y1="3" x2="6" y2="15"></line>
+              <circle cx="18" cy="6" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <path d="M18 9a9 9 0 0 1-9 9"></path>
+            </svg>
+            <h4>Git Repository & Pull Request Linker</h4>
+          </div>
+          <span *ngIf="activeDetailTask()!.gitBranch" class="git-status-badge">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            VCS Connected
+          </span>
+        </div>
+
+        <div class="git-form-card">
+          <div class="git-input-group">
+            <label>Feature Branch</label>
+            <div class="input-with-icon">
+              <span class="input-icon">⎇</span>
+              <input
+                type="text"
+                [(ngModel)]="detailGitBranch"
+                placeholder="e.g. feature/CORE-101-oauth2-mfa"
+                class="git-input"
+              />
+            </div>
+          </div>
+
+          <div class="git-grid-row">
+            <div class="git-input-group">
+              <label>Commit SHA</label>
+              <input
+                type="text"
+                [(ngModel)]="detailGitCommit"
+                placeholder="e.g. c8f42d1"
+                class="git-input code-font"
+              />
+            </div>
+            <div class="git-input-group">
+              <label>Pull Request URL</label>
+              <input
+                type="text"
+                [(ngModel)]="detailGitPrUrl"
+                placeholder="https://github.com/syncflow-bank/.../pull/412"
+                class="git-input"
+              />
+            </div>
+          </div>
+
+          <div class="git-actions-row">
+            <a
+              *ngIf="detailGitPrUrl()"
+              [href]="detailGitPrUrl()"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn-open-pr"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="18" cy="18" r="3"></circle>
+                <circle cx="6" cy="6" r="3"></circle>
+                <path d="M13 6h3a2 2 0 0 1 2 2v7"></path>
+                <line x1="6" y1="9" x2="6" y2="21"></line>
+              </svg>
+              View Pull Request
+            </a>
+            <button class="btn-save-git" (click)="saveGitLink()" [disabled]="isSavingGit()">
+              {{ isSavingGit() ? 'Linking...' : 'Save Git Links' }}
             </button>
           </div>
         </div>
@@ -3405,6 +3879,238 @@
       <div class="dialog-footer">
         <button class="btn-secondary" (click)="closeCreateSprintModal()">Cancel</button>
         <button class="btn-primary" [disabled]="!newSprintName().trim()" (click)="submitCreateSprint()">Create Sprint</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WORKFLOW QUALITY GATE POLICY ALERT & OVERRIDE MODAL -->
+  <div *ngIf="isGateViolationModalOpen()" class="dialog-backdrop" (click)="cancelGateOverride()">
+    <div class="dialog-card gate-dialog-card" (click)="$event.stopPropagation()">
+      <div class="dialog-header gate-header">
+        <div class="gate-title-row">
+          <div class="gate-icon-shield">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <div>
+            <h3 class="dialog-title">Strict Workflow Transition Gate Policy</h3>
+            <span class="gate-target-pill">Target: {{ gateValidationResult()?.targetStageName }}</span>
+          </div>
+        </div>
+        <button class="dialog-close" (click)="cancelGateOverride()">×</button>
+      </div>
+
+      <div class="dialog-body">
+        <div class="gate-warning-banner">
+          <p>This status change was intercepted by SyncFlow automated enterprise quality policies. The following criteria must be satisfied or explicitly overridden by an authorized squad manager:</p>
+        </div>
+
+        <!-- Violations List -->
+        <div class="gate-violations-list">
+          <div *ngFor="let violation of (gateValidationResult()?.violations || [])" class="violation-item">
+            <span class="violation-icon">⛔</span>
+            <span class="violation-text">{{ violation }}</span>
+          </div>
+        </div>
+
+        <!-- Manager Override Panel -->
+        <div class="gate-override-box">
+          <div class="override-header">
+            <h4>Manager / Admin Override Authorization</h4>
+            <span class="override-badge">Regulatory Audit Logged</span>
+          </div>
+
+          <label>Mandatory Override Justification / Reason *</label>
+          <textarea
+            [(ngModel)]="gateOverrideReason"
+            placeholder="Document rationale for bypassing transition gate (e.g. Hotfix emergency approved by Central Bank Audit)..."
+            class="dialog-textarea override-textarea"
+          ></textarea>
+
+          <!-- Passkey Biometric Trigger Row -->
+          <div class="passkey-trigger-row">
+            <button class="btn-passkey-trigger" (click)="openPasskeyModal('WORKFLOW_GATE_OVERRIDE')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zm-3 8V7a3 3 0 0 1 6 0v3H9z"></path>
+              </svg>
+              <span>{{ elevatedToken() ? 'Biometric Verified (' + elevatedToken() + ')' : 'Authenticate with WebAuthn Passkey' }}</span>
+            </button>
+            <span *ngIf="elevatedToken()" class="token-verified-tag">✓ Cryptographically Approved</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="btn-secondary" (click)="cancelGateOverride()">Cancel & Revert Card</button>
+        <button
+          class="btn-danger-solid"
+          (click)="confirmGateOverride()"
+          [disabled]="isSubmittingGateOverride() || !gateOverrideReason().trim()"
+        >
+          {{ isSubmittingGateOverride() ? 'Recording Override...' : 'Confirm Override & Move Task' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEBAUTHN / BIOMETRIC 2FA HARDWARE TOKEN MODAL -->
+  <div *ngIf="isPasskeyModalOpen()" class="dialog-backdrop" (click)="closePasskeyModal()">
+    <div class="dialog-card passkey-dialog-card" (click)="$event.stopPropagation()">
+      <div class="dialog-header passkey-header">
+        <div class="passkey-title-group">
+          <span class="passkey-logo">🛡️</span>
+          <div>
+            <h3 class="dialog-title">Hardware Biometric Authentication</h3>
+            <span class="passkey-sub">FIDO2 / WebAuthn Cryptographic Handshake</span>
+          </div>
+        </div>
+        <button class="dialog-close" (click)="closePasskeyModal()">×</button>
+      </div>
+
+      <div class="dialog-body passkey-body">
+        <!-- Biometric Pulse Animation Ring -->
+        <div class="biometric-sensor-container" (click)="triggerBiometricScan()">
+          <div class="sensor-ring" [class.scanning]="isAuthenticatingPasskey()" [class.verified]="passkeyVerificationResult()?.verified">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="fingerprint-svg">
+              <path d="M12 2C6.48 2 2 6.48 2 12c0 2.85 1.2 5.42 3.12 7.24"></path>
+              <path d="M12 6c-3.31 0-6 2.69-6 6 0 1.74.74 3.31 1.93 4.41"></path>
+              <path d="M12 10c-1.1 0-2 .9-2 2 0 .58.25 1.1.65 1.47"></path>
+              <path d="M12 14c.55 0 1-.45 1-1"></path>
+              <path d="M16.07 16.41C17.26 15.31 18 13.74 18 12c0-3.31-2.69-6-6-6"></path>
+              <path d="M18.88 19.24C20.8 17.42 22 14.85 22 12c0-5.52-4.48-10-10-10"></path>
+            </svg>
+          </div>
+          <span class="sensor-instruction">
+            {{ isAuthenticatingPasskey() ? 'Scanning fingerprint / Contacting security key...' : (passkeyVerificationResult()?.verified ? 'Identity Cryptographically Confirmed!' : 'Tap sensor or click to scan Touch ID / YubiKey') }}
+          </span>
+        </div>
+
+        <!-- Verification Result Box -->
+        <div *ngIf="passkeyVerificationResult()" class="passkey-result-card">
+          <div class="result-top">
+            <span class="check-icon">✓</span>
+            <div>
+              <strong>{{ passkeyVerificationResult()!.message }}</strong>
+              <div class="result-token">Token: <code>{{ passkeyVerificationResult()!.elevatedApprovalToken }}</code></div>
+            </div>
+          </div>
+          <div class="result-meta">
+            <span>Method: {{ passkeyVerificationResult()!.verifiedMethod }}</span>
+            <span>Valid: 15 minutes</span>
+          </div>
+        </div>
+
+        <div class="passkey-details-table">
+          <div class="detail-row">
+            <span class="dt-label">Relying Party:</span>
+            <span class="dt-val">{{ passkeyChallenge()?.rpName || 'SyncFlow Bank Enterprise Core' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="dt-label">User Email:</span>
+            <span class="dt-val">{{ passkeyChallenge()?.userEmail || 'alex.chen@syncflow.internal' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="dt-label">Challenge ID:</span>
+            <code class="dt-val code-font">{{ passkeyChallenge()?.challengeId?.slice(0, 16) }}...</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="btn-secondary" (click)="closePasskeyModal()">Close</button>
+        <button
+          *ngIf="!passkeyVerificationResult()?.verified"
+          class="btn-primary"
+          [disabled]="isAuthenticatingPasskey()"
+          (click)="triggerBiometricScan()"
+        >
+          {{ isAuthenticatingPasskey() ? 'Verifying...' : 'Scan Biometric Sensor' }}
+        </button>
+        <button
+          *ngIf="passkeyVerificationResult()?.verified"
+          class="btn-primary"
+          (click)="closePasskeyModal()"
+        >
+          Apply Elevated Token
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE WEBHOOK SUBSCRIPTION MODAL -->
+  <div *ngIf="isWebhooksModalOpen()" class="dialog-backdrop" (click)="closeWebhooksModal()">
+    <div class="dialog-card webhook-modal-card" (click)="$event.stopPropagation()">
+      <div class="dialog-header">
+        <h3 class="dialog-title">Register Enterprise Webhook</h3>
+        <button class="dialog-close" (click)="closeWebhooksModal()">×</button>
+      </div>
+
+      <div class="dialog-body">
+        <div class="form-group">
+          <label>Webhook Name *</label>
+          <input
+            type="text"
+            [(ngModel)]="newWebhookName"
+            placeholder="e.g. Microsoft Teams Incident Channel"
+            class="dialog-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Payload Target URL (HTTPS endpoint) *</label>
+          <input
+            type="url"
+            [(ngModel)]="newWebhookUrl"
+            placeholder="https://outlook.office.com/webhook/..."
+            class="dialog-input"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Secret Signing Token (HMAC-SHA256)</label>
+          <input
+            type="text"
+            [(ngModel)]="newWebhookSecret"
+            placeholder="Optional secret token for request signing"
+            class="dialog-input code-font"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>Subscribed Events</label>
+          <div class="webhook-events-checklist">
+            <div class="event-check-item">
+              <input type="checkbox" checked disabled id="ev_tc" />
+              <label for="ev_tc">TASK_CREATED (Dispatched when new work item is logged)</label>
+            </div>
+            <div class="event-check-item">
+              <input type="checkbox" checked disabled id="ev_tm" />
+              <label for="ev_tm">TASK_MOVED (Dispatched on Kanban stage transition)</label>
+            </div>
+            <div class="event-check-item">
+              <input type="checkbox" checked disabled id="ev_tb" />
+              <label for="ev_tb">TASK_BLOCKED (Dispatched when card blocker is flagged)</label>
+            </div>
+            <div class="event-check-item">
+              <input type="checkbox" checked disabled id="ev_sc" />
+              <label for="ev_sc">SPRINT_COMPLETED (Dispatched on sprint closure)</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dialog-footer">
+        <button class="btn-secondary" (click)="closeWebhooksModal()">Cancel</button>
+        <button
+          class="btn-primary"
+          [disabled]="!newWebhookName().trim() || !newWebhookUrl().trim()"
+          (click)="createWebhook(); closeWebhooksModal()"
+        >
+          Register Webhook
+        </button>
       </div>
     </div>
   </div>
