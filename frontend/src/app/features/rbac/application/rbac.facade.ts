@@ -2,6 +2,7 @@ import { Injectable, signal, computed } from '@angular/core';
 import { RbacService } from '../../../core/services/rbac.service';
 import { Role, Permission } from '../../../core/ports/rbac.port';
 
+import { ErrorNotifierService } from '../../../core/services/error-notifier.service';
 @Injectable({
   providedIn: 'root'
 })
@@ -67,7 +68,7 @@ export class RbacFacade {
   public deleteConfirmText = signal('');
   public deleteErrorMessage = signal<string | null>(null);
 
-  constructor(private rbacService: RbacService) {}
+  constructor(private rbacService: RbacService, private notifier: ErrorNotifierService) {}
 
   public init(): void {
     this.loadRolesAndPermissions();
@@ -77,7 +78,7 @@ export class RbacFacade {
   public loadBankUsers(): void {
     this.rbacService.getAllUsers().subscribe({
       next: (users) => this.bankUsers.set(users),
-      error: (err) => console.error('RbacFacade: Failed to load users', err)
+      error: (err) => { console.error('RbacFacade: Failed to load users', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -91,7 +92,7 @@ export class RbacFacade {
         this.saveSuccessMessage.set(`Updated role for ${updatedUser.fullName || updatedUser.email}!`);
         setTimeout(() => this.saveSuccessMessage.set(null), 3000);
       },
-      error: (err) => console.error('RbacFacade: Failed to update user role', err)
+      error: (err) => { console.error('RbacFacade: Failed to update user role', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -101,7 +102,7 @@ export class RbacFacade {
         this.permissions.set(perms);
         this.loadRoles();
       },
-      error: (err) => console.error('RbacFacade: Failed to load permissions', err)
+      error: (err) => { console.error('RbacFacade: Failed to load permissions', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -115,7 +116,7 @@ export class RbacFacade {
           this.selectRole(this.selectedRoleId()!);
         }
       },
-      error: (err) => console.error('RbacFacade: Failed to load roles', err)
+      error: (err) => { console.error('RbacFacade: Failed to load roles', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -208,7 +209,7 @@ export class RbacFacade {
         this.saveSuccessMessage.set(`Role '${updatedRole.name}' ${statusStr} successfully!`);
         setTimeout(() => this.saveSuccessMessage.set(null), 3000);
       },
-      error: (err) => console.error('RbacFacade: Failed to toggle role status', err)
+      error: (err) => { console.error('RbacFacade: Failed to toggle role status', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -236,7 +237,7 @@ export class RbacFacade {
         this.selectRole(created.id);
         this.closeCreateRoleModal();
       },
-      error: (err) => console.error('RbacFacade: Failed to create role', err)
+      error: (err) => { console.error('RbacFacade: Failed to create role', err); this.notifier.showClientError(err); }
     });
   }
 

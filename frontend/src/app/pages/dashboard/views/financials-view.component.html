@@ -1,0 +1,122 @@
+<div class="financials-view">
+  <div class="view-header-row">
+    <div>
+      <h2>Executive Financial Budget & Resource Cost Tracking</h2>
+      <p class="view-subtitle">Core banking budget burn rate, role-based hourly billing, and story point cost forecasts</p>
+    </div>
+    <div class="header-action-group">
+      <button class="btn-refresh-pill" (click)="refreshFinancials()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        <span>Recalculate Burn</span>
+      </button>
+    </div>
+  </div>
+
+  <ng-container *ngIf="projectFinancials() as fin; else financialsLoading">
+  <!-- Financial KPI Metrics -->
+  <div class="financial-kpi-grid">
+    <div class="fin-card highlight-gold">
+      <span class="fin-label">Total Allocated Budget</span>
+      <div class="fin-amount">{{ fin.totalBudget !== null ? (fin.totalBudget | currency:fin.currency:'symbol':'1.0-0') : 'Not set' }}</div>
+      <span class="fin-sub">{{ fin.currency }} capitalised budget</span>
+    </div>
+
+    <div class="fin-card">
+      <span class="fin-label">Actual Expenditure (Burned)</span>
+      <div class="fin-amount fin-spent">{{ fin.spentBudget | currency:fin.currency:'symbol':'1.0-0' }}</div>
+      <div class="fin-progress-bar" *ngIf="fin.burnRatePercent !== null">
+        <div class="fin-progress-fill" [style.width.%]="Math.min(100, fin.burnRatePercent)"></div>
+      </div>
+      <span class="fin-sub">
+        {{ fin.burnRatePercent !== null ? fin.burnRatePercent + '% of budget burned' : 'Set a budget to track burn rate' }}
+        · {{ fin.totalHoursLogged || 0 }} h logged
+      </span>
+    </div>
+
+    <div class="fin-card highlight-emerald">
+      <span class="fin-label">Remaining Budget</span>
+      <div class="fin-amount fin-remaining">{{ fin.remainingBudget !== null ? (fin.remainingBudget | currency:fin.currency:'symbol':'1.0-0') : '—' }}</div>
+      <span class="fin-sub">Uncommitted reserve funds</span>
+    </div>
+
+    <div class="fin-card">
+      <span class="fin-label">Forecast Cost at Completion</span>
+      <div class="fin-amount">{{ fin.projectedCostAtCompletion | currency:fin.currency:'symbol':'1.0-0' }}</div>
+      <span *ngIf="fin.totalBudget !== null" class="fin-sub"
+            [class.text-safe]="fin.projectedCostAtCompletion <= fin.totalBudget"
+            [class.text-danger]="fin.projectedCostAtCompletion > fin.totalBudget">
+        {{ fin.projectedCostAtCompletion <= fin.totalBudget ? '✓ Under approved ceiling' : '⚠ Forecast exceeds budget' }}
+      </span>
+      <span *ngIf="fin.totalBudget === null" class="fin-sub">Spent + remaining estimates at the blended rate</span>
+    </div>
+  </div>
+
+  <!-- Spend by role (from logged hours) & story point economics -->
+  <div class="fin-breakdown-row">
+    <div class="fin-detail-panel">
+      <div class="panel-header">
+        <h4>Spend by Role</h4>
+        <span class="rate-standard-tag">Logged hours × configured role rates</span>
+      </div>
+      <table class="fin-table">
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Rate</th>
+            <th>Expenditure</th>
+            <th>Share</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of financialRoleRows()">
+            <td><div class="role-cell"><strong>{{ row.role }}</strong></div></td>
+            <td>{{ row.rate | currency:fin.currency:'symbol':'1.2-2' }} / hr</td>
+            <td class="font-bold">{{ row.spent | currency:fin.currency:'symbol':'1.0-0' }}</td>
+            <td>
+              <div class="table-progress"><div class="fill dev" [style.width.%]="row.share"></div></div>
+            </td>
+          </tr>
+          <tr *ngIf="financialRoleRows().length === 0">
+            <td colspan="4" class="empty-row">No time has been logged on this project yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="fin-detail-panel model-panel">
+      <div class="panel-header">
+        <h4>Story Point Economics</h4>
+      </div>
+      <div class="point-metric-box">
+        <span class="pt-label">Actual Cost per Completed Story Point</span>
+        <div class="pt-val">{{ fin.estimatedCostPerStoryPoint !== null ? (fin.estimatedCostPerStoryPoint | currency:fin.currency:'symbol':'1.2-2') : '—' }}</div>
+        <p class="pt-desc">
+          Spend divided by completed points. Blended rate:
+          {{ (fin.blendedHourlyRate || 0) | currency:fin.currency:'symbol':'1.2-2' }}/hr.
+        </p>
+      </div>
+      <div class="point-stats-grid">
+        <div class="pt-stat">
+          <span class="pt-stat-label">Total Points</span>
+          <span class="pt-stat-val">{{ fin.totalStoryPoints }} pts</span>
+        </div>
+        <div class="pt-stat">
+          <span class="pt-stat-label">Completed</span>
+          <span class="pt-stat-val text-emerald">{{ fin.completedStoryPoints }} pts</span>
+        </div>
+        <div class="pt-stat">
+          <span class="pt-stat-label">Remaining</span>
+          <span class="pt-stat-val">{{ fin.totalStoryPoints - fin.completedStoryPoints }} pts</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  </ng-container>
+  <ng-template #financialsLoading>
+    <div class="no-subtasks-msg"><p>{{ isLoadingFinancials() ? 'Loading financials…' : 'Financial data is unavailable for this project.' }}</p></div>
+  </ng-template>
+</div>

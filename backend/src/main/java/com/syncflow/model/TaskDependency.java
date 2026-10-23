@@ -1,5 +1,7 @@
 package com.syncflow.model;
 
+import com.syncflow.model.enums.*;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,7 +31,8 @@ public class TaskDependency {
 
     @Column(name = "dependency_type", nullable = false, length = 30)
     @Builder.Default
-    private String dependencyType = "BLOCKS"; // BLOCKS, BLOCKED_BY, RELATES_TO
+    @Enumerated(EnumType.STRING)
+    private DependencyType dependencyType = DependencyType.BLOCKS;
 
     @Column(name = "created_by", length = 100)
     private String createdBy;

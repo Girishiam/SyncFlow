@@ -2,8 +2,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk" alt="Java 21" />
-  <img src="https://img.shields.io/badge/Spring%20Boot-3.4.1-brightgreen?style=for-the-badge&logo=springboot" alt="Spring Boot 3.4.1" />
-  <img src="https://img.shields.io/badge/Angular-19.0-red?style=for-the-badge&logo=angular" alt="Angular 19" />
+  <img src="https://img.shields.io/badge/Spring%20Boot-3.3.5-brightgreen?style=for-the-badge&logo=springboot" alt="Spring Boot 3.3.5" />
+  <img src="https://img.shields.io/badge/Angular-18.2-red?style=for-the-badge&logo=angular" alt="Angular 18" />
   <img src="https://img.shields.io/badge/Microsoft%20SQL%20Server-2022-blue?style=for-the-badge&logo=microsoftsqlserver" alt="Microsoft SQL Server" />
   <img src="https://img.shields.io/badge/WebSocket-STOMP-blueviolet?style=for-the-badge&logo=socketdotio" alt="WebSocket STOMP" />
   <img src="https://img.shields.io/badge/Clean%20Architecture-Ports%20%26%20Adapters-teal?style=for-the-badge" alt="Clean Architecture" />
@@ -22,7 +22,7 @@
 - [6. Database Architecture & ER Diagram](#6-database-architecture--er-diagram)
 - [7. Directory & Package Structure](#7-directory--package-structure)
 - [8. Getting Started & Installation Guide](#8-getting-started--installation-guide)
-- [9. Default Seed Accounts & Security Matrix](#9-default-seed-accounts--security-matrix)
+- [9. Demo Accounts (dev profile only) & Permission Model](#9-demo-accounts-dev-profile-only--permission-model)
 - [10. REST API & WebSocket Documentation](#10-rest-api--websocket-documentation)
 - [11. Contributing & Author](#11-contributing--author)
 
@@ -82,7 +82,7 @@ SyncFlow is engineered from the ground up adhering to **Clean Architecture (Hexa
 
 ### 🎯 1. Interactive Sprint Kanban Board
 * Multi-stage customizable columns (*Backlog*, *In Development*, *Code Review & QA*, *Done & Verified*).
-* Real-time drag-and-drop task progression synchronized across all connected browsers over STOMP WebSocket topics (`/topic/board/{projectId}`).
+* Real-time drag-and-drop task progression synchronized across all connected browsers over STOMP WebSocket topics (`/topic/projects.{projectId}.board`).
 * Multi-criteria filtering: Quick filters for *My Assigned*, *Blocked Only*, and *Critical & High Priority*, alongside real-time search by task title or code.
 * Blocker flags with custom blocker reason modals and visual warnings.
 
@@ -123,17 +123,17 @@ SyncFlow is engineered from the ground up adhering to **Clean Architecture (Hexa
 
 ### Backend
 * **Language & Runtime**: Java 21 (LTS)
-* **Framework**: Spring Boot 3.4.1
+* **Framework**: Spring Boot 3.3.5
 * **Security**: Spring Security 6, Stateless JWT Authentication, BCrypt Password Encoding
-* **Real-Time Communication**: Spring WebSocket with STOMP broker and SockJS fallback
-* **ORM & Persistence**: Spring Data JPA, Hibernate Core
+* **Real-Time Communication**: Spring WebSocket + STOMP (token-authenticated CONNECT, per-subscription authorization)
+* **ORM & Persistence**: Spring Data JPA, Hibernate (schema validation), Flyway migrations
 * **Database Driver**: Microsoft JDBC Driver for SQL Server (`mssql-jdbc`)
 * **Build System**: Apache Maven 3.9+
 
 ### Frontend
-* **Framework**: Angular 19 (Standalone Components, Signals API)
+* **Framework**: Angular 18.2 (Standalone Components, Signals API, lazy-loaded routes)
 * **Reactive Engine**: RxJS 7.8, Angular Signals
-* **Real-Time Client**: `@stomp/rx-stomp`, `sockjs-client`
+* **Real-Time Client**: `@stomp/stompjs` over native WebSocket
 * **Styling**: SCSS Design System with Bank-Grade Palette, Glassmorphism, and Fluid Transitions
 * **Icons**: Inline SVG Design System (Zero external font dependencies)
 * **Video SDK**: Jitsi Meet External API
@@ -149,7 +149,7 @@ SyncFlow is engineered from the ground up adhering to **Clean Architecture (Hexa
 
 ```mermaid
 flowchart TB
-    subgraph BrowserClients["Frontend Client Layer (Angular 19 Standalone)"]
+    subgraph BrowserClients["Frontend Client Layer (Angular 18 Standalone)"]
         Dashboard["DashboardComponent"]
         BoardFac["BoardFacade (Signals)"]
         RbacFac["RbacFacade (Signals)"]
@@ -160,7 +160,7 @@ flowchart TB
         StompSvc["RxStompService (WebSocket Adapter)"]
     end
 
-    subgraph BackendAPI["Backend Layer (Spring Boot 3.4.1 - Port 9090)"]
+    subgraph BackendAPI["Backend Layer (Spring Boot 3.3.5 - Port 9090)"]
         subgraph AdaptersWeb["Web Adapters (REST & STOMP)"]
             AuthCtrl["AuthController"]
             ProjCtrl["ProjectController"]
@@ -422,25 +422,20 @@ SyncFlow/
 * **Java Development Kit**: JDK 21+
 * **Node.js**: v20.x or v22.x LTS (with npm 10+)
 * **Database**: Microsoft SQL Server 2022 (Developer / Express edition)
-* **Build Tool**: Maven 3.9+
+* **Build Tool**: Maven 3.9+ (or the bundled `./mvnw`)
 
 ---
 
 ### Step 1: Microsoft SQL Server Database Setup
-Open SQL Server Management Studio (SSMS) or `sqlcmd` and execute:
+Open SQL Server Management Studio (SSMS) or `sqlcmd` and execute (choose your own password):
 
 ```sql
--- Create the dedicated SyncFlow database
 CREATE DATABASE syncflow_db;
 GO
-
--- Create the dedicated SQL Server login
 USE master;
 GO
-CREATE LOGIN syncflow_user WITH PASSWORD = 'SyncFlow@2026!', CHECK_POLICY = OFF;
+CREATE LOGIN syncflow_user WITH PASSWORD = '<choose-a-strong-password>';
 GO
-
--- Grant database owner privileges
 USE syncflow_db;
 GO
 CREATE USER syncflow_user FOR LOGIN syncflow_user;
@@ -449,36 +444,29 @@ ALTER ROLE db_owner ADD MEMBER syncflow_user;
 GO
 ```
 
+The schema is created and upgraded by **Flyway** migrations (`backend/src/main/resources/db/migration`) on startup; Hibernate only validates it. An existing database that was previously managed by `ddl-auto=update` is baselined at version 1 automatically and then upgraded.
+
 ---
 
 ### Step 2: Backend Configuration & Launch
-Verify the connection string in `backend/src/main/resources/application.yml`:
+Secrets are never committed. Provide them through environment variables **or** a git-ignored `backend/config/application-local.yml` (copy `backend/config/application-local.example.yml`):
 
-```yaml
-server:
-  port: 9090
-  servlet:
-    context-path: /api
+| Setting | Environment variable | Notes |
+| :--- | :--- | :--- |
+| DB password | `SYNCFLOW_DB_PASSWORD` | Required |
+| DB URL / user | `SYNCFLOW_DB_URL`, `SYNCFLOW_DB_USERNAME` | Defaults to local `syncflow_db` / `syncflow_user` |
+| JWT signing key | `SYNCFLOW_JWT_SECRET` | Required, Base64, ≥ 32 bytes: `openssl rand -base64 48` |
+| First administrator | `SYNCFLOW_ADMIN_EMAIL`, `SYNCFLOW_ADMIN_PASSWORD` | Created once when no users exist (non-`dev` environments) |
+| Allowed browser origins | `SYNCFLOW_CORS_ORIGINS` | Comma separated; also used for WebSocket origins |
+| Attachment storage | `SYNCFLOW_ATTACHMENTS_DIR` | Default `./data/attachments` |
+| Webhooks to private networks | `SYNCFLOW_WEBHOOKS_ALLOW_PRIVATE` | `false` by default (SSRF protection) |
 
-spring:
-  datasource:
-    url: jdbc:sqlserver://localhost:1433;databaseName=syncflow_db;encrypt=true;trustServerCertificate=true;sendStringParametersAsUnicode=false
-    username: syncflow_user
-    password: SyncFlow@2026!
-    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: false
-```
-
-Start the Spring Boot backend service:
 ```bash
 cd backend
-./mvnw clean spring-boot:run
+./mvnw spring-boot:run
 ```
-* The backend will start on port `9090`.
-* The `DataInitializer` will automatically seed default roles, permissions, enterprise projects, Kanban stages, and users if tables are empty.
+* The API listens on port `9090` under `/api`.
+* Run with the `dev` profile (`spring.profiles.active: dev`, set in the example local config) to load demo projects, users, sprints and chat history.
 
 ---
 
@@ -486,62 +474,89 @@ cd backend
 ```bash
 cd frontend
 npm install
-npm start
+npm start          # ng serve on http://localhost:4200, API at http://localhost:9090/api
+npm run build      # production build; expects the API on the same origin under /api
 ```
-* The Angular dev server will launch at `http://localhost:4200`.
-* All API calls route automatically to `http://localhost:9090/api`.
+API and WebSocket locations are configured in `frontend/src/environments/`.
+
+### Running tests
+```bash
+cd backend && ./mvnw test                                   # unit + security slice tests (no database needed)
+SYNCFLOW_IT_DB=true ./mvnw test                             # additionally boots the full context against SQL Server
+cd frontend && npx ng test --watch=false --browsers=ChromeHeadless
+```
 
 ---
 
-## 9. Default Seed Accounts & Security Matrix
+## 9. Demo Accounts (dev profile only) & Permission Model
 
-Upon initial database initialization, the following pre-configured enterprise accounts are available:
+With the `dev` profile, these demo accounts are created. **They do not exist in other environments** — create the first administrator with `SYNCFLOW_ADMIN_EMAIL` / `SYNCFLOW_ADMIN_PASSWORD` instead.
 
-| Full Name | Email Address | Password | Role | Primary Permissions |
-| :--- | :--- | :--- | :--- | :--- |
-| **Girish Admin** | `admin@syncflow.bank` | `Admin@123` | `ADMIN` | Full System Access, RBAC Matrix, All Modules |
-| **Tariq Manager** | `manager@syncflow.bank` | `Manager@123` | `REPORTING_MANAGER` | Analytics, Sprint Health, Sprints, Team |
-| **Arman Lead** | `lead@syncflow.bank` | `Lead@123` | `TECH_LEAD` | Architecture, Code Review, Sprint Execution |
-| **Farhan Senior Dev** | `dev@syncflow.bank` | `Dev@123` | `DEVELOPER` | Task Management, Comments, Standup Logs |
-| **Sarah SQA** | `sqa@syncflow.bank` | `Sqa@123` | `SQA_ENGINEER` | QA Verification, Bug Tracking, Release Sign-off |
+| Full Name | Email Address | Password | Role |
+| :--- | :--- | :--- | :--- |
+| Chief Admin | `admin@syncflow.bank` | `Admin@123` | `ADMIN` |
+| Tariq Manager | `manager@syncflow.bank` | `Manager@123` | `REPORTING_MANAGER` |
+| Arman Lead | `lead@syncflow.bank` | `Lead@123` | `TEAM_LEAD` |
+| Farhan Senior Dev | `dev@syncflow.bank` | `Dev@123` | `DEVELOPER` |
+| Sarah SQA Engineer | `sqa@syncflow.bank` | `Sqa@123` | `SQA` |
+
+**Every endpoint is authorised on the server** with two checks:
+1. **Role permission** (`MODULE:ACTION`, editable in the RBAC matrix), e.g. `TASK:EDIT`, `SPRINT:MANAGE`, `FINANCE:VIEW`, `AUDIT:VIEW`, `ADMIN:MANAGE_USERS`. `ADMIN` has every permission; a deactivated role grants none.
+2. **Resource access**: a project with a team is limited to its manager, team lead and members (projects without a team are organisation-wide); private channels are limited to their members.
+
+Overriding a failed workflow gate additionally requires `TASK:OVERRIDE_GATE`, re-entering the password (`POST /v1/auth/elevate`, valid 5 minutes) and a written justification. Every override is recorded in the hash-chained audit ledger.
+
+Sessions use a 15-minute access token plus a single-use refresh token (rotated on every refresh; reuse of an old refresh token revokes all of the user's sessions). Five failed password attempts lock the account for 15 minutes.
 
 ---
 
 ## 10. REST API & WebSocket Documentation
 
+All endpoints are under `/api`. Errors share one JSON shape: `{ timestamp, status, error, code, message, path, details[] }` (for example `code: "WORKFLOW_GATE_VIOLATION"` with the failed gates in `details`).
+
 ### Authentication & RBAC
-* `POST /api/v1/auth/login` — Authenticate user and issue JWT bearer token.
-* `GET  /api/v1/auth/users` — Fetch all registered bank staff members.
-* `PUT  /api/v1/auth/users/{userId}/role` — Reassign bank member's active role.
-* `GET  /api/v1/roles` — Fetch all system roles and their granted permissions.
-* `POST /api/v1/roles` — Create a new custom role with description.
-* `PUT  /api/v1/roles/{roleId}/permissions` — Update permission matrix checkboxes for a role.
+* `POST /v1/auth/login` — Returns `{ token, expiresIn, refreshToken, user }`.
+* `POST /v1/auth/refresh` — Exchange a refresh token for a new token pair.
+* `POST /v1/auth/logout` — Revoke a refresh token.
+* `POST /v1/auth/elevate` — Re-enter the password to obtain a short-lived elevation token (`scope: WORKFLOW_GATE_OVERRIDE`).
+* `GET  /v1/auth/me`, `GET /v1/auth/users`
+* `PUT  /v1/auth/users/{id}/role` — `ADMIN:MANAGE_USERS`; cannot change your own role or remove the last admin.
+* `GET/POST /v1/rbac/roles`, `PUT /v1/rbac/roles/{id}/permissions`, `PUT /v1/rbac/roles/{id}/toggle-status`, `DELETE /v1/rbac/roles/{id}` — writes need `ADMIN:MANAGE_ROLES`.
 
-### Projects & Stages
-* `GET  /api/v1/projects` — Retrieve all enterprise projects with stage metadata.
-* `POST /api/v1/projects` — Provision a new project and initialize canonical workflow stages.
-* `GET  /api/v1/projects/{projectId}/stages` — List pipeline stages for a project.
+### Projects, Stages & Sprints
+* `GET  /v1/projects` — Projects visible to the caller. `POST /v1/projects` — `PROJECT:CREATE`.
+* `GET  /v1/projects/{id}/board`, `/timeline`, `/analytics/burndown`, `/capacity`, `/time-summary`
+* `POST /v1/projects/{id}/stages`, `PUT /v1/projects/stages/{stageId}` — create/update a stage and its quality gates (`requiresChecklistComplete`, `requiresNoBlockers`, `requiresDeliverable`).
+* `GET/POST /v1/projects/{id}/sprints`, `PUT /v1/projects/sprints/{id}/start|complete` — one active sprint per project; completing a sprint returns unfinished tasks to the backlog.
+* `GET /v1/projects/{id}/financials` — `FINANCE:VIEW`; cost = logged hours × `syncflow.finance.role-hourly-rates`.
+* `GET/POST /v1/projects/{id}/webhooks`, `PUT .../webhooks/{id}/toggle`, `POST .../webhooks/{id}/test`, `DELETE .../webhooks/{id}`
 
-### Tasks & Comments
-* `GET  /api/v1/tasks?projectId={id}` — Retrieve all tasks for a project.
-* `POST /api/v1/tasks` — Create a new task in a specific stage.
-* `PUT  /api/v1/tasks/{id}/move` — Move task across stages (triggers WebSocket broadcast).
-* `PUT  /api/v1/tasks/{id}/details` — Update title, description, priority, assignee, due date.
-* `PUT  /api/v1/tasks/{id}/blocker` — Toggle blocker flag and set blocker explanation.
-* `GET  /api/v1/tasks/{taskId}/comments` — Retrieve threaded comment discussion.
-* `POST /api/v1/tasks/{taskId}/comments` — Post a comment (broadcasted in real time).
+### Tasks
+* `POST /v1/tasks`, `GET /v1/tasks/{id}`
+* `PUT /v1/tasks/{id}/move` — `{ targetStageId, overrideGate?, overrideReason?, elevationToken? }`; 409 `WORKFLOW_GATE_VIOLATION` when gates fail.
+* `PUT /v1/tasks/{id}/progress | blocker | assignee | deadline | story-points | sprint | git | archive | restore`
+* `GET/POST /v1/tasks/{id}/comments`, `/subtasks`, `/dependencies`, `/time-logs`
+* `POST /v1/tasks/{id}/attachments` — multipart `file` upload (≤ 25 MB) **or** JSON `{ fileName, fileUrl }` for an http(s) link.
+* `GET  /v1/tasks/{id}/attachments/{attachmentId}/download`
 
-### Daily Standup & Work Logs
-* `GET  /api/v1/worklogs/my?date=YYYY-MM-DD` — Retrieve authenticated user's log for date.
-* `POST /api/v1/worklogs` — Submit or update standup notes and completed task count.
-* `GET  /api/v1/worklogs/team?date=YYYY-MM-DD` — Retrieve all team activity logs for date.
+### Chat, Notifications, Work Logs, Audit
+* `GET /v1/channels`, `GET /v1/channels/{id}/messages?before={messageId}&limit=50`, `POST /v1/channels/{id}/messages`
+* `GET /v1/notifications`, `PATCH /v1/notifications/{id}/read`, `POST /v1/notifications/mark-all-read` — every notification belongs to one user (role-wide alerts are delivered as one row per recipient).
+* `POST /v1/worklogs`, `GET /v1/worklogs/me?date=`, `GET /v1/worklogs?date=`, `GET /v1/worklogs/recent`
+* `GET /v1/audit-logs`, `/export/csv` — `AUDIT:VIEW`
+* `GET /v1/audit-logs/metrics` — ledger metrics; verifies records appended since the last check (incremental).
+* `POST /v1/audit-logs/verify` — full re-verification of the hash chain (also runs nightly at 02:30).
 
-### WebSocket STOMP Broker Topics
-* `CONNECT /ws` — WebSocket STOMP endpoint with SockJS fallback.
-* `SUBSCRIBE /topic/board/{projectId}` — Real-time Kanban task movements, creations, and edits.
-* `SUBSCRIBE /topic/channel/{channelId}` — Real-time team discussion messages.
-* `SUBSCRIBE /topic/task/{taskId}/comments` — Live task comment stream.
-* `SEND /app/chat.send` — Dispatch message payload to channel.
+### Webhook deliveries
+Events: `TASK_CREATED`, `TASK_MOVED`, `TASK_BLOCKED`, `SPRINT_COMPLETED`. Each delivery is a JSON POST sent after the transaction commits, retried on network errors/429/5xx, with headers `X-SyncFlow-Event`, `X-SyncFlow-Delivery`, `X-SyncFlow-Timestamp` and `X-SyncFlow-Signature: sha256=HMAC_SHA256(secret, "<timestamp>.<body>")`.
+
+### WebSocket (STOMP)
+* Endpoint: `/api/ws` (native WebSocket; a SockJS endpoint is also available). The `CONNECT` frame must carry `Authorization: Bearer <access token>`.
+* `SUBSCRIBE /topic/projects.{projectId}.board` — task changes for a project (requires access to that project).
+* `SUBSCRIBE /topic/projects.{projectId}.blockers` — blocker alerts.
+* `SUBSCRIBE /topic/channel.{channelId}` — channel messages (private channels: members only).
+* `SUBSCRIBE /user/queue/notifications` — the caller's own notifications.
+* Clients cannot `SEND`; all writes go through the REST API.
 
 ---
 

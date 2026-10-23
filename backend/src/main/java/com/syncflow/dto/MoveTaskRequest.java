@@ -13,4 +13,6 @@ public class MoveTaskRequest {
     private Integer newPosition;
     private Boolean overrideGate;
     private String overrideReason;
+    /** Token from POST /v1/auth/elevate with scope WORKFLOW_GATE_OVERRIDE; required when overrideGate is true. */
+    private String elevationToken;
 }

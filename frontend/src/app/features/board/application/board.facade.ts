@@ -5,6 +5,8 @@ import { TaskService } from '../../../core/services/task.service';
 import { WebSocketService } from '../../../core/services/websocket.service';
 import { WorkLogService } from '../../../core/services/worklog.service';
 import { AuditService } from '../../../core/services/audit.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { ErrorNotifierService } from '../../../core/services/error-notifier.service';
 import {
   Project,
   KanbanColumn,
@@ -26,8 +28,6 @@ import {
   WebhookSubscription,
   MemberCapacity,
   TeamCapacity,
-  BiometricAuthChallenge,
-  PasskeyVerificationResponse,
   TaskTimeLog,
   ProjectTimeSummary
 } from '../../../core/models/project.models';
@@ -57,7 +57,6 @@ export class BoardFacade implements OnDestroy {
   // Search & Filter State
   public searchQuery = signal<string>('');
   public filterMode = signal<'ALL' | 'MY_TASKS' | 'BLOCKED' | 'CRITICAL_HIGH'>('ALL');
-  public currentUserName = signal<string>('Tariq Manager');
 
   // Modals State
   public isCreateModalOpen = signal(false);
@@ -91,6 +90,9 @@ export class BoardFacade implements OnDestroy {
   public isCreateStageModalOpen = signal(false);
   public newStageName = signal('');
   public newStageIsDone = signal(false);
+  public newStageRequiresChecklist = signal(false);
+  public newStageRequiresDeliverable = signal(false);
+  public newStageRequiresNoBlockers = signal(false);
 
   // Daily Standup & EOD Work Log State
   public isWorkLogDrawerOpen = signal(false);
@@ -119,7 +121,6 @@ export class BoardFacade implements OnDestroy {
   public taskAttachments = signal<TaskAttachmentItem[]>([]);
   public newAttachmentName = signal<string>('');
   public newAttachmentUrl = signal<string>('');
-  public newAttachmentType = signal<'SPEC_DOC' | 'DESIGN' | 'SCREENSHOT' | 'PR_LINK' | 'LOGS' | 'OTHER'>('SPEC_DOC');
   public isAddingAttachment = signal<boolean>(false);
 
   // Sprint Burndown & Velocity Analytics State
@@ -197,13 +198,9 @@ export class BoardFacade implements OnDestroy {
   public detailGitPrUrl = signal<string>('');
   public isSavingGit = signal<boolean>(false);
 
-  // --- Enterprise Feature 4: Hardware Token 2FA & WebAuthn / Passkeys ---
-  public isPasskeyModalOpen = signal<boolean>(false);
-  public passkeyChallenge = signal<BiometricAuthChallenge | null>(null);
-  public passkeyVerificationResult = signal<PasskeyVerificationResponse | null>(null);
-  public isAuthenticatingPasskey = signal<boolean>(false);
-  public passkeyActionScope = signal<string>('WORKFLOW_GATE_OVERRIDE');
-  public elevatedToken = signal<string | null>(null);
+  // --- Gate override re-authentication (password confirmation, verified server-side) ---
+  public gateOverridePassword = signal<string>('');
+  public gateOverrideError = signal<string | null>(null);
 
   // --- Enterprise Feature 5: Team Workload Capacity & Resource Matrix ---
   public teamCapacity = signal<TeamCapacity | null>(null);
@@ -263,8 +260,8 @@ export class BoardFacade implements OnDestroy {
 
       // Quick Filter Mode
       if (mode === 'MY_TASKS') {
-        const myName = this.currentUserName().toLowerCase();
-        tasks = tasks.filter(t => t.assignee && t.assignee.toLowerCase().includes(myName.split(' ')[0]));
+        const myId = this.authService.currentUserSignal()?.id;
+        tasks = tasks.filter(t => !!myId && t.assigneeId === myId);
       } else if (mode === 'BLOCKED') {
         tasks = tasks.filter(t => t.isBlocked);
       } else if (mode === 'CRITICAL_HIGH') {
@@ -285,7 +282,9 @@ export class BoardFacade implements OnDestroy {
     private taskService: TaskService,
     private wsService: WebSocketService,
     private workLogService: WorkLogService,
-    private auditService: AuditService
+    private auditService: AuditService,
+    private authService: AuthService,
+    private notifier: ErrorNotifierService
   ) {
     this.initWebSocketListeners();
   }
@@ -306,7 +305,7 @@ export class BoardFacade implements OnDestroy {
   public loadBankUsers(): void {
     this.taskService.getBankUsers().subscribe({
       next: (users) => this.bankUsers.set(users),
-      error: (err) => console.error('BoardFacade: Failed to load bank users', err)
+      error: (err) => { console.error('BoardFacade: Failed to load bank users', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -319,7 +318,7 @@ export class BoardFacade implements OnDestroy {
           this.loadBoard(projs[0].id);
         }
       },
-      error: (err) => console.error('BoardFacade: Failed to load projects', err)
+      error: (err) => { console.error('BoardFacade: Failed to load projects', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -329,6 +328,8 @@ export class BoardFacade implements OnDestroy {
   }
 
   public loadBoard(projectId: number): void {
+    this.wsService.watchProject(projectId);
+    this.loadSprints(projectId);
     this.loadBurndown(projectId);
     this.loadProjectTimeSummary(projectId);
     this.projectService.getProjectBoard(projectId).subscribe({
@@ -338,6 +339,9 @@ export class BoardFacade implements OnDestroy {
           numericId: s.id,
           title: s.name,
           isDoneStage: s.isDoneStage,
+          requiresChecklistComplete: s.requiresChecklistComplete,
+          requiresDeliverable: s.requiresDeliverable,
+          requiresNoBlockers: s.requiresNoBlockers,
           tasks: s.tasks || []
         }));
         this.columns.set(cols);
@@ -345,7 +349,7 @@ export class BoardFacade implements OnDestroy {
         this.blockedCount.set(board.blockedTasks);
         this.completionPercentage.set(board.completionPercentage);
       },
-      error: (err) => console.error('BoardFacade: Failed to load project board', err)
+      error: (err) => { console.error('BoardFacade: Failed to load project board', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -376,7 +380,7 @@ export class BoardFacade implements OnDestroy {
     this.columns.update(cols => {
       return cols.map(col => {
         const remaining = col.tasks.filter(t => t.id !== task.id);
-        if (col.numericId === task.stageId) {
+        if (col.numericId === task.stageId && !task.isArchived) {
           return { ...col, tasks: [...remaining, task] };
         }
         return { ...col, tasks: remaining };
@@ -394,7 +398,7 @@ export class BoardFacade implements OnDestroy {
       total += col.tasks.length;
       for (const t of col.tasks) {
         if (t.isBlocked) blocked++;
-        if (col.isDoneStage || t.progress === 100) completed++;
+        if (col.isDoneStage) completed++;
       }
     }
 
@@ -426,15 +430,19 @@ export class BoardFacade implements OnDestroy {
         this.taskService.moveTask(movedTask.id, targetCol.numericId).subscribe({
           next: () => this.recalculateMetrics(),
           error: (err) => {
-            console.error('BoardFacade: Failed to persist task move', err);
-            const msg = err.error?.message || err.message || '';
-            const cleaned = msg.replace('WORKFLOW_GATE_VIOLATION:', '').trim();
-            const violations = cleaned.split(';').map((v: string) => v.trim()).filter((v: string) => !!v);
+            const apiError = ErrorNotifierService.apiError(err);
+            if (apiError?.code !== 'WORKFLOW_GATE_VIOLATION') {
+              // Anything other than a gate violation: put the card back and tell the user why.
+              transferArrayItem(event.container.data, event.previousContainer.data, event.currentIndex, event.previousIndex);
+              this.recalculateMetrics();
+              if (err.status !== 403) this.notifier.showError(err);
+              return;
+            }
             this.gateValidationResult.set({
               allowed: false,
               targetStageName: targetCol.title,
               requiresOverride: true,
-              violations: violations.length > 0 ? violations : [msg || 'Workflow transition gate policy requirement not met.'],
+              violations: apiError.details.length > 0 ? apiError.details : [apiError.message],
               blockingTaskTitles: [],
               uncompletedSubtasksCount: 0,
               hasDeliverableAttachment: false
@@ -449,6 +457,8 @@ export class BoardFacade implements OnDestroy {
               currIndex: event.currentIndex
             });
             this.gateOverrideReason.set('');
+            this.gateOverridePassword.set('');
+            this.gateOverrideError.set(null);
             this.isGateViolationModalOpen.set(true);
           }
         });
@@ -459,7 +469,7 @@ export class BoardFacade implements OnDestroy {
   public onProgressChange(task: TaskCard): void {
     this.taskService.updateProgress(task.id, task.progress).subscribe({
       next: () => this.recalculateMetrics(),
-      error: (err) => console.error('BoardFacade: Failed to update progress', err)
+      error: (err) => { console.error('BoardFacade: Failed to update progress', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -506,7 +516,7 @@ export class BoardFacade implements OnDestroy {
         }
         this.closeCreateTask();
       },
-      error: (err) => console.error('BoardFacade: Failed to create task', err)
+      error: (err) => { console.error('BoardFacade: Failed to create task', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -535,7 +545,7 @@ export class BoardFacade implements OnDestroy {
         this.recalculateMetrics();
         this.closeBlocker();
       },
-      error: (err) => console.error('BoardFacade: Failed to update blocker', err)
+      error: (err) => { console.error('BoardFacade: Failed to update blocker', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -602,7 +612,7 @@ export class BoardFacade implements OnDestroy {
           } : null);
         }
       },
-      error: (err) => console.error('BoardFacade: Failed to assign task', err)
+      error: (err) => { console.error('BoardFacade: Failed to assign task', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -644,7 +654,7 @@ export class BoardFacade implements OnDestroy {
           this.submitAuditComment(task.id, '✅ Task marked as COMPLETED and verified.');
         }
       },
-      error: (err) => console.error('BoardFacade: Failed to mark task completed', err)
+      error: (err) => { console.error('BoardFacade: Failed to mark task completed', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -680,7 +690,7 @@ export class BoardFacade implements OnDestroy {
           this.submitAuditComment(task.id, '🔄 Task reopened for further review and development.');
         }
       },
-      error: (err) => console.error('BoardFacade: Failed to reopen task', err)
+      error: (err) => { console.error('BoardFacade: Failed to reopen task', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -696,7 +706,7 @@ export class BoardFacade implements OnDestroy {
           this.taskComments.update(c => [...c, comment]);
         }
       },
-      error: (err) => console.error('BoardFacade: Failed to post audit comment', err)
+      error: (err) => { console.error('BoardFacade: Failed to post audit comment', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -709,7 +719,7 @@ export class BoardFacade implements OnDestroy {
           this.activeDetailTask.update(t => t ? { ...t, deadline: updated.deadline } : null);
         }
       },
-      error: (err) => console.error('BoardFacade: Failed to update task deadline', err)
+      error: (err) => { console.error('BoardFacade: Failed to update task deadline', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -737,7 +747,7 @@ export class BoardFacade implements OnDestroy {
         this.taskComments.update(c => [...c, comment]);
         this.commentInput.set('');
       },
-      error: (err) => console.error('BoardFacade: Failed to add comment', err)
+      error: (err) => { console.error('BoardFacade: Failed to add comment', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -745,6 +755,9 @@ export class BoardFacade implements OnDestroy {
   public openCreateStageModal(): void {
     this.newStageName.set('');
     this.newStageIsDone.set(false);
+    this.newStageRequiresChecklist.set(false);
+    this.newStageRequiresDeliverable.set(false);
+    this.newStageRequiresNoBlockers.set(false);
     this.isCreateStageModalOpen.set(true);
   }
 
@@ -758,19 +771,45 @@ export class BoardFacade implements OnDestroy {
     if (!name || !projectId) return;
 
     const isDone = this.newStageIsDone();
-    this.projectService.createStage(projectId, name, isDone).subscribe({
+    this.projectService.createStage(projectId, name, isDone, {
+      requiresChecklistComplete: this.newStageRequiresChecklist(),
+      requiresDeliverable: this.newStageRequiresDeliverable() || isDone,
+      requiresNoBlockers: this.newStageRequiresNoBlockers() || isDone
+    }).subscribe({
       next: (stage) => {
         const newCol: KanbanColumn = {
           id: 'stage-' + stage.id,
           numericId: stage.id,
           title: stage.name,
           isDoneStage: stage.isDoneStage,
+          requiresChecklistComplete: stage.requiresChecklistComplete,
+          requiresDeliverable: stage.requiresDeliverable,
+          requiresNoBlockers: stage.requiresNoBlockers,
           tasks: []
         };
         this.columns.update(cols => [...cols, newCol]);
         this.closeCreateStageModal();
       },
-      error: (err) => console.error('BoardFacade: Failed to create stage', err)
+      error: (err) => this.notifier.showError(err)
+    });
+  }
+
+  public canBuildStages(): boolean {
+    return this.authService.hasPermission('STAGE:BUILD');
+  }
+
+  /** Toggles one quality gate on a stage (requires STAGE:BUILD; enforced server-side). */
+  public toggleStageGate(col: KanbanColumn, gate: 'requiresChecklistComplete' | 'requiresDeliverable' | 'requiresNoBlockers'): void {
+    if (!this.canBuildStages()) return;
+    const next = !col[gate];
+    this.projectService.updateStage(col.numericId, { [gate]: next }).subscribe({
+      next: (stage) => this.columns.update(cols => cols.map(c => c.numericId === col.numericId ? {
+        ...c,
+        requiresChecklistComplete: stage.requiresChecklistComplete,
+        requiresDeliverable: stage.requiresDeliverable,
+        requiresNoBlockers: stage.requiresNoBlockers
+      } : c)),
+      error: (err) => this.notifier.showError(err)
     });
   }
 
@@ -790,7 +829,7 @@ export class BoardFacade implements OnDestroy {
           this.workLogCompletedCount.set(0);
         }
       },
-      error: (err) => console.error('BoardFacade: Failed to load my work log', err)
+      error: (err) => { console.error('BoardFacade: Failed to load my work log', err); this.notifier.showClientError(err); }
     });
 
     this.loadTeamWorkLogs();
@@ -810,7 +849,7 @@ export class BoardFacade implements OnDestroy {
   public loadTeamWorkLogs(): void {
     this.workLogService.getRecentLogs().subscribe({
       next: (logs) => this.teamLogs.set(logs),
-      error: (err) => console.error('BoardFacade: Failed to load team work logs', err)
+      error: (err) => { console.error('BoardFacade: Failed to load team work logs', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -877,7 +916,7 @@ export class BoardFacade implements OnDestroy {
   public loadSubtasks(taskId: number): void {
     this.taskService.getSubtasks(taskId).subscribe({
       next: (items) => this.taskSubtasks.set(items),
-      error: (err) => console.error('BoardFacade: Failed to load subtasks', err)
+      error: (err) => { console.error('BoardFacade: Failed to load subtasks', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -908,7 +947,7 @@ export class BoardFacade implements OnDestroy {
       next: (updated) => {
         this.taskSubtasks.update(list => list.map(s => s.id === updated.id ? updated : s));
       },
-      error: (err) => console.error('BoardFacade: Failed to toggle subtask', err)
+      error: (err) => { console.error('BoardFacade: Failed to toggle subtask', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -920,7 +959,7 @@ export class BoardFacade implements OnDestroy {
       next: () => {
         this.taskSubtasks.update(list => list.filter(s => s.id !== subtaskId));
       },
-      error: (err) => console.error('BoardFacade: Failed to delete subtask', err)
+      error: (err) => { console.error('BoardFacade: Failed to delete subtask', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -928,35 +967,68 @@ export class BoardFacade implements OnDestroy {
   public loadAttachments(taskId: number): void {
     this.taskService.getAttachments(taskId).subscribe({
       next: (attachments) => this.taskAttachments.set(attachments),
-      error: (err) => console.error('BoardFacade: Failed to load attachments', err)
+      error: (err) => { console.error('BoardFacade: Failed to load attachments', err); this.notifier.showClientError(err); }
     });
   }
 
+  /** Adds an external http(s) link as a deliverable. */
   public addAttachment(): void {
     const task = this.activeDetailTask();
     const name = this.newAttachmentName().trim();
     const url = this.newAttachmentUrl().trim();
-    if (!task || !name || !url) return;
+    if (!task || !url) return;
 
     this.isAddingAttachment.set(true);
-    const type = this.newAttachmentType();
-
-    this.taskService.addAttachment(task.id, {
-      fileName: name,
-      fileType: type,
-      fileUrl: url,
-      fileSize: '1.2 MB'
-    }).subscribe({
+    this.taskService.addLinkAttachment(task.id, name, url).subscribe({
       next: (created) => {
-        this.taskAttachments.update(list => [...list, created]);
+        this.taskAttachments.update(list => [created, ...list]);
         this.newAttachmentName.set('');
         this.newAttachmentUrl.set('');
         this.isAddingAttachment.set(false);
       },
       error: (err) => {
         this.isAddingAttachment.set(false);
-        console.error('BoardFacade: Failed to add attachment', err);
+        this.notifier.showError(err);
       }
+    });
+  }
+
+  /** Uploads a file chosen in the task drawer. */
+  public uploadAttachment(file: File | null | undefined): void {
+    const task = this.activeDetailTask();
+    if (!task || !file) return;
+
+    this.isAddingAttachment.set(true);
+    this.taskService.uploadAttachment(task.id, file).subscribe({
+      next: (created) => {
+        this.taskAttachments.update(list => [created, ...list]);
+        this.isAddingAttachment.set(false);
+      },
+      error: (err) => {
+        this.isAddingAttachment.set(false);
+        this.notifier.showError(err);
+      }
+    });
+  }
+
+  /** Opens a deliverable: links open directly; stored files are fetched with the bearer token. */
+  public openAttachment(item: TaskAttachmentItem): void {
+    const task = this.activeDetailTask();
+    if (!task) return;
+    if (item.fileType === 'link') {
+      window.open(item.fileUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    this.taskService.downloadAttachment(task.id, item.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = item.fileName;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      },
+      error: (err) => this.notifier.showError(err)
     });
   }
 
@@ -968,7 +1040,7 @@ export class BoardFacade implements OnDestroy {
       next: () => {
         this.taskAttachments.update(list => list.filter(a => a.id !== attachmentId));
       },
-      error: (err) => console.error('BoardFacade: Failed to delete attachment', err)
+      error: (err) => { console.error('BoardFacade: Failed to delete attachment', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -995,7 +1067,7 @@ export class BoardFacade implements OnDestroy {
     this.isLoadingAudit.set(true);
     this.auditService.getAuditMetrics().subscribe({
       next: (metrics) => this.auditMetrics.set(metrics),
-      error: (err) => console.error('BoardFacade: Failed to load audit metrics', err)
+      error: (err) => { console.error('BoardFacade: Failed to load audit metrics', err); this.notifier.showClientError(err); }
     });
 
     this.auditService.getAuditLogs().subscribe({
@@ -1045,7 +1117,7 @@ export class BoardFacade implements OnDestroy {
     if (!pId) return;
     this.taskService.getArchivedTasks(pId).subscribe({
       next: (tasks) => this.archivedTasks.set(tasks),
-      error: (err) => console.error('BoardFacade: Failed to load archived tasks', err)
+      error: (err) => { console.error('BoardFacade: Failed to load archived tasks', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1065,7 +1137,7 @@ export class BoardFacade implements OnDestroy {
         }
         this.loadArchivedTasks();
       },
-      error: (err) => console.error('BoardFacade: Failed to archive task', err)
+      error: (err) => { console.error('BoardFacade: Failed to archive task', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1075,7 +1147,7 @@ export class BoardFacade implements OnDestroy {
         this.archivedTasks.update(list => list.filter(t => t.id !== task.id));
         this.loadBoard(this.selectedProjectId());
       },
-      error: (err) => console.error('BoardFacade: Failed to restore task', err)
+      error: (err) => { console.error('BoardFacade: Failed to restore task', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1119,7 +1191,7 @@ export class BoardFacade implements OnDestroy {
         this.taskDependencies.update(list => [...list, dep]);
         this.newDependencyTargetId.set(null);
       },
-      error: (err) => console.error('BoardFacade: Failed to add dependency', err)
+      error: (err) => { console.error('BoardFacade: Failed to add dependency', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1128,7 +1200,7 @@ export class BoardFacade implements OnDestroy {
       next: () => {
         this.taskDependencies.update(list => list.filter(d => d.id !== dependencyId));
       },
-      error: (err) => console.error('BoardFacade: Failed to delete dependency', err)
+      error: (err) => { console.error('BoardFacade: Failed to delete dependency', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1165,7 +1237,7 @@ export class BoardFacade implements OnDestroy {
         this.newSprintName.set('');
         this.newSprintGoal.set('');
       },
-      error: (err) => console.error('BoardFacade: Failed to create sprint', err)
+      error: (err) => { console.error('BoardFacade: Failed to create sprint', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1176,7 +1248,7 @@ export class BoardFacade implements OnDestroy {
           list.map(s => s.id === sprintId ? updated : s)
         );
       },
-      error: (err) => console.error('BoardFacade: Failed to start sprint', err)
+      error: (err) => { console.error('BoardFacade: Failed to start sprint', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1187,7 +1259,7 @@ export class BoardFacade implements OnDestroy {
           list.map(s => s.id === sprintId ? updated : s)
         );
       },
-      error: (err) => console.error('BoardFacade: Failed to complete sprint', err)
+      error: (err) => { console.error('BoardFacade: Failed to complete sprint', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1204,7 +1276,7 @@ export class BoardFacade implements OnDestroy {
           this.activeDetailTask.update(t => t ? { ...t, storyPoints: updated.storyPoints } : null);
         }
       },
-      error: (err) => console.error('BoardFacade: Failed to update story points', err)
+      error: (err) => { console.error('BoardFacade: Failed to update story points', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1222,7 +1294,7 @@ export class BoardFacade implements OnDestroy {
         }
         this.loadSprints();
       },
-      error: (err) => console.error('BoardFacade: Failed to assign sprint', err)
+      error: (err) => { console.error('BoardFacade: Failed to assign sprint', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1232,7 +1304,7 @@ export class BoardFacade implements OnDestroy {
     if (!pId) return;
     this.projectService.getAutomationRules(pId).subscribe({
       next: (rules) => this.automationRules.set(rules),
-      error: (err) => console.error('BoardFacade: Failed to load automation rules', err)
+      error: (err) => { console.error('BoardFacade: Failed to load automation rules', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1270,21 +1342,50 @@ export class BoardFacade implements OnDestroy {
   }
 
   // --- Enterprise Feature 2: Strict Workflow Transition Gates Actions ---
+  public canOverrideGates(): boolean {
+    return this.authService.hasPermission('TASK:OVERRIDE_GATE');
+  }
+
+  /**
+   * Re-authenticates with the user's password to obtain a short-lived elevation token, then retries
+   * the move with an override. The server verifies permission, token and justification.
+   */
   public confirmGateOverride(): void {
     const pending = this.pendingGateMove();
+    const reason = this.gateOverrideReason().trim();
+    const password = this.gateOverridePassword();
     if (!pending) return;
+    if (reason.length < 10) {
+      this.gateOverrideError.set('Please give a justification of at least 10 characters.');
+      return;
+    }
+    if (!password) {
+      this.gateOverrideError.set('Enter your password to authorize the override.');
+      return;
+    }
+
     this.isSubmittingGateOverride.set(true);
-    const reason = this.gateOverrideReason().trim() || 'Manager override authorized with elevated credential';
-    this.taskService.moveTask(pending.taskId, pending.targetStageId, true, reason).subscribe({
-      next: () => {
-        this.isSubmittingGateOverride.set(false);
-        this.isGateViolationModalOpen.set(false);
-        this.pendingGateMove.set(null);
-        this.recalculateMetrics();
+    this.gateOverrideError.set(null);
+    this.authService.elevate(password, 'WORKFLOW_GATE_OVERRIDE').subscribe({
+      next: (elevation) => {
+        this.taskService.moveTask(pending.taskId, pending.targetStageId, true, reason, elevation.elevationToken).subscribe({
+          next: (updated) => {
+            this.isSubmittingGateOverride.set(false);
+            this.isGateViolationModalOpen.set(false);
+            this.pendingGateMove.set(null);
+            this.gateOverridePassword.set('');
+            this.applyTaskUpdateLocally(updated);
+          },
+          error: (err) => {
+            this.isSubmittingGateOverride.set(false);
+            this.gateOverrideError.set(ErrorNotifierService.message(err));
+          }
+        });
       },
       error: (err) => {
         this.isSubmittingGateOverride.set(false);
-        console.error('BoardFacade: Gate override failed', err);
+        this.gateOverridePassword.set('');
+        this.gateOverrideError.set(err.status === 401 ? 'Password confirmation failed.' : ErrorNotifierService.message(err));
       }
     });
   }
@@ -1339,7 +1440,7 @@ export class BoardFacade implements OnDestroy {
         this.newWebhookUrl.set('');
         this.newWebhookSecret.set('');
       },
-      error: (err) => console.error('BoardFacade: Failed to create webhook', err)
+      error: (err) => { console.error('BoardFacade: Failed to create webhook', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1348,7 +1449,7 @@ export class BoardFacade implements OnDestroy {
       next: (updated) => {
         this.webhooks.update(list => list.map(w => w.id === webhookId ? updated : w));
       },
-      error: (err) => console.error('BoardFacade: Failed to toggle webhook', err)
+      error: (err) => { console.error('BoardFacade: Failed to toggle webhook', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1373,7 +1474,7 @@ export class BoardFacade implements OnDestroy {
       next: () => {
         this.webhooks.update(list => list.filter(w => w.id !== webhookId));
       },
-      error: (err) => console.error('BoardFacade: Failed to delete webhook', err)
+      error: (err) => { console.error('BoardFacade: Failed to delete webhook', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1405,47 +1506,6 @@ export class BoardFacade implements OnDestroy {
     });
   }
 
-  // --- Enterprise Feature 4: Hardware Token 2FA & WebAuthn / Passkeys Actions ---
-  public openPasskeyModal(scope: string = 'WORKFLOW_GATE_OVERRIDE'): void {
-    this.passkeyActionScope.set(scope);
-    this.passkeyVerificationResult.set(null);
-    this.isPasskeyModalOpen.set(true);
-    this.taskService.getPasskeyChallenge(scope).subscribe({
-      next: (challenge) => this.passkeyChallenge.set(challenge),
-      error: (err) => console.error('BoardFacade: Failed to get passkey challenge', err)
-    });
-  }
-
-  public triggerBiometricScan(): void {
-    const ch = this.passkeyChallenge();
-    if (!ch) return;
-    this.isAuthenticatingPasskey.set(true);
-
-    setTimeout(() => {
-      this.taskService.verifyPasskey({
-        challengeId: ch.challengeId,
-        clientDataJSON: 'eyJ0eXBlIjoid2ViYXV0aG4uZ2V0IiwiY2hhbGxlbmdlIjoi' + ch.challengeToken + 'In0=',
-        authenticatorData: 'SZYN5YgOjGh0NBcPZHZgW4_krrmihjLHmVzzuoMdl2MBAAAA',
-        signature: 'MEUCIQDF1v3q7K_M8X3Z6Q1n9m0Y4w2L_X8m1P0Q7Y9Z1A2B3AIgN0',
-        actionScope: this.passkeyActionScope()
-      }).subscribe({
-        next: (res) => {
-          this.passkeyVerificationResult.set(res);
-          this.elevatedToken.set(res.elevatedApprovalToken);
-          this.isAuthenticatingPasskey.set(false);
-
-          if (this.isGateViolationModalOpen()) {
-            this.gateOverrideReason.set('Elevated Manager Auth: [' + res.elevatedApprovalToken + '] - Biometric Verified');
-          }
-        },
-        error: (err) => {
-          this.isAuthenticatingPasskey.set(false);
-          console.error('BoardFacade: Biometric verification failed', err);
-        }
-      });
-    }, 1200);
-  }
-
   // --- Enterprise Feature 5: Team Workload Capacity & Resource Matrix Actions ---
   public loadTeamCapacity(projectId?: number): void {
     const pId = projectId || this.selectedProjectId();
@@ -1474,7 +1534,7 @@ export class BoardFacade implements OnDestroy {
         );
         this.loadTeamCapacity();
       },
-      error: (err) => console.error('BoardFacade: Failed to rebalance task', err)
+      error: (err) => { console.error('BoardFacade: Failed to rebalance task', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1484,7 +1544,7 @@ export class BoardFacade implements OnDestroy {
     if (!pId) return;
     this.projectService.getProjectTimeSummary(pId).subscribe({
       next: (summary) => this.projectTimeSummary.set(summary),
-      error: (err) => console.error('BoardFacade: Failed to load project time summary', err)
+      error: (err) => { console.error('BoardFacade: Failed to load project time summary', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -1561,7 +1621,7 @@ export class BoardFacade implements OnDestroy {
         this.loadProjectTimeSummary();
         this.loadBoard(this.selectedProjectId());
       },
-      error: (err) => console.error('BoardFacade: Failed to delete time log', err)
+      error: (err) => { console.error('BoardFacade: Failed to delete time log', err); this.notifier.showClientError(err); }
     });
   }
 

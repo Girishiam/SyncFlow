@@ -4,6 +4,7 @@ import com.syncflow.model.TaskTimeLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -23,4 +24,7 @@ public interface TaskTimeLogRepository extends JpaRepository<TaskTimeLog, Long> 
 
     @Query("SELECT COALESCE(SUM(t.hoursSpent), 0.0) FROM TaskTimeLog t WHERE t.task.project.id = :projectId")
     Double sumHoursByProjectId(@Param("projectId") Long projectId);
+
+    @Query("SELECT l.task.project.id FROM TaskTimeLog l WHERE l.id = :id")
+    Optional<Long> findProjectIdById(@Param("id") Long id);
 }

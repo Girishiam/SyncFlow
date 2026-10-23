@@ -1,5 +1,7 @@
 package com.syncflow.security;
 
+import com.syncflow.model.enums.*;
+
 import com.syncflow.model.Permission;
 import com.syncflow.model.User;
 import com.syncflow.model.UserPermissionOverride;
@@ -30,7 +32,8 @@ public class UserDetailsImpl implements UserDetails {
         // 1. Role-based permissions
         if (user.getRole() != null) {
             perms.add("ROLE_" + user.getRole().getName());
-            if (user.getRole().getPermissions() != null) {
+            // A deactivated role keeps its name but grants no permissions.
+            if (!Boolean.FALSE.equals(user.getRole().getStatus()) && user.getRole().getPermissions() != null) {
                 for (Permission p : user.getRole().getPermissions()) {
                     perms.add(p.getAuthorityString());
                 }
@@ -78,7 +81,7 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return !"SUSPENDED".equalsIgnoreCase(user.getStatus());
+        return user.getStatus() != UserStatus.SUSPENDED;
     }
 
     @Override
@@ -88,6 +91,6 @@ public class UserDetailsImpl implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return !"INACTIVE".equalsIgnoreCase(user.getStatus());
+        return user.getStatus() != UserStatus.INACTIVE;
     }
 }

@@ -2,6 +2,7 @@ package com.syncflow.repository;
 
 import com.syncflow.model.MessageSeenReceipt;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.Collection;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,4 +14,6 @@ public interface MessageSeenReceiptRepository extends JpaRepository<MessageSeenR
     List<MessageSeenReceipt> findByMessageId(Long messageId);
     Optional<MessageSeenReceipt> findByMessageIdAndUserId(Long messageId, UUID userId);
     void deleteByChannelId(Long channelId);
+
+    List<MessageSeenReceipt> findByMessageIdIn(Collection<Long> messageIds);
 }

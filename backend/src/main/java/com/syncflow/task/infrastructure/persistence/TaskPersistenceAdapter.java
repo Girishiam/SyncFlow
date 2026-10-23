@@ -31,6 +31,26 @@ public class TaskPersistenceAdapter implements TaskRepositoryPort {
     }
 
     @Override
+    public List<Task> findByProjectIdAndIsArchivedFalse(Long projectId) {
+        return taskRepository.findByProjectIdAndIsArchivedFalse(projectId);
+    }
+
+    @Override
+    public List<Task> findByProjectIdAndIsArchivedTrue(Long projectId) {
+        return taskRepository.findByProjectIdAndIsArchivedTrue(projectId);
+    }
+
+    @Override
+    public List<Task> findBySprintId(Long sprintId) {
+        return taskRepository.findBySprintId(sprintId);
+    }
+
+    @Override
+    public List<Task> findAllById(java.util.Collection<Long> ids) {
+        return taskRepository.findAllById(ids);
+    }
+
+    @Override
     public List<Task> findByStageId(Long stageId) {
         return taskRepository.findByStageId(stageId);
     }
@@ -43,6 +63,11 @@ public class TaskPersistenceAdapter implements TaskRepositoryPort {
     @Override
     public List<Task> findAll() {
         return taskRepository.findAll();
+    }
+
+    @Override
+    public List<Task> findOpenAssignedWithDeadlineBefore(java.time.Instant until) {
+        return taskRepository.findOpenAssignedWithDeadlineBefore(until);
     }
 
     @Override

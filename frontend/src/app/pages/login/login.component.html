@@ -79,7 +79,7 @@
     </form>
 
     <!-- Quick Role Autofill -->
-    <div class="quick-access">
+    <div *ngIf="demoRoles.length" class="quick-access">
       <span class="quick-label">Demo Access</span>
       <div class="role-pills">
         <button

@@ -10,15 +10,17 @@ import {
   ProjectFinancials,
   TeamCapacity,
   WebhookSubscription,
-  ProjectTimeSummary
+  ProjectTimeSummary,
+  StageGateFlags
 } from '../models/project.models';
 import { IProjectPort } from '../ports/project.port';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ProjectService implements IProjectPort {
-  private readonly apiUrl = 'http://localhost:9090/api/v1/projects';
+  private readonly apiUrl = `${environment.apiBaseUrl}/v1/projects`;
 
   constructor(private http: HttpClient) {}
 
@@ -34,8 +36,13 @@ export class ProjectService implements IProjectPort {
     return this.http.get<ProjectBoard>(`${this.apiUrl}/${projectId}/board`);
   }
 
-  createStage(projectId: number, name: string, isDoneStage?: boolean): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/${projectId}/stages`, { name, isDoneStage });
+  createStage(projectId: number, name: string, isDoneStage?: boolean, gates?: StageGateFlags): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${projectId}/stages`, { name, isDoneStage, ...gates });
+  }
+
+  /** Rename a stage or change the quality gates enforced when tasks enter it. */
+  updateStage(stageId: number, changes: { name?: string; isDoneStage?: boolean } & StageGateFlags): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/stages/${stageId}`, changes);
   }
 
   reorderStages(projectId: number, stageIds: number[]): Observable<void> {

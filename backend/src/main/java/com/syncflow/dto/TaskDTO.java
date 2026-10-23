@@ -28,6 +28,7 @@ public class TaskDTO {
     private java.time.Instant archivedAt;
     private String archivedBy;
     private java.time.Instant startDate;
+    private java.time.Instant completedAt;
     private Long sprintId;
     private String sprintName;
     private Integer storyPoints;

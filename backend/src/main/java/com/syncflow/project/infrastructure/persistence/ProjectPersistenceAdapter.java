@@ -1,5 +1,8 @@
 package com.syncflow.project.infrastructure.persistence;
 
+import com.syncflow.model.User;
+import java.util.UUID;
+
 import com.syncflow.model.Project;
 import com.syncflow.project.application.port.out.ProjectRepositoryPort;
 import com.syncflow.repository.ProjectRepository;
@@ -28,5 +31,20 @@ public class ProjectPersistenceAdapter implements ProjectRepositoryPort {
     @Override
     public Project save(Project project) {
         return projectRepository.save(project);
+    }
+
+    @Override
+    public boolean isAccessibleBy(Long projectId, UUID userId) {
+        return projectRepository.isAccessibleBy(projectId, userId);
+    }
+
+    @Override
+    public List<Project> findAccessibleBy(UUID userId) {
+        return projectRepository.findAccessibleBy(userId);
+    }
+
+    @Override
+    public List<User> findTeamMembers(Long projectId) {
+        return projectRepository.findTeamMembers(projectId);
     }
 }

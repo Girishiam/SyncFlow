@@ -4,6 +4,7 @@ import { ChatService } from '../../../core/services/chat.service';
 import { WebSocketService } from '../../../core/services/websocket.service';
 import { Channel, ChatMessage, BankUser } from '../../../core/models/project.models';
 
+import { ErrorNotifierService } from '../../../core/services/error-notifier.service';
 @Injectable({
   providedIn: 'root'
 })
@@ -11,6 +12,12 @@ export class ChatFacade implements OnDestroy {
   public channels = signal<Channel[]>([]);
   public activeChannel = signal<Channel | null>(null);
   public messages = signal<ChatMessage[]>([]);
+  // Instant meeting dialog (opened from the channel header, rendered by the dashboard shell)
+  public isMeetingOpen = signal(false);
+  public meetingRoom = signal('syncflow-sprint-room');
+  public hasOlderMessages = signal<boolean>(false);
+  public isLoadingOlder = signal<boolean>(false);
+  private static readonly PAGE_SIZE = 50;
   public chatInput = signal('');
 
   // Create Channel Modal State
@@ -64,7 +71,8 @@ export class ChatFacade implements OnDestroy {
 
   constructor(
     private chatService: ChatService,
-    private wsService: WebSocketService
+    private wsService: WebSocketService,
+    private notifier: ErrorNotifierService
   ) {}
 
   ngOnDestroy(): void {
@@ -91,15 +99,16 @@ export class ChatFacade implements OnDestroy {
           }
         }
       },
-      error: (err) => console.error('ChatFacade: Failed to load channels', err)
+      error: (err) => { console.error('ChatFacade: Failed to load channels', err); this.notifier.showClientError(err); }
     });
   }
 
   public selectChannel(channel: Channel): void {
     this.activeChannel.set(channel);
-    this.chatService.getMessages(channel.id).subscribe({
+    this.chatService.getMessages(channel.id, undefined, ChatFacade.PAGE_SIZE).subscribe({
       next: (msgs) => {
         this.messages.set(msgs);
+        this.hasOlderMessages.set(msgs.length === ChatFacade.PAGE_SIZE);
       },
       error: (err) => console.error('ChatFacade: Failed to load messages for channel ' + channel.id, err)
     });
@@ -123,6 +132,22 @@ export class ChatFacade implements OnDestroy {
     this.loadChannelMembers(channel.id);
   }
 
+  /** Prepends the previous page of history for the active channel. */
+  public loadOlderMessages(): void {
+    const channel = this.activeChannel();
+    const oldest = this.messages()[0];
+    if (!channel || !oldest?.id || this.isLoadingOlder()) return;
+    this.isLoadingOlder.set(true);
+    this.chatService.getMessages(channel.id, oldest.id, ChatFacade.PAGE_SIZE).subscribe({
+      next: (older) => {
+        this.messages.update(current => [...older, ...current]);
+        this.hasOlderMessages.set(older.length === ChatFacade.PAGE_SIZE);
+        this.isLoadingOlder.set(false);
+      },
+      error: () => this.isLoadingOlder.set(false)
+    });
+  }
+
   public sendMessage(): void {
     const text = this.chatInput().trim();
     const channel = this.activeChannel();
@@ -132,7 +157,7 @@ export class ChatFacade implements OnDestroy {
       next: () => {
         this.chatInput.set('');
       },
-      error: (err) => console.error('ChatFacade: Failed to send message', err)
+      error: (err) => { console.error('ChatFacade: Failed to send message', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -332,7 +357,7 @@ export class ChatFacade implements OnDestroy {
         this.loadChannelMembers(channel.id);
         this.selectedMemberToAdd.set('');
       },
-      error: (err) => console.error('ChatFacade: Failed to add member', err)
+      error: (err) => { console.error('ChatFacade: Failed to add member', err); this.notifier.showClientError(err); }
     });
   }
 
@@ -344,7 +369,7 @@ export class ChatFacade implements OnDestroy {
       next: () => {
         this.loadChannelMembers(channel.id);
       },
-      error: (err) => console.error('ChatFacade: Failed to remove member', err)
+      error: (err) => { console.error('ChatFacade: Failed to remove member', err); this.notifier.showClientError(err); }
     });
   }
 }

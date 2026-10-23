@@ -60,6 +60,7 @@ public class NotificationController {
     }
 
     @PostMapping("/trigger-due-check")
+    @org.springframework.security.access.prepost.PreAuthorize("@access.isAdmin()")
     public ResponseEntity<Map<String, Object>> triggerDueCheck() {
         int count = notificationUseCase.scanAndGenerateDeadlineNotifications();
         return ResponseEntity.ok(Map.of(

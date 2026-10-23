@@ -1,39 +1,58 @@
 package com.syncflow.task.application.service;
 
+import com.syncflow.project.application.port.out.SprintRepositoryPort;
+import com.syncflow.task.application.port.out.TaskDependencyRepositoryPort;
+import com.syncflow.task.application.port.out.TaskTimeLogRepositoryPort;
+import com.syncflow.task.application.port.out.SubtaskRepositoryPort;
+import com.syncflow.task.application.port.out.TaskAttachmentRepositoryPort;
+import com.syncflow.task.application.port.out.AttachmentStoragePort;
+
+import com.syncflow.model.enums.*;
+
+import com.syncflow.audit.application.port.in.AuditLogUseCase;
 import com.syncflow.auth.application.port.out.UserRepositoryPort;
+import com.syncflow.automation.application.AutomationEngine;
+import com.syncflow.common.domain.ConflictException;
 import com.syncflow.common.domain.DomainException;
-import com.syncflow.dto.AddCommentRequest;
-import com.syncflow.dto.AssignTaskRequest;
-import com.syncflow.dto.CreateTaskRequest;
-import com.syncflow.dto.MoveTaskRequest;
-import com.syncflow.dto.SetBlockerRequest;
-import com.syncflow.dto.TaskCommentDTO;
-import com.syncflow.dto.TaskDTO;
-import com.syncflow.dto.UpdateDeadlineRequest;
-import com.syncflow.model.Project;
-import com.syncflow.model.Stage;
-import com.syncflow.model.Task;
-import com.syncflow.model.TaskComment;
-import com.syncflow.model.User;
+import com.syncflow.common.domain.ForbiddenException;
+import com.syncflow.common.domain.NotFoundException;
+import com.syncflow.common.domain.WorkflowGateViolationException;
+import com.syncflow.common.event.ProjectEvent;
+import com.syncflow.dto.*;
+import com.syncflow.model.*;
+import com.syncflow.notification.application.port.in.NotificationUseCase;
 import com.syncflow.project.application.port.out.ProjectRepositoryPort;
 import com.syncflow.project.application.port.out.StageRepositoryPort;
+import com.syncflow.security.CurrentUser;
+import com.syncflow.security.JwtUtils;
+import com.syncflow.security.Permissions;
+import com.syncflow.security.UserDetailsImpl;
 import com.syncflow.task.application.port.in.TaskUseCase;
 import com.syncflow.task.application.port.out.TaskCommentRepositoryPort;
 import com.syncflow.task.application.port.out.TaskNotificationPort;
 import com.syncflow.task.application.port.out.TaskRepositoryPort;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URI;
+import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class TaskApplicationService implements TaskUseCase {
+
+    public static final String GATE_OVERRIDE_SCOPE = "WORKFLOW_GATE_OVERRIDE";
+    private static final int MIN_OVERRIDE_REASON_LENGTH = 10;
 
     private final TaskRepositoryPort taskRepositoryPort;
     private final ProjectRepositoryPort projectRepositoryPort;
@@ -41,23 +60,203 @@ public class TaskApplicationService implements TaskUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final TaskNotificationPort taskNotificationPort;
     private final TaskCommentRepositoryPort taskCommentRepositoryPort;
-    private final com.syncflow.notification.application.port.in.NotificationUseCase notificationUseCase;
-    private final com.syncflow.task.infrastructure.persistence.SpringDataSubtaskRepository subtaskRepository;
-    private final com.syncflow.task.infrastructure.persistence.SpringDataTaskAttachmentRepository attachmentRepository;
-    private final com.syncflow.audit.application.port.in.AuditLogUseCase auditLogUseCase;
-    private final com.syncflow.repository.TaskDependencyRepository taskDependencyRepository;
-    private final com.syncflow.repository.SprintRepository sprintRepository;
-    private final com.syncflow.repository.AutomationRuleRepository automationRuleRepository;
-    private final com.syncflow.service.WebhookDispatcherService webhookDispatcherService;
-    private final com.syncflow.repository.TaskTimeLogRepository taskTimeLogRepository;
+    private final NotificationUseCase notificationUseCase;
+    private final SubtaskRepositoryPort subtaskRepository;
+    private final TaskAttachmentRepositoryPort attachmentRepository;
+    private final AuditLogUseCase auditLogUseCase;
+    private final TaskDependencyRepositoryPort taskDependencyRepository;
+    private final SprintRepositoryPort sprintRepository;
+    private final TaskTimeLogRepositoryPort taskTimeLogRepository;
+    private final TaskMapper taskMapper;
+    private final WorkflowGateService workflowGateService;
+    private final AutomationEngine automationEngine;
+    private final AttachmentStoragePort attachmentStorage;
+    private final ApplicationEventPublisher eventPublisher;
+    private final CurrentUser currentUser;
+    private final JwtUtils jwtUtils;
+
+    // ---------------------------------------------------------------- core task lifecycle
 
     @Override
     @Transactional(readOnly = true)
     public TaskDTO getTaskDetails(Long id) {
-        Task task = taskRepositoryPort.findById(id)
-                .orElseThrow(() -> new DomainException("Task not found: " + id));
-        return toDTO(task);
+        return taskMapper.toDTO(requireTask(id));
     }
+
+    @Override
+    @Transactional
+    public TaskDTO createTask(CreateTaskRequest request) {
+        Project project = projectRepositoryPort.findById(request.getProjectId())
+                .orElseThrow(() -> new NotFoundException("Project not found: " + request.getProjectId()));
+        Stage stage = requireStageInProject(request.getStageId(), project.getId());
+        User assignee = request.getAssigneeId() != null ? requireActiveUser(request.getAssigneeId()) : null;
+        User actor = actorEntity();
+
+        Task task = Task.builder()
+                .project(project)
+                .stage(stage)
+                .title(requireText(request.getTitle(), "Title", 255))
+                .description(request.getDescription())
+                .priority(TaskPriority.parse(request.getPriority()))
+                .progressPercentage(0)
+                .assignee(assignee)
+                .reporter(actor)
+                .deadline(request.getDeadline())
+                .isBlocked(false)
+                .completedAt(Boolean.TRUE.equals(stage.getIsDoneStage()) ? Instant.now() : null)
+                .build();
+
+        Task saved = taskRepositoryPort.save(task);
+        if (saved.getAssignee() != null) {
+            notificationUseCase.notifyTaskAssigned(saved, saved.getAssignee(), actor);
+        }
+        auditLogUseCase.recordLog("TASK_CREATED", "TASK", saved.getId(), saved.getTitle(), null, null, null,
+                "Created task with " + saved.getPriority() + " priority in " + project.getName());
+
+        TaskDTO dto = taskMapper.toDTO(saved);
+        eventPublisher.publishEvent(ProjectEvent.of(project.getId(), ProjectEvent.TASK_CREATED, dto));
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public TaskDTO moveTask(Long id, MoveTaskRequest request) {
+        Task task = requireTask(id);
+        Stage targetStage = requireStageInProject(request.getTargetStageId(), task.getProject().getId());
+        if (task.getStage() != null && task.getStage().getId().equals(targetStage.getId())) {
+            return taskMapper.toDTO(task);
+        }
+
+        WorkflowGateValidationResultDTO gate = workflowGateService.evaluate(task, targetStage);
+        if (Boolean.TRUE.equals(gate.getRequiresOverride())) {
+            if (!Boolean.TRUE.equals(request.getOverrideGate())) {
+                throw new WorkflowGateViolationException(gate.getViolations());
+            }
+            authorizeGateOverride(request);
+            auditLogUseCase.recordLog("WORKFLOW_GATE_OVERRIDE", "TASK", id, task.getTitle(), null, null, null,
+                    "Overrode gates for '" + targetStage.getName() + "'. Reason: " + request.getOverrideReason().trim()
+                            + " | Violations: " + String.join("; ", gate.getViolations()));
+        }
+
+        boolean wasDone = TaskMapper.isDone(task);
+        boolean nowDone = Boolean.TRUE.equals(targetStage.getIsDoneStage());
+        String fromStage = task.getStage() != null ? task.getStage().getName() : "none";
+
+        task.setStage(targetStage);
+        if (nowDone) {
+            task.setProgressPercentage(100);
+            task.setIsBlocked(false);
+            task.setBlockerReason(null);
+            if (!wasDone) task.setCompletedAt(Instant.now());
+        } else if (wasDone) {
+            task.setCompletedAt(null);
+        }
+
+        Task saved = taskRepositoryPort.save(task);
+        auditLogUseCase.recordLog("TASK_MOVED", "TASK", saved.getId(), saved.getTitle(), null, null, null,
+                "Moved from " + fromStage + " to " + targetStage.getName());
+
+        if (nowDone && !wasDone) {
+            notificationUseCase.notifyTaskCompleted(saved, actorEntity());
+        }
+        automationEngine.onTaskMoved(saved, targetStage);
+
+        TaskDTO dto = taskMapper.toDTO(saved);
+        eventPublisher.publishEvent(ProjectEvent.of(saved.getProject().getId(), ProjectEvent.TASK_MOVED, dto));
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
+    /**
+     * Overriding a failed gate requires the dedicated permission, a fresh password re-authentication
+     * (elevation token) for the same user, and a written justification.
+     */
+    private void authorizeGateOverride(MoveTaskRequest request) {
+        UserDetailsImpl user = currentUser.require();
+        if (!CurrentUser.has(user, Permissions.TASK_OVERRIDE_GATE)) {
+            throw new ForbiddenException("Your role cannot override workflow gates");
+        }
+        if (!jwtUtils.isValidElevation(request.getElevationToken(), user.getEmail(), GATE_OVERRIDE_SCOPE)) {
+            throw new ForbiddenException("Confirm your password to override workflow gates (elevation missing or expired)");
+        }
+        if (request.getOverrideReason() == null || request.getOverrideReason().trim().length() < MIN_OVERRIDE_REASON_LENGTH) {
+            throw new DomainException("An override reason of at least " + MIN_OVERRIDE_REASON_LENGTH + " characters is required");
+        }
+    }
+
+    @Override
+    @Transactional
+    public TaskDTO updateProgress(Long id, Integer progress) {
+        Task task = requireTask(id);
+        task.setProgressPercentage(Math.max(0, Math.min(100, progress)));
+        if (task.getProgressPercentage() == 100) {
+            task.setIsBlocked(false);
+            task.setBlockerReason(null);
+        }
+        return saveAndBroadcast(task);
+    }
+
+    @Override
+    @Transactional
+    public TaskDTO setBlocker(Long id, SetBlockerRequest request) {
+        Task task = requireTask(id);
+        boolean blocking = Boolean.TRUE.equals(request.getIsBlocked());
+        if (blocking && (request.getBlockerReason() == null || request.getBlockerReason().isBlank())) {
+            throw new DomainException("A blocker reason is required");
+        }
+
+        task.setIsBlocked(blocking);
+        task.setBlockerReason(blocking ? request.getBlockerReason().trim() : null);
+        task.setBlockedAt(blocking ? Instant.now() : null);
+        Task saved = taskRepositoryPort.save(task);
+        TaskDTO dto = taskMapper.toDTO(saved);
+
+        auditLogUseCase.recordLog(blocking ? "TASK_BLOCKED" : "TASK_UNBLOCKED", "TASK", saved.getId(), saved.getTitle(),
+                null, null, null, blocking ? "Blocker: " + saved.getBlockerReason() : "Blocker cleared");
+
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        if (blocking) {
+            taskNotificationPort.broadcastBlockerAlert(dto);
+            notificationUseCase.notifyBlockerAlert(saved, saved.getBlockerReason(), actorEntity());
+            automationEngine.onTaskBlocked(saved);
+            eventPublisher.publishEvent(ProjectEvent.of(saved.getProject().getId(), ProjectEvent.TASK_BLOCKED, dto));
+        }
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public TaskDTO assignTask(Long id, AssignTaskRequest request) {
+        Task task = requireTask(id);
+        User assignee = request.getAssigneeId() != null ? requireActiveUser(request.getAssigneeId()) : null;
+        task.setAssignee(assignee);
+        Task saved = taskRepositoryPort.save(task);
+
+        auditLogUseCase.recordLog("TASK_ASSIGNED", "TASK", saved.getId(), saved.getTitle(), null, null, null,
+                "Assigned to " + (assignee != null ? assignee.getFullName() : "nobody"));
+        if (assignee != null) {
+            notificationUseCase.notifyTaskAssigned(saved, assignee, actorEntity());
+        }
+        TaskDTO dto = taskMapper.toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
+    @Override
+    @Transactional
+    public TaskDTO updateDeadline(Long id, UpdateDeadlineRequest request) {
+        Task task = requireTask(id);
+        task.setDeadline(request.getDeadline());
+        Task saved = taskRepositoryPort.save(task);
+        auditLogUseCase.recordLog("TASK_DEADLINE_UPDATED", "TASK", saved.getId(), saved.getTitle(), null, null, null,
+                "Deadline set to " + (request.getDeadline() != null ? request.getDeadline() : "none"));
+        TaskDTO dto = taskMapper.toDTO(saved);
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
+    // ---------------------------------------------------------------- comments
 
     @Override
     @Transactional(readOnly = true)
@@ -69,876 +268,562 @@ public class TaskApplicationService implements TaskUseCase {
 
     @Override
     @Transactional
-    public TaskCommentDTO addComment(Long taskId, AddCommentRequest request, UUID authorId) {
-        Task task = taskRepositoryPort.findById(taskId)
-                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
+    public TaskCommentDTO addComment(Long taskId, AddCommentRequest request) {
+        Task task = requireTask(taskId);
+        User author = actorEntity();
+        if (author == null) {
+            throw new ForbiddenException("An authenticated user is required to comment");
+        }
+        if (request.getAttachmentUrl() != null && !request.getAttachmentUrl().isBlank()) {
+            requireHttpUrl(request.getAttachmentUrl(), "Attachment URL");
+        }
 
-        User author = userRepositoryPort.findById(authorId)
-                .orElseThrow(() -> new DomainException("User not found: " + authorId));
-
-        TaskComment comment = TaskComment.builder()
+        TaskComment saved = taskCommentRepositoryPort.save(TaskComment.builder()
                 .task(task)
                 .author(author)
-                .content(request.getContent().trim())
+                .content(requireText(request.getContent(), "Comment", 4000))
                 .attachmentUrl(request.getAttachmentUrl())
-                .build();
-
-        TaskComment saved = taskCommentRepositoryPort.save(comment);
-        log.info("Added comment to task {} by {}", taskId, author.getFullName());
+                .build());
         return toCommentDTO(saved);
     }
 
     private TaskCommentDTO toCommentDTO(TaskComment c) {
-        String roleName = c.getAuthor() != null && c.getAuthor().getRole() != null
-                ? c.getAuthor().getRole().getName()
-                : "Member";
         String authorName = c.getAuthor() != null ? c.getAuthor().getFullName() : "User";
-
         return TaskCommentDTO.builder()
                 .id(c.getId())
                 .taskId(c.getTask() != null ? c.getTask().getId() : null)
                 .authorId(c.getAuthor() != null ? c.getAuthor().getId() : null)
                 .authorName(authorName)
-                .authorRole(roleName)
-                .authorAvatar(getInitials(authorName))
+                .authorRole(c.getAuthor() != null && c.getAuthor().getRole() != null ? c.getAuthor().getRole().getName() : "Member")
+                .authorAvatar(TaskMapper.initials(authorName))
                 .content(c.getContent())
-                .time(c.getCreatedAt() != null ? c.getCreatedAt().toString() : "Just now")
+                .time(c.getCreatedAt() != null ? c.getCreatedAt().toString() : null)
                 .attachmentUrl(c.getAttachmentUrl())
                 .build();
     }
 
-    @Override
-    @Transactional
-    public TaskDTO createTask(CreateTaskRequest request) {
-        Project project = projectRepositoryPort.findById(request.getProjectId())
-                .orElseThrow(() -> new DomainException("Project not found: " + request.getProjectId()));
+    // ---------------------------------------------------------------- checklist
 
-        Stage stage = stageRepositoryPort.findById(request.getStageId())
-                .orElseThrow(() -> new DomainException("Stage not found: " + request.getStageId()));
-
-        User assignee = null;
-        if (request.getAssigneeId() != null) {
-            assignee = userRepositoryPort.findById(request.getAssigneeId()).orElse(null);
-        }
-
-        Task task = Task.builder()
-                .project(project)
-                .stage(stage)
-                .title(request.getTitle())
-                .description(request.getDescription())
-                .priority(request.getPriority() != null ? request.getPriority() : "MEDIUM")
-                .progressPercentage(0)
-                .assignee(assignee)
-                .deadline(request.getDeadline())
-                .isBlocked(false)
-                .build();
-
-        Task saved = taskRepositoryPort.save(task);
-        log.info("Task created successfully with ID: {}", saved.getId());
-
-        if (saved.getAssignee() != null) {
-            try {
-                notificationUseCase.notifyTaskAssigned(saved, saved.getAssignee(), null);
-            } catch (Exception e) {
-                log.warn("Failed to dispatch assignment notification for task {}: {}", saved.getId(), e.getMessage());
-            }
-        }
-
-        try {
-            webhookDispatcherService.dispatchEvent(saved.getProject().getId(), "TASK_CREATED", saved);
-        } catch (Exception e) {
-            log.warn("Failed to dispatch TASK_CREATED webhook: {}", e.getMessage());
-        }
-
-        TaskDTO dto = toDTO(saved);
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        return dto;
-    }
-
-    @Override
-    @Transactional
-    public TaskDTO moveTask(Long id, MoveTaskRequest request) {
-        Task task = taskRepositoryPort.findById(id)
-                .orElseThrow(() -> new DomainException("Task not found: " + id));
-
-        Stage targetStage = stageRepositoryPort.findById(request.getTargetStageId())
-                .orElseThrow(() -> new DomainException("Target Stage not found: " + request.getTargetStageId()));
-
-        // Workflow Policy & Quality Gate Check
-        com.syncflow.dto.WorkflowGateValidationResultDTO gate = validateTransitionGate(id, request.getTargetStageId());
-        if (Boolean.TRUE.equals(gate.getRequiresOverride()) && !Boolean.TRUE.equals(request.getOverrideGate())) {
-            throw new DomainException("WORKFLOW_GATE_VIOLATION: " + String.join("; ", gate.getViolations()));
-        }
-
-        if (Boolean.TRUE.equals(gate.getRequiresOverride()) && Boolean.TRUE.equals(request.getOverrideGate())) {
-            String reason = request.getOverrideReason() != null && !request.getOverrideReason().isBlank()
-                    ? request.getOverrideReason()
-                    : "Manager override with elevated privilege";
-            try {
-                auditLogUseCase.recordLog("WORKFLOW_GATE_OVERRIDE", "TASK", id, task.getTitle(), "Manager", null, "MANAGER", reason);
-            } catch (Exception e) {
-                log.warn("Failed to record workflow gate override audit log: {}", e.getMessage());
-            }
-        }
-
-        task.setStage(targetStage);
-        if (Boolean.TRUE.equals(targetStage.getIsDoneStage())) {
-            task.setProgressPercentage(100);
-            task.setIsBlocked(false);
-            task.setBlockerReason(null);
-        }
-
-        Task saved = taskRepositoryPort.save(task);
-        log.info("Task {} migrated to stage {}", saved.getId(), targetStage.getName());
-
-        if (Boolean.TRUE.equals(targetStage.getIsDoneStage())) {
-            try {
-                notificationUseCase.notifyTaskCompleted(saved, saved.getAssignee());
-            } catch (Exception e) {
-                log.warn("Failed to dispatch task completion notification: {}", e.getMessage());
-            }
-        }
-
-        try {
-            webhookDispatcherService.dispatchEvent(saved.getProject().getId(), "TASK_MOVED", saved);
-        } catch (Exception e) {
-            log.warn("Failed to dispatch TASK_MOVED webhook: {}", e.getMessage());
-        }
-
-        TaskDTO dto = toDTO(saved);
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        return dto;
-    }
-
-    @Override
-    @Transactional
-    public TaskDTO updateProgress(Long id, Integer progress) {
-        Task task = taskRepositoryPort.findById(id)
-                .orElseThrow(() -> new DomainException("Task not found: " + id));
-
-        boolean wasDone = (task.getProgressPercentage() != null && task.getProgressPercentage() == 100);
-        task.setProgressPercentage(Math.max(0, Math.min(100, progress)));
-        if (task.getProgressPercentage() == 100) {
-            task.setIsBlocked(false);
-            task.setBlockerReason(null);
-        }
-
-        Task saved = taskRepositoryPort.save(task);
-
-        if (!wasDone && saved.getProgressPercentage() == 100) {
-            try {
-                notificationUseCase.notifyTaskCompleted(saved, saved.getAssignee());
-            } catch (Exception e) {
-                log.warn("Failed to dispatch task completion notification: {}", e.getMessage());
-            }
-        }
-
-        TaskDTO dto = toDTO(saved);
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        return dto;
-    }
-
-    @Override
-    @Transactional
-    public TaskDTO setBlocker(Long id, SetBlockerRequest request) {
-        Task task = taskRepositoryPort.findById(id)
-                .orElseThrow(() -> new DomainException("Task not found: " + id));
-
-        task.setIsBlocked(request.getIsBlocked());
-        if (Boolean.TRUE.equals(request.getIsBlocked())) {
-            task.setBlockerReason(request.getBlockerReason());
-            task.setBlockedAt(Instant.now());
-        } else {
-            task.setBlockerReason(null);
-            task.setBlockedAt(null);
-        }
-
-        Task saved = taskRepositoryPort.save(task);
-        TaskDTO dto = toDTO(saved);
-
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        if (Boolean.TRUE.equals(saved.getIsBlocked())) {
-            taskNotificationPort.broadcastBlockerAlert(dto);
-            try {
-                notificationUseCase.notifyBlockerAlert(saved, request.getBlockerReason(), null);
-            } catch (Exception e) {
-                log.warn("Failed to dispatch blocker notification for task {}: {}", saved.getId(), e.getMessage());
-            }
-            try {
-                webhookDispatcherService.dispatchEvent(saved.getProject().getId(), "TASK_BLOCKED", saved);
-            } catch (Exception e) {
-                log.warn("Failed to dispatch TASK_BLOCKED webhook: {}", e.getMessage());
-            }
-        }
-        return dto;
-    }
-
-    @Override
-    @Transactional
-    public TaskDTO assignTask(Long id, AssignTaskRequest request) {
-        Task task = taskRepositoryPort.findById(id)
-                .orElseThrow(() -> new DomainException("Task not found: " + id));
-
-        User assignee = null;
-        if (request.getAssigneeId() != null) {
-            assignee = userRepositoryPort.findById(request.getAssigneeId()).orElse(null);
-        }
-
-        task.setAssignee(assignee);
-        Task saved = taskRepositoryPort.save(task);
-        log.info("Task {} assignee updated to {}", id, assignee != null ? assignee.getFullName() : "Unassigned");
-
-        if (saved.getAssignee() != null) {
-            try {
-                notificationUseCase.notifyTaskAssigned(saved, saved.getAssignee(), null);
-            } catch (Exception e) {
-                log.warn("Failed to dispatch reassignment notification for task {}: {}", saved.getId(), e.getMessage());
-            }
-        }
-
-        TaskDTO dto = toDTO(saved);
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        return dto;
-    }
-
-    @Override
-    @Transactional
-    public TaskDTO updateDeadline(Long id, UpdateDeadlineRequest request) {
-        Task task = taskRepositoryPort.findById(id)
-                .orElseThrow(() -> new DomainException("Task not found: " + id));
-
-        task.setDeadline(request.getDeadline());
-        Task saved = taskRepositoryPort.save(task);
-        log.info("Task {} deadline updated to {}", id, request.getDeadline());
-
-        try {
-            auditLogUseCase.recordLog("TASK_DEADLINE_UPDATED", "TASK", saved.getId(), saved.getTitle(),
-                    "System Operator", null, "COORDINATOR", "Updated deadline to " + request.getDeadline());
-        } catch (Exception e) {
-            log.warn("Failed to audit log deadline update: {}", e.getMessage());
-        }
-
-        TaskDTO dto = toDTO(saved);
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        return dto;
-    }
-
-    // --- Subtasks & Deliverable QA Checklist ---
     @Override
     @Transactional(readOnly = true)
-    public List<com.syncflow.dto.SubtaskDTO> getSubtasks(Long taskId) {
+    public List<SubtaskDTO> getSubtasks(Long taskId) {
         return subtaskRepository.findByTaskIdOrderByPositionAsc(taskId).stream()
-                .map(s -> com.syncflow.dto.SubtaskDTO.builder()
-                        .id(s.getId())
-                        .taskId(s.getTask().getId())
-                        .title(s.getTitle())
-                        .isCompleted(s.getIsCompleted())
-                        .completedBy(s.getCompletedBy())
-                        .completedAt(s.getCompletedAt())
-                        .position(s.getPosition())
-                        .build())
+                .map(this::toSubtaskDTO)
                 .toList();
     }
 
     @Override
     @Transactional
-    public com.syncflow.dto.SubtaskDTO addSubtask(Long taskId, String title, String authorName) {
-        Task task = taskRepositoryPort.findById(taskId)
-                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
-
+    public SubtaskDTO addSubtask(Long taskId, String title) {
+        Task task = requireTask(taskId);
+        String cleanTitle = requireText(title, "Checklist item", 255);
         long count = subtaskRepository.countByTaskId(taskId);
-        com.syncflow.model.Subtask subtask = com.syncflow.model.Subtask.builder()
+
+        Subtask saved = subtaskRepository.save(Subtask.builder()
                 .task(task)
-                .title(title.trim())
+                .title(cleanTitle)
                 .isCompleted(false)
                 .position((int) count + 1)
                 .createdAt(Instant.now())
-                .build();
-
-        com.syncflow.model.Subtask saved = subtaskRepository.save(subtask);
-
-        try {
-            auditLogUseCase.recordLog("TASK_SUBTASK_ADDED", "TASK", task.getId(), task.getTitle(),
-                    authorName != null ? authorName : "Team Member", null, "ENGINEER",
-                    "Added deliverable checklist item: " + title);
-        } catch (Exception e) {
-            log.warn("Failed to audit subtask creation: {}", e.getMessage());
-        }
-
-        return com.syncflow.dto.SubtaskDTO.builder()
-                .id(saved.getId())
-                .taskId(task.getId())
-                .title(saved.getTitle())
-                .isCompleted(saved.getIsCompleted())
-                .position(saved.getPosition())
-                .build();
+                .build());
+        auditLogUseCase.recordLog("TASK_SUBTASK_ADDED", "TASK", task.getId(), task.getTitle(), null, null, null,
+                "Added checklist item: " + cleanTitle);
+        return toSubtaskDTO(saved);
     }
 
     @Override
     @Transactional
-    public com.syncflow.dto.SubtaskDTO toggleSubtask(Long taskId, Long subtaskId, String actorName) {
-        com.syncflow.model.Subtask subtask = subtaskRepository.findById(subtaskId)
-                .orElseThrow(() -> new DomainException("Subtask not found: " + subtaskId));
+    public SubtaskDTO toggleSubtask(Long taskId, Long subtaskId) {
+        Subtask subtask = requireSubtask(taskId, subtaskId);
+        boolean completed = !Boolean.TRUE.equals(subtask.getIsCompleted());
+        subtask.setIsCompleted(completed);
+        subtask.setCompletedBy(completed ? actorName() : null);
+        subtask.setCompletedAt(completed ? Instant.now() : null);
+        Subtask saved = subtaskRepository.save(subtask);
 
-        boolean newStatus = !Boolean.TRUE.equals(subtask.getIsCompleted());
-        subtask.setIsCompleted(newStatus);
-        if (newStatus) {
-            subtask.setCompletedBy(actorName != null ? actorName : "Team Member");
-            subtask.setCompletedAt(Instant.now());
-        } else {
-            subtask.setCompletedBy(null);
-            subtask.setCompletedAt(null);
+        auditLogUseCase.recordLog(completed ? "TASK_SUBTASK_VERIFIED" : "TASK_SUBTASK_REOPENED", "TASK", taskId,
+                subtask.getTask().getTitle(), null, null, null,
+                (completed ? "Verified checklist item: " : "Reopened checklist item: ") + subtask.getTitle());
+        if (completed) {
+            subtaskRepository.flush();
+            automationEngine.onSubtaskCompleted(subtask.getTask());
         }
-
-        com.syncflow.model.Subtask saved = subtaskRepository.save(subtask);
-
-        try {
-            auditLogUseCase.recordLog(newStatus ? "TASK_SUBTASK_VERIFIED" : "TASK_SUBTASK_REOPENED",
-                    "TASK", taskId, subtask.getTask().getTitle(),
-                    actorName != null ? actorName : "QA Engineer", null, "QA_ENGINEER",
-                    (newStatus ? "Verified checklist item: " : "Reopened checklist item: ") + subtask.getTitle());
-        } catch (Exception e) {
-            log.warn("Failed to audit subtask toggle: {}", e.getMessage());
-        }
-
-        return com.syncflow.dto.SubtaskDTO.builder()
-                .id(saved.getId())
-                .taskId(taskId)
-                .title(saved.getTitle())
-                .isCompleted(saved.getIsCompleted())
-                .completedBy(saved.getCompletedBy())
-                .completedAt(saved.getCompletedAt())
-                .position(saved.getPosition())
-                .build();
+        return toSubtaskDTO(saved);
     }
 
     @Override
     @Transactional
     public void deleteSubtask(Long taskId, Long subtaskId) {
-        subtaskRepository.deleteById(subtaskId);
+        subtaskRepository.delete(requireSubtask(taskId, subtaskId));
     }
 
-    // --- Artifacts & File Attachments ---
+    private Subtask requireSubtask(Long taskId, Long subtaskId) {
+        return subtaskRepository.findById(subtaskId)
+                .filter(s -> s.getTask().getId().equals(taskId))
+                .orElseThrow(() -> new NotFoundException("Checklist item not found: " + subtaskId));
+    }
+
+    private SubtaskDTO toSubtaskDTO(Subtask s) {
+        return SubtaskDTO.builder()
+                .id(s.getId())
+                .taskId(s.getTask().getId())
+                .title(s.getTitle())
+                .isCompleted(s.getIsCompleted())
+                .completedBy(s.getCompletedBy())
+                .completedAt(s.getCompletedAt())
+                .position(s.getPosition())
+                .build();
+    }
+
+    // ---------------------------------------------------------------- attachments
+
     @Override
     @Transactional(readOnly = true)
-    public List<com.syncflow.dto.TaskAttachmentDTO> getAttachments(Long taskId) {
+    public List<TaskAttachmentDTO> getAttachments(Long taskId) {
         return attachmentRepository.findByTaskIdOrderByUploadedAtDesc(taskId).stream()
-                .map(a -> {
-                    String timeAgo = "Just now";
-                    if (a.getUploadedAt() != null) {
-                        java.time.Duration d = java.time.Duration.between(a.getUploadedAt(), Instant.now());
-                        if (d.toDays() > 0) timeAgo = d.toDays() + "d ago";
-                        else if (d.toHours() > 0) timeAgo = d.toHours() + "h ago";
-                        else if (d.toMinutes() > 0) timeAgo = d.toMinutes() + "m ago";
-                    }
-                    return com.syncflow.dto.TaskAttachmentDTO.builder()
-                            .id(a.getId())
-                            .taskId(a.getTask().getId())
-                            .fileName(a.getFileName())
-                            .fileType(a.getFileType())
-                            .fileSize(a.getFileSize())
-                            .fileUrl(a.getFileUrl())
-                            .uploadedBy(a.getUploadedBy())
-                            .uploadedAt(a.getUploadedAt())
-                            .timeAgo(timeAgo)
-                            .build();
-                })
+                .map(this::toAttachmentDTO)
                 .toList();
     }
 
     @Override
     @Transactional
-    public com.syncflow.dto.TaskAttachmentDTO addAttachment(Long taskId, String fileName, String fileType, String fileSize, String fileUrl, String uploadedBy) {
-        Task task = taskRepositoryPort.findById(taskId)
-                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
+    public TaskAttachmentDTO addLinkAttachment(Long taskId, String name, String url) {
+        Task task = requireTask(taskId);
+        String cleanUrl = requireHttpUrl(url, "Link URL");
+        String cleanName = name != null && !name.isBlank() ? requireText(name, "Name", 255) : cleanUrl;
 
-        com.syncflow.model.TaskAttachment attachment = com.syncflow.model.TaskAttachment.builder()
+        TaskAttachment saved = attachmentRepository.save(TaskAttachment.builder()
                 .task(task)
-                .fileName(fileName)
-                .fileType(fileType != null ? fileType : "document")
-                .fileSize(fileSize != null ? fileSize : "1.2 MB")
-                .fileUrl(fileUrl)
-                .uploadedBy(uploadedBy != null ? uploadedBy : "Team Member")
+                .fileName(cleanName.length() > 255 ? cleanName.substring(0, 255) : cleanName)
+                .fileType("link")
+                .fileUrl(cleanUrl)
+                .uploadedBy(actorName())
                 .uploadedAt(Instant.now())
-                .build();
+                .build());
+        auditLogUseCase.recordLog("TASK_ATTACHMENT_ADDED", "TASK", task.getId(), task.getTitle(), null, null, null,
+                "Linked deliverable: " + saved.getFileName());
+        return toAttachmentDTO(saved);
+    }
 
-        com.syncflow.model.TaskAttachment saved = attachmentRepository.save(attachment);
+    @Override
+    @Transactional
+    public TaskAttachmentDTO uploadAttachment(Long taskId, MultipartFile file) {
+        Task task = requireTask(taskId);
+        String originalName = sanitizeFileName(file.getOriginalFilename());
+        AttachmentStoragePort.StoredFile stored = attachmentStorage.store(taskId, file, file.getSize());
 
-        try {
-            auditLogUseCase.recordLog("TASK_ATTACHMENT_ADDED", "TASK", task.getId(), task.getTitle(),
-                    uploadedBy != null ? uploadedBy : "Engineer", null, "DEVELOPER",
-                    "Uploaded deliverable attachment: " + fileName);
-        } catch (Exception e) {
-            log.warn("Failed to audit attachment upload: {}", e.getMessage());
+        TaskAttachment attachment = attachmentRepository.save(TaskAttachment.builder()
+                .task(task)
+                .fileName(originalName)
+                .fileType(classify(file.getContentType(), originalName))
+                .fileSize(humanSize(stored.sizeBytes()))
+                .sizeBytes(stored.sizeBytes())
+                .contentType(file.getContentType() != null ? file.getContentType() : "application/octet-stream")
+                .storageKey(stored.key())
+                .fileUrl("pending")
+                .uploadedBy(actorName())
+                .uploadedAt(Instant.now())
+                .build());
+        attachment.setFileUrl("/api/v1/tasks/" + taskId + "/attachments/" + attachment.getId() + "/download");
+        TaskAttachment saved = attachmentRepository.save(attachment);
+
+        auditLogUseCase.recordLog("TASK_ATTACHMENT_ADDED", "TASK", task.getId(), task.getTitle(), null, null, null,
+                "Uploaded deliverable: " + originalName + " (" + saved.getFileSize() + ")");
+        return toAttachmentDTO(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AttachmentDownload downloadAttachment(Long taskId, Long attachmentId) {
+        TaskAttachment attachment = requireAttachment(taskId, attachmentId);
+        if (attachment.getStorageKey() == null) {
+            throw new NotFoundException("This attachment is a link and has no stored file");
         }
-
-        return com.syncflow.dto.TaskAttachmentDTO.builder()
-                .id(saved.getId())
-                .taskId(task.getId())
-                .fileName(saved.getFileName())
-                .fileType(saved.getFileType())
-                .fileSize(saved.getFileSize())
-                .fileUrl(saved.getFileUrl())
-                .uploadedBy(saved.getUploadedBy())
-                .uploadedAt(saved.getUploadedAt())
-                .timeAgo("Just now")
-                .build();
+        return new AttachmentDownload(attachmentStorage.load(attachment.getStorageKey()), attachment.getFileName(),
+                attachment.getContentType(), attachment.getSizeBytes());
     }
 
     @Override
     @Transactional
     public void deleteAttachment(Long taskId, Long attachmentId) {
-        attachmentRepository.deleteById(attachmentId);
+        TaskAttachment attachment = requireAttachment(taskId, attachmentId);
+        attachmentRepository.delete(attachment);
+        attachmentStorage.deleteAfterCommit(attachment.getStorageKey());
+        auditLogUseCase.recordLog("TASK_ATTACHMENT_REMOVED", "TASK", taskId, attachment.getTask().getTitle(),
+                null, null, null, "Removed deliverable: " + attachment.getFileName());
     }
 
-    // --- Archiving & Lifecycle ---
+    private TaskAttachment requireAttachment(Long taskId, Long attachmentId) {
+        return attachmentRepository.findById(attachmentId)
+                .filter(a -> a.getTask().getId().equals(taskId))
+                .orElseThrow(() -> new NotFoundException("Attachment not found: " + attachmentId));
+    }
+
+    private TaskAttachmentDTO toAttachmentDTO(TaskAttachment a) {
+        return TaskAttachmentDTO.builder()
+                .id(a.getId())
+                .taskId(a.getTask().getId())
+                .fileName(a.getFileName())
+                .fileType(a.getFileType())
+                .fileSize(a.getFileSize())
+                .fileUrl(a.getFileUrl())
+                .uploadedBy(a.getUploadedBy())
+                .uploadedAt(a.getUploadedAt())
+                .timeAgo(timeAgo(a.getUploadedAt()))
+                .build();
+    }
+
+    static String sanitizeFileName(String name) {
+        if (name == null || name.isBlank()) return "attachment";
+        String base = name.replace('\\', '/');
+        base = base.substring(base.lastIndexOf('/') + 1);
+        base = base.replaceAll("[\\p{Cntrl}\"]", "").trim();
+        if (base.isEmpty()) return "attachment";
+        return base.length() > 200 ? base.substring(base.length() - 200) : base;
+    }
+
+    private static String classify(String contentType, String fileName) {
+        String ct = contentType != null ? contentType.toLowerCase(Locale.ROOT) : "";
+        String lower = fileName.toLowerCase(Locale.ROOT);
+        if (ct.startsWith("image/")) return "image";
+        if (ct.equals("application/pdf") || lower.endsWith(".pdf")) return "pdf";
+        if (lower.endsWith(".log") || lower.endsWith(".txt")) return "log";
+        if (lower.matches(".*\\.(java|ts|js|json|xml|yml|yaml|sql|py|cs|go|csv|html|scss|css|sh)$")) return "code";
+        return "document";
+    }
+
+    private static String humanSize(long bytes) {
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return String.format(Locale.ROOT, "%.1f KB", bytes / 1024.0);
+        return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0));
+    }
+
+    // ---------------------------------------------------------------- archive
+
     @Override
     @Transactional
-    public TaskDTO archiveTask(Long id, String operatorName) {
-        Task task = taskRepositoryPort.findById(id)
-                .orElseThrow(() -> new DomainException("Task not found: " + id));
-
+    public TaskDTO archiveTask(Long id) {
+        Task task = requireTask(id);
         task.setIsArchived(true);
         task.setArchivedAt(Instant.now());
-        task.setArchivedBy(operatorName != null ? operatorName : "Operator");
-
-        Task saved = taskRepositoryPort.save(task);
-        log.info("Task {} archived by {}", id, operatorName);
-
-        try {
-            auditLogUseCase.recordLog("TASK_ARCHIVED", "TASK", saved.getId(), saved.getTitle(),
-                    operatorName != null ? operatorName : "Operator", null, "COORDINATOR",
-                    "Task archived from active Kanban board");
-        } catch (Exception e) {
-            log.warn("Failed to audit task archive: {}", e.getMessage());
-        }
-
-        TaskDTO dto = toDTO(saved);
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        return dto;
+        task.setArchivedBy(actorName());
+        auditLogUseCase.recordLog("TASK_ARCHIVED", "TASK", task.getId(), task.getTitle(), null, null, null,
+                "Task archived from the active board");
+        return saveAndBroadcast(task);
     }
 
     @Override
     @Transactional
-    public TaskDTO restoreTask(Long id, String operatorName) {
-        Task task = taskRepositoryPort.findById(id)
-                .orElseThrow(() -> new DomainException("Task not found: " + id));
-
+    public TaskDTO restoreTask(Long id) {
+        Task task = requireTask(id);
         task.setIsArchived(false);
         task.setArchivedAt(null);
         task.setArchivedBy(null);
-
-        Task saved = taskRepositoryPort.save(task);
-        log.info("Task {} restored to board by {}", id, operatorName);
-
-        try {
-            auditLogUseCase.recordLog("TASK_RESTORED", "TASK", saved.getId(), saved.getTitle(),
-                    operatorName != null ? operatorName : "Operator", null, "COORDINATOR",
-                    "Task restored to active Kanban board");
-        } catch (Exception e) {
-            log.warn("Failed to audit task restore: {}", e.getMessage());
-        }
-
-        TaskDTO dto = toDTO(saved);
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        return dto;
+        auditLogUseCase.recordLog("TASK_RESTORED", "TASK", task.getId(), task.getTitle(), null, null, null,
+                "Task restored to the active board");
+        return saveAndBroadcast(task);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TaskDTO> getArchivedTasks(Long projectId) {
-        return taskRepositoryPort.findByProjectId(projectId).stream()
-                .filter(t -> Boolean.TRUE.equals(t.getIsArchived()))
-                .map(this::toDTO)
-                .toList();
+        return taskMapper.toDTOs(taskRepositoryPort.findByProjectIdAndIsArchivedTrue(projectId));
     }
 
-    // --- Task Dependencies & Blocker Links ---
+    // ---------------------------------------------------------------- dependencies
+
     @Override
     @Transactional(readOnly = true)
-    public List<com.syncflow.dto.TaskDependencyDTO> getDependencies(Long taskId) {
-        List<com.syncflow.model.TaskDependency> outgoing = taskDependencyRepository.findBySourceTaskId(taskId);
-        List<com.syncflow.model.TaskDependency> incoming = taskDependencyRepository.findByTargetTaskId(taskId);
+    public List<TaskDependencyDTO> getDependencies(Long taskId) {
+        List<TaskDependency> outgoing = taskDependencyRepository.findBySourceTaskId(taskId);
+        List<TaskDependency> incoming = taskDependencyRepository.findByTargetTaskId(taskId);
 
-        List<com.syncflow.dto.TaskDependencyDTO> list = new java.util.ArrayList<>();
+        Set<Long> relatedIds = new HashSet<>();
+        outgoing.forEach(d -> relatedIds.add(d.getTargetTaskId()));
+        incoming.forEach(d -> relatedIds.add(d.getSourceTaskId()));
+        Map<Long, Task> related = taskRepositoryPort.findAllById(relatedIds).stream()
+                .collect(Collectors.toMap(Task::getId, Function.identity()));
 
-        for (com.syncflow.model.TaskDependency dep : outgoing) {
-            Task target = taskRepositoryPort.findById(dep.getTargetTaskId()).orElse(null);
-            String title = target != null ? target.getTitle() : dep.getTargetTaskTitle();
-            String priority = target != null ? target.getPriority() : "MEDIUM";
-            int progress = target != null && target.getProgressPercentage() != null ? target.getProgressPercentage() : 0;
-            String stage = target != null && target.getStage() != null ? target.getStage().getName() : "";
-            String assignee = target != null && target.getAssignee() != null ? target.getAssignee().getFullName() : "Unassigned";
-            boolean isBlocked = target != null && Boolean.TRUE.equals(target.getIsBlocked());
-
-            list.add(com.syncflow.dto.TaskDependencyDTO.builder()
-                    .id(dep.getId())
-                    .sourceTaskId(dep.getSourceTaskId())
-                    .targetTaskId(dep.getTargetTaskId())
-                    .targetTaskTitle(title)
-                    .targetTaskPriority(priority)
-                    .targetTaskProgress(progress)
-                    .targetTaskStageName(stage)
-                    .targetTaskAssignee(assignee)
-                    .dependencyType(dep.getDependencyType())
-                    .isBlocked(isBlocked)
-                    .createdBy(dep.getCreatedBy())
-                    .createdAt(dep.getCreatedAt())
-                    .build());
+        List<TaskDependencyDTO> list = new ArrayList<>();
+        for (TaskDependency dep : outgoing) {
+            list.add(toDependencyDTO(dep, taskId, related.get(dep.getTargetTaskId()), dep.getTargetTaskId(),
+                    dep.getDependencyType(), dep.getTargetTaskTitle()));
         }
-
-        for (com.syncflow.model.TaskDependency dep : incoming) {
-            Task source = taskRepositoryPort.findById(dep.getSourceTaskId()).orElse(null);
-            String title = source != null ? source.getTitle() : "Task #" + dep.getSourceTaskId();
-            String priority = source != null ? source.getPriority() : "MEDIUM";
-            int progress = source != null && source.getProgressPercentage() != null ? source.getProgressPercentage() : 0;
-            String stage = source != null && source.getStage() != null ? source.getStage().getName() : "";
-            String assignee = source != null && source.getAssignee() != null ? source.getAssignee().getFullName() : "Unassigned";
-
-            String invertedType = "BLOCKS".equalsIgnoreCase(dep.getDependencyType()) ? "BLOCKED_BY" :
-                    ("BLOCKED_BY".equalsIgnoreCase(dep.getDependencyType()) ? "BLOCKS" : "RELATES_TO");
-
-            list.add(com.syncflow.dto.TaskDependencyDTO.builder()
-                    .id(dep.getId())
-                    .sourceTaskId(taskId)
-                    .targetTaskId(dep.getSourceTaskId())
-                    .targetTaskTitle(title)
-                    .targetTaskPriority(priority)
-                    .targetTaskProgress(progress)
-                    .targetTaskStageName(stage)
-                    .targetTaskAssignee(assignee)
-                    .dependencyType(invertedType)
-                    .isBlocked(source != null && Boolean.TRUE.equals(source.getIsBlocked()))
-                    .createdBy(dep.getCreatedBy())
-                    .createdAt(dep.getCreatedAt())
-                    .build());
+        for (TaskDependency dep : incoming) {
+            list.add(toDependencyDTO(dep, taskId, related.get(dep.getSourceTaskId()), dep.getSourceTaskId(),
+                    dep.getDependencyType().inverse(), "Task #" + dep.getSourceTaskId()));
         }
-
         return list;
     }
 
     @Override
     @Transactional
-    public com.syncflow.dto.TaskDependencyDTO addDependency(Long sourceTaskId, Long targetTaskId, String type, String operatorName) {
+    public TaskDependencyDTO addDependency(Long sourceTaskId, Long targetTaskId, String type) {
         if (sourceTaskId.equals(targetTaskId)) {
-            throw new DomainException("Task cannot depend on itself");
+            throw new DomainException("A task cannot depend on itself");
+        }
+        DependencyType dependencyType = DependencyType.parse(type);
+
+        Task source = requireTask(sourceTaskId);
+        Task target = requireTask(targetTaskId);
+        if (!source.getProject().getId().equals(target.getProject().getId())) {
+            throw new DomainException("Dependencies can only link tasks in the same project");
+        }
+        if (taskDependencyRepository.existsBySourceTaskIdAndTargetTaskId(sourceTaskId, targetTaskId)) {
+            throw new ConflictException("These tasks are already linked");
         }
 
-        Task source = taskRepositoryPort.findById(sourceTaskId)
-                .orElseThrow(() -> new DomainException("Source task not found: " + sourceTaskId));
-        Task target = taskRepositoryPort.findById(targetTaskId)
-                .orElseThrow(() -> new DomainException("Target task not found: " + targetTaskId));
-
-        com.syncflow.model.TaskDependency dep = com.syncflow.model.TaskDependency.builder()
+        TaskDependency saved = taskDependencyRepository.save(TaskDependency.builder()
                 .sourceTaskId(sourceTaskId)
                 .targetTaskId(targetTaskId)
                 .targetTaskTitle(target.getTitle())
-                .dependencyType(type != null ? type.toUpperCase() : "BLOCKS")
-                .createdBy(operatorName != null ? operatorName : "Operator")
+                .dependencyType(dependencyType)
+                .createdBy(actorName())
                 .createdAt(Instant.now())
-                .build();
-
-        com.syncflow.model.TaskDependency saved = taskDependencyRepository.save(dep);
-
-        try {
-            auditLogUseCase.recordLog("TASK_DEPENDENCY_LINKED", "TASK", sourceTaskId, source.getTitle(),
-                    operatorName != null ? operatorName : "Operator", null, "COORDINATOR",
-                    String.format("Linked dependency '%s' to target task #%d: %s", type, targetTaskId, target.getTitle()));
-        } catch (Exception e) {
-            log.warn("Failed to audit dependency link: {}", e.getMessage());
-        }
-
-        return com.syncflow.dto.TaskDependencyDTO.builder()
-                .id(saved.getId())
-                .sourceTaskId(sourceTaskId)
-                .targetTaskId(targetTaskId)
-                .targetTaskTitle(target.getTitle())
-                .targetTaskPriority(target.getPriority())
-                .targetTaskProgress(target.getProgressPercentage() != null ? target.getProgressPercentage() : 0)
-                .targetTaskStageName(target.getStage() != null ? target.getStage().getName() : "")
-                .targetTaskAssignee(target.getAssignee() != null ? target.getAssignee().getFullName() : "Unassigned")
-                .dependencyType(saved.getDependencyType())
-                .isBlocked(Boolean.TRUE.equals(target.getIsBlocked()))
-                .createdBy(saved.getCreatedBy())
-                .createdAt(saved.getCreatedAt())
-                .build();
+                .build());
+        auditLogUseCase.recordLog("TASK_DEPENDENCY_LINKED", "TASK", sourceTaskId, source.getTitle(), null, null, null,
+                String.format("Linked %s -> task #%d: %s", dependencyType, targetTaskId, target.getTitle()));
+        return toDependencyDTO(saved, sourceTaskId, target, targetTaskId, dependencyType, target.getTitle());
     }
 
     @Override
     @Transactional
     public void deleteDependency(Long dependencyId) {
-        taskDependencyRepository.deleteById(dependencyId);
+        TaskDependency dep = taskDependencyRepository.findById(dependencyId)
+                .orElseThrow(() -> new NotFoundException("Dependency not found: " + dependencyId));
+        taskDependencyRepository.delete(dep);
     }
 
-    // --- Sprint & Story Points ---
+    private TaskDependencyDTO toDependencyDTO(TaskDependency dep, Long viewingTaskId, Task other, Long otherId,
+                                              DependencyType type, String fallbackTitle) {
+        return TaskDependencyDTO.builder()
+                .id(dep.getId())
+                .sourceTaskId(viewingTaskId)
+                .targetTaskId(otherId)
+                .targetTaskTitle(other != null ? other.getTitle() : fallbackTitle)
+                .targetTaskPriority(other != null ? other.getPriority().name() : TaskPriority.MEDIUM.name())
+                .targetTaskProgress(other != null && other.getProgressPercentage() != null ? other.getProgressPercentage() : 0)
+                .targetTaskStageName(other != null && other.getStage() != null ? other.getStage().getName() : "")
+                .targetTaskAssignee(other != null && other.getAssignee() != null ? other.getAssignee().getFullName() : "Unassigned")
+                .dependencyType(type.name())
+                .isBlocked(other != null && Boolean.TRUE.equals(other.getIsBlocked()))
+                .createdBy(dep.getCreatedBy())
+                .createdAt(dep.getCreatedAt())
+                .build();
+    }
+
+    // ---------------------------------------------------------------- planning
+
     @Override
     @Transactional
     public TaskDTO updateStoryPoints(Long taskId, Integer points) {
-        Task task = taskRepositoryPort.findById(taskId)
-                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
-
-        task.setStoryPoints(points != null ? points : 3);
-        Task saved = taskRepositoryPort.save(task);
-
-        TaskDTO dto = toDTO(saved);
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        return dto;
+        if (points == null || points < 0 || points > 100) {
+            throw new DomainException("Story points must be between 0 and 100");
+        }
+        Task task = requireTask(taskId);
+        task.setStoryPoints(points);
+        return saveAndBroadcast(task);
     }
 
     @Override
     @Transactional
     public TaskDTO assignSprint(Long taskId, Long sprintId) {
-        Task task = taskRepositoryPort.findById(taskId)
-                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
-
+        Task task = requireTask(taskId);
+        if (sprintId != null) {
+            Sprint sprint = sprintRepository.findById(sprintId)
+                    .orElseThrow(() -> new NotFoundException("Sprint not found: " + sprintId));
+            if (!sprint.getProjectId().equals(task.getProject().getId())) {
+                throw new DomainException("The sprint belongs to a different project");
+            }
+            if (sprint.getStatus() == SprintStatus.COMPLETED) {
+                throw new ConflictException("Tasks cannot be added to a completed sprint");
+            }
+        }
         task.setSprintId(sprintId);
-        Task saved = taskRepositoryPort.save(task);
-
-        TaskDTO dto = toDTO(saved);
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        return dto;
+        return saveAndBroadcast(task);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public com.syncflow.dto.WorkflowGateValidationResultDTO validateTransitionGate(Long taskId, Long targetStageId) {
-        Task task = taskRepositoryPort.findById(taskId)
-                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
-
-        Stage targetStage = stageRepositoryPort.findById(targetStageId)
-                .orElseThrow(() -> new DomainException("Target stage not found: " + targetStageId));
-
-        String stageName = targetStage.getName() != null ? targetStage.getName().toLowerCase() : "";
-        List<String> violations = new java.util.ArrayList<>();
-        List<String> blockingTaskTitles = new java.util.ArrayList<>();
-        int uncompletedSubtasks = 0;
-        boolean hasDeliverable = false;
-
-        // Gate 1: Review / QA requires 100% Checklist Completion
-        if (stageName.contains("review") || stageName.contains("qa")) {
-            List<com.syncflow.model.Subtask> subtasks = subtaskRepository.findByTaskIdOrderByPositionAsc(taskId);
-            for (com.syncflow.model.Subtask st : subtasks) {
-                if (!Boolean.TRUE.equals(st.getIsCompleted())) {
-                    uncompletedSubtasks++;
-                }
-            }
-            if (uncompletedSubtasks > 0) {
-                violations.add("Review Gate Policy: " + uncompletedSubtasks + " subtask(s) or QA checklist items remain uncompleted. 100% checklist completion is required.");
-            }
-        }
-
-        // Gate 2: Done requires zero blocking dependencies and at least 1 deliverable / PR link
-        if (stageName.contains("done") || Boolean.TRUE.equals(targetStage.getIsDoneStage())) {
-            // Check direct blocker flag
-            if (Boolean.TRUE.equals(task.getIsBlocked())) {
-                violations.add("Done Gate Policy: Task is currently flagged as blocked: " + (task.getBlockerReason() != null ? task.getBlockerReason() : "Unspecified blocker"));
-            }
-
-            // Check outgoing dependency links (this task is blocked by target task)
-            List<com.syncflow.model.TaskDependency> dependencies = taskDependencyRepository.findBySourceTaskId(taskId);
-            for (com.syncflow.model.TaskDependency dep : dependencies) {
-                if ("BLOCKED_BY".equalsIgnoreCase(dep.getDependencyType())) {
-                    Task blocker = taskRepositoryPort.findById(dep.getTargetTaskId()).orElse(null);
-                    if (blocker != null && (blocker.getStage() == null || !Boolean.TRUE.equals(blocker.getStage().getIsDoneStage()))) {
-                        blockingTaskTitles.add(blocker.getTitle());
-                    }
-                }
-            }
-
-            // Check incoming dependency links (source task blocks this task)
-            List<com.syncflow.model.TaskDependency> incoming = taskDependencyRepository.findByTargetTaskId(taskId);
-            for (com.syncflow.model.TaskDependency dep : incoming) {
-                if ("BLOCKS".equalsIgnoreCase(dep.getDependencyType())) {
-                    Task blocker = taskRepositoryPort.findById(dep.getSourceTaskId()).orElse(null);
-                    if (blocker != null && (blocker.getStage() == null || !Boolean.TRUE.equals(blocker.getStage().getIsDoneStage()))) {
-                        blockingTaskTitles.add(blocker.getTitle());
-                    }
-                }
-            }
-
-            if (!blockingTaskTitles.isEmpty()) {
-                violations.add("Done Gate Policy: Unresolved blocker tasks: " + String.join(", ", blockingTaskTitles));
-            }
-
-            // Check deliverable attachment or PR link
-            List<com.syncflow.model.TaskAttachment> attachments = attachmentRepository.findByTaskIdOrderByUploadedAtDesc(taskId);
-            hasDeliverable = (!attachments.isEmpty()) || (task.getGitPrUrl() != null && !task.getGitPrUrl().isBlank());
-            if (!hasDeliverable) {
-                violations.add("Done Gate Policy: Verification requires at least 1 deliverable attachment or linked Pull Request URL.");
-            }
-        }
-
-        boolean requiresOverride = !violations.isEmpty();
-        return com.syncflow.dto.WorkflowGateValidationResultDTO.builder()
-                .allowed(!requiresOverride)
-                .targetStageName(targetStage.getName())
-                .requiresOverride(requiresOverride)
-                .violations(violations)
-                .blockingTaskTitles(blockingTaskTitles)
-                .uncompletedSubtasksCount(uncompletedSubtasks)
-                .hasDeliverableAttachment(hasDeliverable)
-                .build();
+    public WorkflowGateValidationResultDTO validateTransitionGate(Long taskId, Long targetStageId) {
+        Task task = requireTask(taskId);
+        return workflowGateService.evaluate(task, requireStageInProject(targetStageId, task.getProject().getId()));
     }
 
     @Override
     @Transactional
-    public TaskDTO linkGit(Long taskId, com.syncflow.dto.GitLinkRequest request) {
-        Task task = taskRepositoryPort.findById(taskId)
-                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
-
-        task.setGitBranch(request.getGitBranch());
-        task.setGitCommitHash(request.getGitCommitHash());
-        task.setGitPrUrl(request.getGitPrUrl());
-
-        Task saved = taskRepositoryPort.save(task);
-        log.info("Linked Git repository to task {}: branch={}, commit={}, pr={}", taskId, request.getGitBranch(), request.getGitCommitHash(), request.getGitPrUrl());
-
-        TaskDTO dto = toDTO(saved);
-        taskNotificationPort.broadcastBoardUpdate(dto);
-        return dto;
-    }
-
-    public TaskDTO toDTO(Task task) {
-        String assigneeName = task.getAssignee() != null ? task.getAssignee().getFullName() : "Unassigned";
-        String avatar = getInitials(assigneeName);
-
-        String sprintName = null;
-        if (task.getSprintId() != null) {
-            sprintName = sprintRepository.findById(task.getSprintId()).map(com.syncflow.model.Sprint::getName).orElse(null);
+    public TaskDTO linkGit(Long taskId, GitLinkRequest request) {
+        Task task = requireTask(taskId);
+        task.setGitBranch(optionalText(request.getGitBranch(), "Branch", 150));
+        task.setGitCommitHash(optionalText(request.getGitCommitHash(), "Commit hash", 64));
+        String prUrl = request.getGitPrUrl() != null && !request.getGitPrUrl().isBlank()
+                ? requireHttpUrl(request.getGitPrUrl(), "Pull request URL")
+                : null;
+        if (prUrl != null && prUrl.length() > 500) {
+            throw new DomainException("Pull request URL is too long");
         }
-
-        return TaskDTO.builder()
-                .id(task.getId())
-                .title(task.getTitle())
-                .description(task.getDescription())
-                .priority(task.getPriority())
-                .progress(task.getProgressPercentage() != null ? task.getProgressPercentage() : 0)
-                .stageId(task.getStage() != null ? task.getStage().getId() : null)
-                .stageName(task.getStage() != null ? task.getStage().getName() : "")
-                .projectId(task.getProject() != null ? task.getProject().getId() : null)
-                .projectName(task.getProject() != null ? task.getProject().getName() : "")
-                .assigneeId(task.getAssignee() != null ? task.getAssignee().getId() : null)
-                .assignee(assigneeName)
-                .avatar(avatar)
-                .isBlocked(Boolean.TRUE.equals(task.getIsBlocked()))
-                .blockerReason(task.getBlockerReason())
-                .deadline(task.getDeadline())
-                .isArchived(Boolean.TRUE.equals(task.getIsArchived()))
-                .archivedAt(task.getArchivedAt())
-                .archivedBy(task.getArchivedBy())
-                .startDate(task.getStartDate())
-                .sprintId(task.getSprintId())
-                .sprintName(sprintName)
-                .storyPoints(task.getStoryPoints() != null ? task.getStoryPoints() : 3)
-                .gitBranch(task.getGitBranch())
-                .gitCommitHash(task.getGitCommitHash())
-                .gitPrUrl(task.getGitPrUrl())
-                .estimatedHours(task.getEstimatedHours() != null ? task.getEstimatedHours() : 8.0)
-                .totalHoursSpent(task.getTotalHoursSpent() != null ? task.getTotalHoursSpent() : 0.0)
-                .build();
+        task.setGitPrUrl(prUrl);
+        return saveAndBroadcast(task);
     }
 
-    private String getInitials(String name) {
-        if (name == null || name.isBlank()) return "UN";
-        String[] parts = name.trim().split("\\s+");
-        if (parts.length >= 2) {
-            return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
-        }
-        return name.length() >= 2 ? name.substring(0, 2).toUpperCase() : name.toUpperCase();
-    }
+    // ---------------------------------------------------------------- time tracking
 
-    // --- Time Tracking & Work Logs ---
     @Override
     @Transactional
-    public com.syncflow.dto.TaskTimeLogDTO logTime(Long taskId, com.syncflow.dto.LogTimeRequest request, String userEmail) {
-        Task task = taskRepositoryPort.findById(taskId)
-                .orElseThrow(() -> new DomainException("Task not found: " + taskId));
-
-        User user = null;
-        if (userEmail != null) {
-            user = userRepositoryPort.findByEmail(userEmail).orElse(null);
-        }
-        if (user == null && task.getAssignee() != null) {
-            user = task.getAssignee();
-        }
+    public TaskTimeLogDTO logTime(Long taskId, LogTimeRequest request) {
+        Task task = requireTask(taskId);
+        User user = actorEntity();
         if (user == null) {
-            user = userRepositoryPort.findByEmail("admin@syncflow.bank")
-                    .orElseThrow(() -> new DomainException("User context required to log time"));
+            throw new ForbiddenException("An authenticated user is required to log time");
+        }
+        if (request.getHoursSpent() > 24) {
+            throw new DomainException("Cannot log more than 24 hours in a single entry");
+        }
+        LocalDate loggedDate = request.getLoggedDate() != null ? request.getLoggedDate() : LocalDate.now();
+        if (loggedDate.isAfter(LocalDate.now())) {
+            throw new DomainException("Time cannot be logged for a future date");
         }
 
-        com.syncflow.model.TaskTimeLog timeLog = com.syncflow.model.TaskTimeLog.builder()
+        TaskTimeLog saved = taskTimeLogRepository.save(TaskTimeLog.builder()
                 .task(task)
                 .user(user)
                 .hoursSpent(request.getHoursSpent())
-                .description(request.getDescription())
-                .loggedDate(request.getLoggedDate() != null ? request.getLoggedDate() : java.time.LocalDate.now())
+                .description(optionalText(request.getDescription(), "Description", 500))
+                .loggedDate(loggedDate)
                 .createdAt(Instant.now())
-                .build();
+                .build());
 
-        com.syncflow.model.TaskTimeLog saved = taskTimeLogRepository.save(timeLog);
-
-        Double total = taskTimeLogRepository.sumHoursByTaskId(taskId);
-        task.setTotalHoursSpent(total != null ? total : request.getHoursSpent());
-
+        task.setTotalHoursSpent(taskTimeLogRepository.sumHoursByTaskId(taskId));
         if (request.getEstimatedHours() != null && request.getEstimatedHours() > 0) {
             task.setEstimatedHours(request.getEstimatedHours());
         }
         taskRepositoryPort.save(task);
 
-        try {
-            auditLogUseCase.recordLog(
-                    "TIME_LOGGED",
-                    "TASK",
-                    taskId,
-                    task.getTitle(),
-                    user.getFullName(),
-                    null,
-                    "HOURS: " + request.getHoursSpent(),
-                    "Logged " + request.getHoursSpent() + "h on task '" + task.getTitle() + "'. Note: " + request.getDescription()
-            );
-        } catch (Exception e) {
-            log.warn("Failed to record time log audit: {}", e.getMessage());
-        }
-
+        auditLogUseCase.recordLog("TIME_LOGGED", "TASK", taskId, task.getTitle(), null, null, null,
+                "Logged " + request.getHoursSpent() + "h" + (request.getDescription() != null ? ": " + request.getDescription() : ""));
         return toTimeLogDTO(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<com.syncflow.dto.TaskTimeLogDTO> getTaskTimeLogs(Long taskId) {
-        return taskTimeLogRepository.findByTaskIdOrderByCreatedAtDesc(taskId)
-                .stream()
+    public List<TaskTimeLogDTO> getTaskTimeLogs(Long taskId) {
+        return taskTimeLogRepository.findByTaskIdOrderByCreatedAtDesc(taskId).stream()
                 .map(this::toTimeLogDTO)
                 .toList();
     }
 
     @Override
     @Transactional
-    public void deleteTimeLog(Long logId, String userEmail) {
-        com.syncflow.model.TaskTimeLog logEntry = taskTimeLogRepository.findById(logId)
-                .orElseThrow(() -> new DomainException("Time log not found: " + logId));
+    public void deleteTimeLog(Long logId) {
+        TaskTimeLog entry = taskTimeLogRepository.findById(logId)
+                .orElseThrow(() -> new NotFoundException("Time log not found: " + logId));
+        UserDetailsImpl user = currentUser.require();
+        if (!entry.getUser().getId().equals(user.getId()) && !CurrentUser.isAdmin(user)) {
+            throw new ForbiddenException("You can only delete your own time entries");
+        }
 
-        Task task = logEntry.getTask();
-        taskTimeLogRepository.delete(logEntry);
-
-        Double total = taskTimeLogRepository.sumHoursByTaskId(task.getId());
-        task.setTotalHoursSpent(total != null ? total : 0.0);
+        Task task = entry.getTask();
+        taskTimeLogRepository.delete(entry);
+        taskTimeLogRepository.flush();
+        task.setTotalHoursSpent(taskTimeLogRepository.sumHoursByTaskId(task.getId()));
         taskRepositoryPort.save(task);
+        auditLogUseCase.recordLog("TIME_LOG_DELETED", "TASK", task.getId(), task.getTitle(), null, null, null,
+                "Removed " + entry.getHoursSpent() + "h entry from " + entry.getLoggedDate());
     }
 
-    private com.syncflow.dto.TaskTimeLogDTO toTimeLogDTO(com.syncflow.model.TaskTimeLog logEntry) {
-        return com.syncflow.dto.TaskTimeLogDTO.builder()
+    private TaskTimeLogDTO toTimeLogDTO(TaskTimeLog logEntry) {
+        User u = logEntry.getUser();
+        return TaskTimeLogDTO.builder()
                 .id(logEntry.getId())
                 .taskId(logEntry.getTask() != null ? logEntry.getTask().getId() : null)
                 .taskTitle(logEntry.getTask() != null ? logEntry.getTask().getTitle() : null)
-                .userId(logEntry.getUser() != null ? logEntry.getUser().getId() : null)
-                .userName(logEntry.getUser() != null ? logEntry.getUser().getFullName() : "Unknown")
-                .userEmail(logEntry.getUser() != null ? logEntry.getUser().getEmail() : "")
-                .userRole(logEntry.getUser() != null && logEntry.getUser().getRole() != null ? logEntry.getUser().getRole().getName() : "CONTRIBUTOR")
+                .userId(u != null ? u.getId() : null)
+                .userName(u != null ? u.getFullName() : "Unknown")
+                .userEmail(u != null ? u.getEmail() : "")
+                .userRole(u != null && u.getRole() != null ? u.getRole().getName() : "CONTRIBUTOR")
                 .hoursSpent(logEntry.getHoursSpent())
                 .description(logEntry.getDescription())
                 .loggedDate(logEntry.getLoggedDate())
                 .createdAt(logEntry.getCreatedAt())
                 .build();
+    }
+
+    // ---------------------------------------------------------------- helpers
+
+    private TaskDTO saveAndBroadcast(Task task) {
+        TaskDTO dto = taskMapper.toDTO(taskRepositoryPort.save(task));
+        taskNotificationPort.broadcastBoardUpdate(dto);
+        return dto;
+    }
+
+    private Task requireTask(Long id) {
+        return taskRepositoryPort.findById(id)
+                .orElseThrow(() -> new NotFoundException("Task not found: " + id));
+    }
+
+    private Stage requireStageInProject(Long stageId, Long projectId) {
+        Stage stage = stageRepositoryPort.findById(stageId)
+                .orElseThrow(() -> new NotFoundException("Stage not found: " + stageId));
+        if (!stage.getProject().getId().equals(projectId)) {
+            throw new DomainException("The stage belongs to a different project");
+        }
+        return stage;
+    }
+
+    private User requireActiveUser(UUID userId) {
+        User user = userRepositoryPort.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found: " + userId));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new DomainException(user.getFullName() + " is not an active user");
+        }
+        return user;
+    }
+
+    /** Managed entity of the current user, or null for system-initiated calls. */
+    private User actorEntity() {
+        return currentUser.get().flatMap(u -> userRepositoryPort.findById(u.getId())).orElse(null);
+    }
+
+    private String actorName() {
+        return currentUser.get().map(UserDetailsImpl::getFullName).orElse("SyncFlow System");
+    }
+
+    private static String requireText(String value, String field, int maxLength) {
+        if (value == null || value.isBlank()) {
+            throw new DomainException(field + " is required");
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() > maxLength) {
+            throw new DomainException(field + " must be at most " + maxLength + " characters");
+        }
+        return trimmed;
+    }
+
+    private static String optionalText(String value, String field, int maxLength) {
+        if (value == null || value.isBlank()) return null;
+        return requireText(value, field, maxLength);
+    }
+
+    /** Only absolute http(s) URLs are accepted, which rules out javascript:/data: links rendered in the UI. */
+    static String requireHttpUrl(String value, String field) {
+        try {
+            URI uri = new URI(value.trim());
+            String scheme = uri.getScheme() != null ? uri.getScheme().toLowerCase(Locale.ROOT) : "";
+            if ((scheme.equals("http") || scheme.equals("https")) && uri.getHost() != null) {
+                return uri.toString();
+            }
+        } catch (Exception ignored) {
+            // fall through to the validation error
+        }
+        throw new DomainException(field + " must be an absolute http(s) URL");
+    }
+
+    private static String timeAgo(Instant at) {
+        if (at == null) return "Just now";
+        Duration d = Duration.between(at, Instant.now());
+        if (d.toDays() > 0) return d.toDays() + "d ago";
+        if (d.toHours() > 0) return d.toHours() + "h ago";
+        if (d.toMinutes() > 0) return d.toMinutes() + "m ago";
+        return "Just now";
     }
 }

@@ -1,10 +1,16 @@
 package com.syncflow.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.syncflow.common.web.ApiError;
+import com.syncflow.config.SyncFlowProperties;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
-import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -21,6 +27,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 
 @Configuration
@@ -31,7 +39,8 @@ public class SecurityConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
     private final AuthTokenFilter authTokenFilter;
-    private final CustomPermissionEvaluator permissionEvaluator;
+    private final SyncFlowProperties properties;
+    private final ObjectMapper objectMapper;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -52,23 +61,28 @@ public class SecurityConfig {
     }
 
     @Bean
-    public MethodSecurityExpressionHandler methodSecurityExpressionHandler() {
-        DefaultMethodSecurityExpressionHandler expressionHandler = new DefaultMethodSecurityExpressionHandler();
-        expressionHandler.setPermissionEvaluator(permissionEvaluator);
-        return expressionHandler;
-    }
-
-    @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .headers(headers -> headers
+                .contentTypeOptions(c -> {})
+                .frameOptions(f -> f.deny()))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/v1/auth/**", "/api/v1/auth/**").permitAll()
-                .requestMatchers("/ws/**", "/api/ws/**", "/ws-syncflow/**", "/api/ws-syncflow/**").permitAll()
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/v1/auth/login", "/v1/auth/refresh", "/v1/auth/logout").permitAll()
+                // SockJS/WebSocket handshake; the STOMP CONNECT frame is authenticated by StompAuthChannelInterceptor
+                .requestMatchers("/ws/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, e) ->
+                        writeError(request, response, HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Authentication required"))
+                .accessDeniedHandler((request, response, e) ->
+                        writeError(request, response, HttpStatus.FORBIDDEN, "FORBIDDEN",
+                                "You do not have permission to perform this action"))
             );
 
         http.authenticationProvider(authenticationProvider());
@@ -80,13 +94,24 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:4200", "http://localhost:8100", "capacitor://localhost"));
+        configuration.setAllowedOrigins(properties.getCors().getAllowedOrigins());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Elevation-Token"));
+        configuration.setExposedHeaders(List.of("Content-Disposition"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    private void writeError(HttpServletRequest request, HttpServletResponse response, HttpStatus status,
+                            String code, String message) throws IOException {
+        response.setStatus(status.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        ApiError body = new ApiError(Instant.now(), status.value(), status.getReasonPhrase(), code, message,
+                request.getRequestURI(), List.of());
+        objectMapper.writeValue(response.getOutputStream(), body);
     }
 }

@@ -1,5 +1,7 @@
 package com.syncflow.model;
 
+import com.syncflow.model.enums.*;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,11 +22,11 @@ public class Task {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "project_id", nullable = false)
     private Project project;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "stage_id")
     private Stage stage;
 
@@ -36,7 +38,8 @@ public class Task {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String priority = "MEDIUM"; // LOW, MEDIUM, HIGH, CRITICAL
+    @Enumerated(EnumType.STRING)
+    private TaskPriority priority = TaskPriority.MEDIUM;
 
     @Column(name = "deadline")
     private Instant deadline;
@@ -45,11 +48,11 @@ public class Task {
     @Builder.Default
     private Integer progressPercentage = 0; // 0 - 100%
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignee_id")
     private User assignee;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reporter_id")
     private User reporter;
 
@@ -65,7 +68,7 @@ public class Task {
     private Instant blockedAt;
 
     // Review & Approval system
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "approved_by")
     private User approvedBy;
 
@@ -94,6 +97,10 @@ public class Task {
     private String archivedBy;
 
     // Timeline & Scheduling
+    /** When the task last entered a done stage; null while open. Drives burndown and cycle time. */
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
     @Column(name = "start_date")
     private Instant startDate;
 

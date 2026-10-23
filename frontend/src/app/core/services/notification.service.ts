@@ -3,12 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { INotificationPort } from '../ports/notification.port';
 import { NotificationItem, NotificationSummary } from '../models/notification.models';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class NotificationService implements INotificationPort {
-  private readonly baseUrl = 'http://localhost:9090/api/v1/notifications';
+  private readonly baseUrl = `${environment.apiBaseUrl}/v1/notifications`;
 
   constructor(private http: HttpClient) {}
 

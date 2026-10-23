@@ -1,13 +1,18 @@
 package com.syncflow;
 
+import com.syncflow.config.SyncFlowProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableCaching
 @EnableScheduling
+@EnableAsync(proxyTargetClass = true)
+@EnableConfigurationProperties(SyncFlowProperties.class)
 public class SyncFlowApplication {
 
     public static void main(String[] args) {

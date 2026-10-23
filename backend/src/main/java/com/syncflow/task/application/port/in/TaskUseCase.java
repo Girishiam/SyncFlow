@@ -1,18 +1,14 @@
 package com.syncflow.task.application.port.in;
 
-import com.syncflow.dto.AddCommentRequest;
-import com.syncflow.dto.CreateTaskRequest;
-import com.syncflow.dto.MoveTaskRequest;
-import com.syncflow.dto.SetBlockerRequest;
-import com.syncflow.dto.TaskCommentDTO;
-import com.syncflow.dto.TaskDTO;
-
-import com.syncflow.dto.AssignTaskRequest;
-import com.syncflow.dto.UpdateDeadlineRequest;
+import com.syncflow.dto.*;
+import org.springframework.core.io.Resource;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.UUID;
 
+/**
+ * Task workflow use cases. The acting user is always the authenticated principal.
+ */
 public interface TaskUseCase {
     TaskDTO createTask(CreateTaskRequest request);
     TaskDTO moveTask(Long id, MoveTaskRequest request);
@@ -20,44 +16,48 @@ public interface TaskUseCase {
     TaskDTO setBlocker(Long id, SetBlockerRequest request);
     TaskDTO getTaskDetails(Long id);
     List<TaskCommentDTO> getTaskComments(Long taskId);
-    TaskCommentDTO addComment(Long taskId, AddCommentRequest request, UUID authorId);
+    TaskCommentDTO addComment(Long taskId, AddCommentRequest request);
     TaskDTO assignTask(Long id, AssignTaskRequest request);
     TaskDTO updateDeadline(Long id, UpdateDeadlineRequest request);
 
     // Subtasks & Deliverable QA Checklist
-    List<com.syncflow.dto.SubtaskDTO> getSubtasks(Long taskId);
-    com.syncflow.dto.SubtaskDTO addSubtask(Long taskId, String title, String authorName);
-    com.syncflow.dto.SubtaskDTO toggleSubtask(Long taskId, Long subtaskId, String actorName);
+    List<SubtaskDTO> getSubtasks(Long taskId);
+    SubtaskDTO addSubtask(Long taskId, String title);
+    SubtaskDTO toggleSubtask(Long taskId, Long subtaskId);
     void deleteSubtask(Long taskId, Long subtaskId);
 
-    // Artifacts & File Attachments
-    List<com.syncflow.dto.TaskAttachmentDTO> getAttachments(Long taskId);
-    com.syncflow.dto.TaskAttachmentDTO addAttachment(Long taskId, String fileName, String fileType, String fileSize, String fileUrl, String uploadedBy);
+    // Attachments: uploaded files and external links
+    List<TaskAttachmentDTO> getAttachments(Long taskId);
+    TaskAttachmentDTO addLinkAttachment(Long taskId, String name, String url);
+    TaskAttachmentDTO uploadAttachment(Long taskId, MultipartFile file);
+    AttachmentDownload downloadAttachment(Long taskId, Long attachmentId);
     void deleteAttachment(Long taskId, Long attachmentId);
 
+    record AttachmentDownload(Resource resource, String fileName, String contentType, Long sizeBytes) {
+    }
+
     // Archiving & Lifecycle
-    TaskDTO archiveTask(Long id, String operatorName);
-    TaskDTO restoreTask(Long id, String operatorName);
+    TaskDTO archiveTask(Long id);
+    TaskDTO restoreTask(Long id);
     List<TaskDTO> getArchivedTasks(Long projectId);
 
     // Dependencies & Blocker Links
-    List<com.syncflow.dto.TaskDependencyDTO> getDependencies(Long taskId);
-    com.syncflow.dto.TaskDependencyDTO addDependency(Long sourceTaskId, Long targetTaskId, String type, String operatorName);
+    List<TaskDependencyDTO> getDependencies(Long taskId);
+    TaskDependencyDTO addDependency(Long sourceTaskId, Long targetTaskId, String type);
     void deleteDependency(Long dependencyId);
 
     // Sprint & Story Points
     TaskDTO updateStoryPoints(Long taskId, Integer points);
     TaskDTO assignSprint(Long taskId, Long sprintId);
 
-    // Quality Gates & Enterprise Transition Policies
-    com.syncflow.dto.WorkflowGateValidationResultDTO validateTransitionGate(Long taskId, Long targetStageId);
+    // Quality Gates
+    WorkflowGateValidationResultDTO validateTransitionGate(Long taskId, Long targetStageId);
 
     // Git / VCS Connectors
-    TaskDTO linkGit(Long taskId, com.syncflow.dto.GitLinkRequest request);
+    TaskDTO linkGit(Long taskId, GitLinkRequest request);
 
-    // Time Tracking & Work Logs
-    com.syncflow.dto.TaskTimeLogDTO logTime(Long taskId, com.syncflow.dto.LogTimeRequest request, String userEmail);
-    List<com.syncflow.dto.TaskTimeLogDTO> getTaskTimeLogs(Long taskId);
-    void deleteTimeLog(Long logId, String userEmail);
+    // Time Tracking
+    TaskTimeLogDTO logTime(Long taskId, LogTimeRequest request);
+    List<TaskTimeLogDTO> getTaskTimeLogs(Long taskId);
+    void deleteTimeLog(Long logId);
 }
-

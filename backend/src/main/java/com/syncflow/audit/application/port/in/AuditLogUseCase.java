@@ -11,7 +11,11 @@ public interface AuditLogUseCase {
 
     List<AuditLogDTO> getAuditLogs(String action, String entityType, int page, int size);
     
+    /** Metrics with incremental hash-chain verification. */
     Map<String, Object> getAuditMetrics();
+
+    /** Re-verifies the entire hash chain from the first record. */
+    Map<String, Object> verifyFullChain();
 
     byte[] exportAuditLogsCsv(String action, String entityType);
 }

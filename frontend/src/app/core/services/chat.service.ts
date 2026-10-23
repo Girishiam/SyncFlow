@@ -3,12 +3,13 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Channel, ChatMessage, BankUser } from '../models/project.models';
 import { IChatPort, CreateChannelPayload, UpdateChannelPayload } from '../ports/chat.port';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class ChatService implements IChatPort {
-  private readonly apiUrl = 'http://localhost:9090/api/v1/channels';
+  private readonly apiUrl = `${environment.apiBaseUrl}/v1/channels`;
 
   constructor(private http: HttpClient) {}
 
@@ -40,8 +41,11 @@ export class ChatService implements IChatPort {
     return this.http.delete<void>(`${this.apiUrl}/${channelId}/members/${userId}`);
   }
 
-  getMessages(channelId: number): Observable<ChatMessage[]> {
-    return this.http.get<ChatMessage[]>(`${this.apiUrl}/${channelId}/messages`);
+  /** Newest page of messages (oldest first); pass `before` (a message id) to load earlier history. */
+  getMessages(channelId: number, before?: number, limit = 50): Observable<ChatMessage[]> {
+    const params: Record<string, string> = { limit: String(limit) };
+    if (before) params['before'] = String(before);
+    return this.http.get<ChatMessage[]>(`${this.apiUrl}/${channelId}/messages`, { params });
   }
 
   sendMessage(channelId: number, content: string): Observable<ChatMessage> {

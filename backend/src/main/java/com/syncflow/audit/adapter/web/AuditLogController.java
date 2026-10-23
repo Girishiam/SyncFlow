@@ -16,6 +16,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/v1/audit-logs")
+@org.springframework.security.access.prepost.PreAuthorize("@access.can('AUDIT:VIEW')")
 @RequiredArgsConstructor
 @Slf4j
 public class AuditLogController {
@@ -34,6 +35,12 @@ public class AuditLogController {
     @GetMapping("/metrics")
     public ResponseEntity<Map<String, Object>> getAuditMetrics() {
         return ResponseEntity.ok(auditLogUseCase.getAuditMetrics());
+    }
+
+    /** Full re-verification of the tamper-evident chain (also runs nightly). */
+    @PostMapping("/verify")
+    public ResponseEntity<Map<String, Object>> verifyChain() {
+        return ResponseEntity.ok(auditLogUseCase.verifyFullChain());
     }
 
     @GetMapping("/export/csv")

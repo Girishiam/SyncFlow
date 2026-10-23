@@ -21,6 +21,11 @@ public class ChannelPersistenceAdapter implements ChannelRepositoryPort {
     }
 
     @Override
+    public List<Channel> findVisibleTo(java.util.UUID userId) {
+        return channelRepository.findVisibleTo(userId);
+    }
+
+    @Override
     public Optional<Channel> findById(Long id) {
         return channelRepository.findById(id);
     }

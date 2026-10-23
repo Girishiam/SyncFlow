@@ -1,0 +1,276 @@
+<div class="board-view">
+  <!-- KPI Metric Row -->
+  <div class="metric-row">
+    <div class="metric-card">
+      <span class="metric-label">Active Tasks</span>
+      <div class="metric-num">{{ totalTasksCount() }}</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">Completion</span>
+      <div class="metric-num">{{ completionPercentage() }}%</div>
+    </div>
+    <div class="metric-card" [class.alert]="blockedCount() > 0">
+      <span class="metric-label">Blockers</span>
+      <div class="metric-num">{{ blockedCount() }}</div>
+    </div>
+    <div class="metric-card">
+      <span class="metric-label">On-Time Delivery</span>
+      <div class="metric-num" [title]="onTimeDelivery().sample + ' completed task(s) with a deadline'">{{ onTimeDelivery().rate !== null ? onTimeDelivery().rate + '%' : '—' }}</div>
+    </div>
+    <div class="metric-card time-metric-card" (click)="openProjectTimeModal()" title="Click to view collective project time breakdown">
+      <div class="metric-header-row">
+        <span class="metric-label">Project Time</span>
+        <span class="metric-badge">Collective</span>
+      </div>
+      <div class="metric-num">{{ projectTimeSummary()?.totalHoursSpent || 0 }} hrs</div>
+      <span class="metric-sub">{{ projectTimeSummary()?.developerBreakdown?.length || 0 }} contributors</span>
+    </div>
+  </div>
+
+  <!-- Board Filters Bar -->
+  <div class="board-filters-bar">
+    <div class="filter-pill-group">
+      <button
+        class="filter-pill"
+        [class.active]="filterMode() === 'ALL'"
+        (click)="setFilterMode('ALL')"
+      >
+        All Tasks
+      </button>
+      <button
+        class="filter-pill"
+        [class.active]="filterMode() === 'MY_TASKS'"
+        (click)="setFilterMode('MY_TASKS')"
+      >
+        My Assigned
+      </button>
+      <button
+        class="filter-pill"
+        [class.active]="filterMode() === 'BLOCKED'"
+        (click)="setFilterMode('BLOCKED')"
+      >
+        Blocked Only
+      </button>
+      <button
+        class="filter-pill"
+        [class.active]="filterMode() === 'CRITICAL_HIGH'"
+        (click)="setFilterMode('CRITICAL_HIGH')"
+      >
+        Critical & High
+      </button>
+      <button
+        class="filter-pill toggle-active-pill"
+        [class.active]="hideCompletedFilter()"
+        (click)="toggleHideCompleted()"
+        title="Toggle active tasks only (hide completed cards)"
+      >
+        Active Only
+      </button>
+      <button
+        class="filter-pill automations-pill"
+        (click)="openAutomationsModal()"
+        title="Butler Automations Rules"
+      >
+        ⚡ Butler Rules
+      </button>
+      <button
+        class="filter-pill archive-pill"
+        (click)="openArchivedDrawer()"
+        title="View Archived Tasks"
+      >
+        📦 Archived ({{ archivedTasks().length }})
+      </button>
+    </div>
+
+    <div *ngIf="searchQuery()" class="search-active-hint">
+      <span>Filtering: "<strong>{{ searchQuery() }}</strong>"</span>
+      <button class="clear-search-btn" (click)="searchQuery.set('')">×</button>
+    </div>
+  </div>
+
+  <!-- Kanban Drag-Drop Columns -->
+  <div class="kanban-board" cdkDropListGroup>
+    <div *ngFor="let col of filteredColumns()" class="board-column">
+      <div class="col-header">
+        <div class="col-title-wrap">
+          <span class="col-title">{{ col.title }}</span>
+          <span class="col-count">{{ col.tasks.length }}</span>
+        </div>
+        <div class="col-gates" aria-label="Quality gates for entering this stage">
+          <button type="button" class="gate-chip" [class.on]="col.requiresChecklistComplete"
+                  [disabled]="!boardFacade.canBuildStages()"
+                  (click)="boardFacade.toggleStageGate(col, 'requiresChecklistComplete')"
+                  [title]="(col.requiresChecklistComplete ? 'Requires' : 'Does not require') + ' a completed checklist to enter'">☑</button>
+          <button type="button" class="gate-chip" [class.on]="col.requiresNoBlockers"
+                  [disabled]="!boardFacade.canBuildStages()"
+                  (click)="boardFacade.toggleStageGate(col, 'requiresNoBlockers')"
+                  [title]="(col.requiresNoBlockers ? 'Requires' : 'Does not require') + ' no open blockers to enter'">⛔</button>
+          <button type="button" class="gate-chip" [class.on]="col.requiresDeliverable"
+                  [disabled]="!boardFacade.canBuildStages()"
+                  (click)="boardFacade.toggleStageGate(col, 'requiresDeliverable')"
+                  [title]="(col.requiresDeliverable ? 'Requires' : 'Does not require') + ' a deliverable or pull request to enter'">📎</button>
+        </div>
+        <button class="col-add" (click)="openCreateTask(col.numericId)" title="Add Task to {{ col.title }}">+</button>
+      </div>
+
+      <div
+        class="cards-container"
+        cdkDropList
+        [id]="col.id"
+        [cdkDropListData]="col.tasks"
+        (cdkDropListDropped)="onDrop($event)"
+      >
+        <div
+          *ngFor="let task of col.tasks"
+          class="board-card"
+          [class.blocked-card]="task.isBlocked"
+          [class.completed-card]="task.progress === 100 || col.isDoneStage"
+          cdkDrag
+          cdkDragPreviewContainer="parent"
+        >
+          <div class="card-meta">
+            <div class="meta-left">
+              <span class="task-id-badge">#{{ task.id }}</span>
+              <span
+                class="priority-chip"
+                [class.critical]="task.priority === 'CRITICAL'"
+                [class.high]="task.priority === 'HIGH'"
+                [class.medium]="task.priority === 'MEDIUM'"
+                [class.low]="task.priority === 'LOW'"
+              >
+                {{ task.priority }}
+              </span>
+            </div>
+
+            <div class="meta-right">
+              <span *ngIf="task.progress === 100 || col.isDoneStage" class="done-tag-mini" title="Verified Complete">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                DONE
+              </span>
+              <span class="points-badge" title="Story Points">{{ task.storyPoints || 3 }} pts</span>
+
+              <!-- Time Tracker Badge & 1-Click Live Stopwatch on Card -->
+              <span class="time-tracker-chip" [class.running]="isTimerActive() && timerTaskId() === task.id" title="Logged hours / estimated">
+                <span class="time-chip-icon">⏱️</span>
+                <span class="time-hrs-val">{{ task.totalHoursSpent || 0 }}h</span>
+                <button
+                  *ngIf="isTimerActive() && timerTaskId() === task.id; else startTimerBtn"
+                  class="quick-timer-btn active"
+                  (click)="stopTimerAndLog(task.id, $event)"
+                  title="Stop live stopwatch and log time"
+                >
+                  ⏹ {{ formatTimerDisplay(timerElapsedSeconds()) }}
+                </button>
+                <ng-template #startTimerBtn>
+                  <button
+                    class="quick-timer-btn"
+                    (click)="startTimer(task.id, $event)"
+                    title="Start live stopwatch timer"
+                  >
+                    ▶
+                  </button>
+                </ng-template>
+              </span>
+            </div>
+          </div>
+
+          <!-- Task Title -->
+          <div class="card-title" (click)="openTaskDetail(task)" title="Click to view details & discussion">
+            {{ task.title }}
+          </div>
+
+          <!-- Deadline if set -->
+          <div *ngIf="task.deadline" class="card-deadline-row">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+              <line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/>
+              <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span>Due {{ task.deadline | date:'MMM d' }}</span>
+          </div>
+
+          <!-- Blocker Badge if Active -->
+          <div *ngIf="task.isBlocked" class="blocker-pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+            <span>{{ task.blockerReason || 'Blocker reported' }}</span>
+          </div>
+
+          <!-- Sleek Progress Bar -->
+          <div class="progress-wrap">
+            <div class="progress-header">
+              <span class="p-label">Progress</span>
+              <span class="p-val">{{ task.progress }}%</span>
+            </div>
+            <div class="sleek-progress-bar" (click)="cycleTaskProgress(task, $event)" title="Click to increment progress (+25%)">
+              <div class="sleek-progress-fill" [style.width.%]="task.progress"></div>
+            </div>
+          </div>
+
+          <!-- Card Footer -->
+          <div class="card-footer">
+            <div class="assignee-wrap" (click)="openTaskDetail(task)" title="View Task Details">
+              <div class="user-avatar-sm">{{ task.avatar || (task.assignee ? task.assignee.substring(0, 2).toUpperCase() : 'UN') }}</div>
+              <span class="assignee-name">{{ task.assignee || 'Unassigned' }}</span>
+            </div>
+
+            <div class="card-actions-row">
+              <button
+                class="detail-icon-btn"
+                (click)="openTaskDetail(task)"
+                title="View task details and comments"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </button>
+
+              <button
+                class="blocker-btn"
+                [class.active]="task.isBlocked"
+                (click)="openBlocker(task)"
+                [title]="task.isBlocked ? 'Resolve blocker' : 'Raise blocker'"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </button>
+
+              <button
+                *ngIf="task.progress === 100 || col.isDoneStage"
+                class="card-archive-btn"
+                (click)="$event.stopPropagation(); archiveTask(task)"
+                title="Archive completed card from active board"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="21 8 21 21 3 21 3 8"></polyline>
+                  <rect x="1" y="3" width="22" height="5"></rect>
+                  <line x1="10" y1="12" x2="14" y2="12"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Stage Column -->
+    <div class="add-stage-column">
+      <button class="add-stage-btn" (click)="openCreateStage()" title="Add custom workflow stage">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        <span>Add Stage</span>
+      </button>
+    </div>
+  </div>
+</div>

@@ -25,6 +25,19 @@ public class MessagePersistenceAdapter implements MessageRepositoryPort, Message
     }
 
     @Override
+    public List<Message> findPage(Long channelId, Long beforeId, int limit) {
+        org.springframework.data.domain.Pageable page = org.springframework.data.domain.PageRequest.of(0, limit);
+        return beforeId != null
+                ? messageRepository.findByChannelIdAndIdLessThanOrderByIdDesc(channelId, beforeId, page)
+                : messageRepository.findByChannelIdOrderByIdDesc(channelId, page);
+    }
+
+    @Override
+    public List<MessageSeenReceipt> findByMessageIds(java.util.Collection<Long> messageIds) {
+        return messageIds.isEmpty() ? List.of() : receiptRepository.findByMessageIdIn(messageIds);
+    }
+
+    @Override
     public Optional<Message> findById(Long id) {
         return messageRepository.findById(id);
     }

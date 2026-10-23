@@ -8,8 +8,14 @@ public interface TaskRepositoryPort {
     Task save(Task task);
     Optional<Task> findById(Long id);
     List<Task> findByProjectId(Long projectId);
+    /** Non-archived tasks with stage and assignee loaded (board views). */
+    List<Task> findByProjectIdAndIsArchivedFalse(Long projectId);
+    List<Task> findByProjectIdAndIsArchivedTrue(Long projectId);
+    List<Task> findBySprintId(Long sprintId);
+    List<Task> findAllById(java.util.Collection<Long> ids);
     List<Task> findByStageId(Long stageId);
     List<Task> findByAssigneeId(java.util.UUID assigneeId);
     List<Task> findAll();
+    List<Task> findOpenAssignedWithDeadlineBefore(java.time.Instant until);
     void deleteById(Long id);
 }

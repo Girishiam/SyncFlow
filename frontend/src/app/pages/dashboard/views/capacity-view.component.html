@@ -1,0 +1,128 @@
+<div class="capacity-view">
+  <div class="view-header-row">
+    <div>
+      <h2>Team Workload Capacity & Resource Matrix</h2>
+      <p class="view-subtitle">Active 2-week sprint capacity balance, over-allocation alerts, and workload redistribution</p>
+    </div>
+    <div class="header-action-group">
+      <button class="btn-refresh-pill" (click)="refreshCapacity()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        <span>Refresh Capacity</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Capacity High-Level Summary -->
+  <div class="capacity-kpi-grid">
+    <div class="cap-card">
+      <span class="cap-label">Total Sprint Capacity</span>
+      <div class="cap-num">{{ teamCapacity()?.totalSprintCapacity ?? 0 }} <small>pts</small></div>
+      <span class="cap-sub">Excludes members on leave</span>
+    </div>
+    <div class="cap-card">
+      <span class="cap-label">Assigned Workload</span>
+      <div class="cap-num text-emerald">{{ teamCapacity()?.totalAssignedPoints ?? 0 }} <small>pts</small></div>
+      <span class="cap-sub">Open work (active sprint when running)</span>
+    </div>
+    <div class="cap-card">
+      <span class="cap-label">Overall Squad Utilization</span>
+      <div class="cap-num">{{ teamCapacity()?.overallUtilizationPercent ?? 0 }}%</div>
+      <div class="fin-progress-bar">
+        <div class="fin-progress-fill" [style.width.%]="Math.min(100, teamCapacity()?.overallUtilizationPercent ?? 0)"></div>
+      </div>
+    </div>
+    <div class="cap-card" [class.alert-border]="(teamCapacity()?.overloadedMembersCount || 0) > 0">
+      <span class="cap-label">Overloaded Engineers</span>
+      <div class="cap-num" [class.text-danger]="(teamCapacity()?.overloadedMembersCount || 0) > 0">
+        {{ teamCapacity()?.overloadedMembersCount || 0 }}
+      </div>
+      <span class="cap-sub">{{ (teamCapacity()?.overloadedMembersCount || 0) > 0 ? 'Requires Rebalancing' : 'Workload Balanced' }}</span>
+    </div>
+  </div>
+
+  <!-- Team Members Capacity Matrix Table -->
+  <div class="capacity-table-card">
+    <div class="table-meta-bar">
+      <span class="results-count">Squad Engineers: <strong>{{ teamCapacity()?.members?.length || bankUsers().length }}</strong></span>
+      <span class="iso-standard">Dynamic Workload Governor</span>
+    </div>
+
+    <div class="table-responsive">
+      <table class="capacity-table">
+        <thead>
+          <tr>
+            <th>Engineer & Role</th>
+            <th>Status</th>
+            <th>Allocated Points</th>
+            <th>Sprint Utilization</th>
+            <th>Assigned Tasks</th>
+            <th>Workload Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let member of (teamCapacity()?.members || [])" [class.row-overloaded]="member.isOverloaded">
+            <td class="col-member">
+              <div class="member-cell">
+                <span class="member-avatar">{{ member.avatar }}</span>
+                <div>
+                  <div class="member-name">{{ member.fullName }}</div>
+                  <span class="member-role-badge">{{ member.role }}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="status-pill" [ngClass]="member.status.toLowerCase()">
+                {{ member.status }}
+              </span>
+            </td>
+            <td>
+              <div class="points-badge">
+                <strong>{{ member.assignedStoryPoints }}</strong> / {{ member.maxCapacityStoryPoints }} pts
+              </div>
+            </td>
+            <td class="col-util">
+              <div class="util-bar-wrap">
+                <div class="util-bar">
+                  <div
+                    class="util-fill"
+                    [ngClass]="{
+                      'fill-over': member.isOverloaded,
+                      'fill-optimal': !member.isOverloaded && member.utilizationPercent >= 60,
+                      'fill-under': member.utilizationPercent < 60
+                    }"
+                    [style.width.%]="Math.min(100, member.utilizationPercent)"
+                  ></div>
+                </div>
+                <span class="util-text">{{ member.utilizationPercent }}%</span>
+              </div>
+            </td>
+            <td>
+              <div class="assigned-chips-wrap">
+                <span *ngFor="let t of member.assignedTaskTitles.slice(0, 2)" class="task-chip-mini" [title]="t">
+                  {{ t.length > 25 ? t.slice(0, 25) + '...' : t }}
+                </span>
+                <span *ngIf="member.assignedTaskTitles.length > 2" class="more-chip">
+                  +{{ member.assignedTaskTitles.length - 2 }} more
+                </span>
+                <span *ngIf="member.assignedTaskTitles.length === 0" class="no-tasks-hint">No active assignments</span>
+              </div>
+            </td>
+            <td>
+              <button
+                class="btn-rebalance"
+                (click)="openCreateTask(1)"
+                title="Assign or Rebalance tasks"
+              >
+                Assign Task
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

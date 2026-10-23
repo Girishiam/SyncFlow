@@ -34,7 +34,16 @@ Create `syncflow-service.xml` alongside `syncflow-service.exe`:
   <name>SyncFlow Backend API</name>
   <description>Spring Boot 3.x with Java 21 Virtual Threads for SyncFlow Enterprise</description>
   <executable>java</executable>
-  <arguments>-Xmx2048m -Dspring.profiles.active=prod -jar C:\SyncFlow\backend\syncflow-api.jar</arguments>
+  <arguments>-Xmx2048m -jar C:\SyncFlow\backend\syncflow-api.jar</arguments>
+  <!-- Secrets: set here or as machine environment variables; never commit them. -->
+  <env name="SYNCFLOW_DB_PASSWORD" value="..."/>
+  <env name="SYNCFLOW_JWT_SECRET" value="...base64 key, generate with: openssl rand -base64 48..."/>
+  <env name="SYNCFLOW_ADMIN_EMAIL" value="admin@your-bank.example"/>
+  <env name="SYNCFLOW_ADMIN_PASSWORD" value="...used once to create the first administrator..."/>
+  <env name="SYNCFLOW_CORS_ORIGINS" value="https://syncflow.your-bank.example"/>
+  <env name="SYNCFLOW_ATTACHMENTS_DIR" value="C:\SyncFlow\data\attachments"/>
+  <!-- Behind Nginx: trust X-Forwarded-* from the local proxy so audit logs record real client IPs -->
+  <env name="SYNCFLOW_FORWARD_HEADERS" value="native"/>
   <logmode>roll</logmode>
   <logpath>C:\SyncFlow\backend\logs</logpath>
   <startmode>Automatic</startmode>
@@ -85,30 +94,25 @@ http {
 
         # Angular Single Page App (SPA)
         location / {
-            root   C:/SyncFlow/frontend/dist/syncflow/browser;
+            root   C:/SyncFlow/frontend/dist/frontend/browser;
             index  index.html;
             try_files $uri $uri/ /index.html;
         }
 
-        # REST API Proxy
+        # REST API + WebSocket (STOMP at /api/ws) Proxy
         location /api/ {
             proxy_pass http://spring_boot_backend;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_read_timeout 3600s;
+            client_max_body_size 26m;  # attachment uploads (25 MB limit)
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
         }
-
-        # WebSocket STOMP Proxy
-        location /ws-syncflow/ {
-            proxy_pass http://spring_boot_backend;
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
-            proxy_set_header Host $host;
-            proxy_read_timeout 86400s;
-            proxy_send_timeout 86400s;
-        }
+    }
     }
 }
 ```

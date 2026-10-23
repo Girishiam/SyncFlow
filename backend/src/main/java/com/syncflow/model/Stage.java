@@ -35,6 +35,19 @@ public class Stage {
     @Builder.Default
     private Boolean isDoneStage = false;
 
+    // --- Workflow quality gates enforced when a task enters this stage ---
+    @Column(name = "requires_checklist_complete", nullable = false)
+    @Builder.Default
+    private Boolean requiresChecklistComplete = false;
+
+    @Column(name = "requires_deliverable", nullable = false)
+    @Builder.Default
+    private Boolean requiresDeliverable = false;
+
+    @Column(name = "requires_no_blockers", nullable = false)
+    @Builder.Default
+    private Boolean requiresNoBlockers = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private Instant createdAt = Instant.now();

@@ -3,12 +3,13 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { DailyWorkLog, SubmitWorkLogPayload } from '../models/project.models';
 import { WorkLogPort } from '../ports/worklog.port';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class WorkLogService implements WorkLogPort {
-  private readonly apiUrl = 'http://localhost:9090/api/v1/worklogs';
+  private readonly apiUrl = `${environment.apiBaseUrl}/v1/worklogs`;
 
   constructor(private http: HttpClient) {}
 

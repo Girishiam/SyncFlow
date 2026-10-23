@@ -89,7 +89,7 @@ public class WorkLogApplicationService implements WorkLogUseCase {
             return 0;
         }
         return (int) assignedTasks.stream()
-                .filter(t -> t.getStage() != null && (Boolean.TRUE.equals(t.getStage().getIsDoneStage()) || "Done".equalsIgnoreCase(t.getStage().getName())))
+                .filter(com.syncflow.task.application.service.TaskMapper::isDone)
                 .count();
     }
 

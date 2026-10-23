@@ -6,6 +6,8 @@ import java.util.Optional;
 
 public interface ChannelRepositoryPort {
     List<Channel> findAll();
+
+    List<Channel> findVisibleTo(java.util.UUID userId);
     Optional<Channel> findById(Long id);
     Channel save(Channel channel);
     void deleteById(Long id);

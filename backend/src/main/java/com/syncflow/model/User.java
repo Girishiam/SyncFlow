@@ -1,5 +1,7 @@
 package com.syncflow.model;
 
+import com.syncflow.model.enums.*;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -40,7 +42,8 @@ public class User {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "ACTIVE"; // ACTIVE, INACTIVE, SUSPENDED
+    @Enumerated(EnumType.STRING)
+    private UserStatus status = UserStatus.ACTIVE;
 
     @Column(name = "on_leave", nullable = false)
     @Builder.Default

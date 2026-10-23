@@ -1,7 +1,8 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
+import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
@@ -16,8 +17,8 @@ export class LoginComponent {
   isLoading = signal(false);
   errorMessage = signal<string | null>(null);
 
-  // Quick-fill roles
-  demoRoles = [
+  // Demo accounts exist only when the backend runs with the dev profile; never shown in production builds.
+  demoRoles = environment.production ? [] : [
     { label: 'Manager', email: 'manager@syncflow.bank', pass: 'Manager@123' },
     { label: 'Team Lead', email: 'lead@syncflow.bank', pass: 'Lead@123' },
     { label: 'Developer', email: 'dev@syncflow.bank', pass: 'Dev@123' }
@@ -26,8 +27,12 @@ export class LoginComponent {
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
-    private router: Router
+    private router: Router,
+    route: ActivatedRoute
   ) {
+    if (route.snapshot.queryParamMap.get('expired')) {
+      this.errorMessage.set('Your session has expired. Please sign in again.');
+    }
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]]
@@ -54,7 +59,8 @@ export class LoginComponent {
     this.authService.login(this.loginForm.value).subscribe({
       next: () => {
         this.isLoading.set(false);
-        this.router.navigate(['/dashboard']);
+        const returnUrl = this.router.parseUrl(this.router.url).queryParams['returnUrl'];
+        this.router.navigateByUrl(typeof returnUrl === 'string' && returnUrl.startsWith('/') ? returnUrl : '/dashboard');
       },
       error: (err) => {
         this.isLoading.set(false);

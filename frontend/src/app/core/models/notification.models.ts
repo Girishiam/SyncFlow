@@ -14,7 +14,6 @@ export interface NotificationItem {
   id: number;
   recipientId?: string;
   recipientName?: string;
-  targetRole?: string;
   title: string;
   message: string;
   type: NotificationType;

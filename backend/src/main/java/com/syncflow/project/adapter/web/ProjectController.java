@@ -4,8 +4,8 @@ import com.syncflow.dto.*;
 import com.syncflow.project.application.port.in.ProjectUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,9 +13,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/v1/projects")
 @RequiredArgsConstructor
-@Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class ProjectController {
+
+    private static final String VIEW = "@access.can('PROJECT:VIEW') and @access.project(#id)";
+    private static final String EDIT = "@access.can('PROJECT:EDIT') and @access.project(#id)";
 
     private final ProjectUseCase projectUseCase;
 
@@ -25,119 +26,136 @@ public class ProjectController {
     }
 
     @PostMapping
+    @PreAuthorize("@access.can('PROJECT:CREATE')")
     public ResponseEntity<ProjectDTO> createProject(@Valid @RequestBody CreateProjectRequest request) {
         return ResponseEntity.ok(projectUseCase.createProject(request));
     }
 
     @GetMapping("/{id}/board")
+    @PreAuthorize(VIEW)
     public ResponseEntity<ProjectBoardDTO> getProjectBoard(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getProjectBoard(id));
     }
 
     @PostMapping("/{id}/stages")
-    public ResponseEntity<StageDTO> createStage(
-            @PathVariable Long id,
-            @Valid @RequestBody CreateStageRequest request) {
+    @PreAuthorize("@access.can('STAGE:BUILD') and @access.project(#id)")
+    public ResponseEntity<StageDTO> createStage(@PathVariable Long id, @Valid @RequestBody CreateStageRequest request) {
         return ResponseEntity.ok(projectUseCase.createStage(id, request));
     }
 
+    /** Rename a stage or change its workflow gates. */
+    @PutMapping("/stages/{stageId}")
+    @PreAuthorize("@access.can('STAGE:BUILD') and @access.stage(#stageId)")
+    public ResponseEntity<StageDTO> updateStage(@PathVariable Long stageId, @Valid @RequestBody UpdateStageRequest request) {
+        return ResponseEntity.ok(projectUseCase.updateStage(stageId, request));
+    }
+
     @PutMapping("/{id}/stages/reorder")
-    public ResponseEntity<Void> reorderStages(
-            @PathVariable Long id,
-            @Valid @RequestBody ReorderStagesRequest request) {
+    @PreAuthorize("@access.can('STAGE:BUILD') and @access.project(#id)")
+    public ResponseEntity<Void> reorderStages(@PathVariable Long id, @Valid @RequestBody ReorderStagesRequest request) {
         projectUseCase.reorderStages(id, request);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/analytics/burndown")
+    @PreAuthorize(VIEW)
     public ResponseEntity<BurndownAnalyticsDTO> getBurndownAnalytics(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getBurndownAnalytics(id));
     }
 
-    // --- Roadmap & Gantt Timeline ---
     @GetMapping("/{id}/timeline")
+    @PreAuthorize(VIEW)
     public ResponseEntity<List<TimelineTaskDTO>> getProjectTimeline(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getProjectTimeline(id));
     }
 
-    // --- Agile Sprints & Planning ---
+    // --- Sprints ---
     @GetMapping("/{id}/sprints")
+    @PreAuthorize(VIEW)
     public ResponseEntity<List<SprintDTO>> getProjectSprints(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getProjectSprints(id));
     }
 
     @PostMapping("/{id}/sprints")
-    public ResponseEntity<SprintDTO> createSprint(
-            @PathVariable Long id,
-            @RequestBody SprintDTO request) {
+    @PreAuthorize("@access.can('SPRINT:MANAGE') and @access.project(#id)")
+    public ResponseEntity<SprintDTO> createSprint(@PathVariable Long id, @RequestBody SprintDTO request) {
         return ResponseEntity.ok(projectUseCase.createSprint(id, request));
     }
 
     @PutMapping("/sprints/{sprintId}/start")
+    @PreAuthorize("@access.can('SPRINT:MANAGE') and @access.sprint(#sprintId)")
     public ResponseEntity<SprintDTO> startSprint(@PathVariable Long sprintId) {
         return ResponseEntity.ok(projectUseCase.startSprint(sprintId));
     }
 
     @PutMapping("/sprints/{sprintId}/complete")
+    @PreAuthorize("@access.can('SPRINT:MANAGE') and @access.sprint(#sprintId)")
     public ResponseEntity<SprintDTO> completeSprint(@PathVariable Long sprintId) {
         return ResponseEntity.ok(projectUseCase.completeSprint(sprintId));
     }
 
-    // --- Butler Automation Rules ---
+    // --- Automations ---
     @GetMapping("/{id}/automations")
+    @PreAuthorize(VIEW)
     public ResponseEntity<List<AutomationRuleDTO>> getAutomationRules(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getAutomationRules(id));
     }
 
     @PutMapping("/automations/{ruleId}/toggle")
+    @PreAuthorize("@access.can('PROJECT:EDIT') and @access.automation(#ruleId)")
     public ResponseEntity<AutomationRuleDTO> toggleAutomationRule(@PathVariable Long ruleId) {
         return ResponseEntity.ok(projectUseCase.toggleAutomationRule(ruleId));
     }
 
-    // --- Executive Financial Budget & Resource Cost Tracking ---
+    // --- Financials & capacity ---
     @GetMapping("/{id}/financials")
-    public ResponseEntity<com.syncflow.dto.ProjectFinancialsDTO> getProjectFinancials(@PathVariable Long id) {
+    @PreAuthorize("@access.can('FINANCE:VIEW') and @access.project(#id)")
+    public ResponseEntity<ProjectFinancialsDTO> getProjectFinancials(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getProjectFinancials(id));
     }
 
-    // --- Team Workload Capacity & Resource Allocation Matrix ---
     @GetMapping("/{id}/capacity")
-    public ResponseEntity<com.syncflow.dto.TeamCapacityDTO> getTeamCapacity(@PathVariable Long id) {
+    @PreAuthorize(VIEW)
+    public ResponseEntity<TeamCapacityDTO> getTeamCapacity(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getTeamCapacity(id));
     }
 
-    // --- Real-Time Webhooks & Enterprise Connectors ---
+    // --- Webhooks ---
     @GetMapping("/{id}/webhooks")
-    public ResponseEntity<List<com.syncflow.dto.WebhookSubscriptionDTO>> getWebhooks(@PathVariable Long id) {
+    @PreAuthorize(EDIT)
+    public ResponseEntity<List<WebhookSubscriptionDTO>> getWebhooks(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getWebhooks(id));
     }
 
     @PostMapping("/{id}/webhooks")
-    public ResponseEntity<com.syncflow.dto.WebhookSubscriptionDTO> createWebhook(
-            @PathVariable Long id,
-            @RequestBody com.syncflow.dto.CreateWebhookRequest request) {
+    @PreAuthorize(EDIT)
+    public ResponseEntity<WebhookSubscriptionDTO> createWebhook(@PathVariable Long id, @Valid @RequestBody CreateWebhookRequest request) {
         return ResponseEntity.ok(projectUseCase.createWebhook(id, request));
     }
 
     @PutMapping("/webhooks/{webhookId}/toggle")
-    public ResponseEntity<com.syncflow.dto.WebhookSubscriptionDTO> toggleWebhook(@PathVariable Long webhookId) {
+    @PreAuthorize("@access.can('PROJECT:EDIT') and @access.webhook(#webhookId)")
+    public ResponseEntity<WebhookSubscriptionDTO> toggleWebhook(@PathVariable Long webhookId) {
         return ResponseEntity.ok(projectUseCase.toggleWebhook(webhookId));
     }
 
     @PostMapping("/webhooks/{webhookId}/test")
-    public ResponseEntity<com.syncflow.dto.WebhookSubscriptionDTO> testWebhook(@PathVariable Long webhookId) {
+    @PreAuthorize("@access.can('PROJECT:EDIT') and @access.webhook(#webhookId)")
+    public ResponseEntity<WebhookSubscriptionDTO> testWebhook(@PathVariable Long webhookId) {
         return ResponseEntity.ok(projectUseCase.testWebhook(webhookId));
     }
 
     @DeleteMapping("/webhooks/{webhookId}")
+    @PreAuthorize("@access.can('PROJECT:EDIT') and @access.webhook(#webhookId)")
     public ResponseEntity<Void> deleteWebhook(@PathVariable Long webhookId) {
         projectUseCase.deleteWebhook(webhookId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
-    // --- Collective Project Time Tracking ---
+    // --- Time tracking ---
     @GetMapping("/{id}/time-summary")
-    public ResponseEntity<com.syncflow.dto.ProjectTimeSummaryDTO> getProjectTimeSummary(@PathVariable Long id) {
+    @PreAuthorize(VIEW)
+    public ResponseEntity<ProjectTimeSummaryDTO> getProjectTimeSummary(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getProjectTimeSummary(id));
     }
 }

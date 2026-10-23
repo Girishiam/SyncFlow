@@ -16,7 +16,6 @@ public class NotificationDTO {
     private Long id;
     private UUID recipientId;
     private String recipientName;
-    private String targetRole;
     private String title;
     private String message;
     private String type; // TASK_ASSIGNED, TASK_DUE_SOON, TASK_OVERDUE, CHANNEL_MENTION, BLOCKER_ALERT, ROLE_UPDATE, SYSTEM

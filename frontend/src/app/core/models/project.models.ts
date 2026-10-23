@@ -18,6 +18,8 @@ export interface TaskCard {
   archivedAt?: string;
   archivedBy?: string;
   startDate?: string;
+  /** When the task entered a done stage; absent while open. */
+  completedAt?: string;
   sprintId?: number;
   sprintName?: string;
   storyPoints?: number;
@@ -46,7 +48,17 @@ export interface KanbanColumn {
   numericId: number;
   title: string;
   isDoneStage: boolean;
+  requiresChecklistComplete?: boolean;
+  requiresDeliverable?: boolean;
+  requiresNoBlockers?: boolean;
   tasks: TaskCard[];
+}
+
+/** Quality gates enforced when a task enters a stage. */
+export interface StageGateFlags {
+  requiresChecklistComplete?: boolean;
+  requiresDeliverable?: boolean;
+  requiresNoBlockers?: boolean;
 }
 
 export interface Project {
@@ -66,6 +78,9 @@ export interface ProjectBoard {
     name: string;
     position: number;
     isDoneStage: boolean;
+    requiresChecklistComplete?: boolean;
+    requiresDeliverable?: boolean;
+    requiresNoBlockers?: boolean;
     tasks: TaskCard[];
   }[];
   totalTasks: number;
@@ -149,6 +164,9 @@ export interface BurndownDay {
 export interface BurndownAnalytics {
   projectId: number;
   projectName: string;
+  /** Sprint the chart covers; null when the last 14 days of the project are shown. */
+  sprintId?: number | null;
+  sprintName?: string | null;
   sprintDurationDays: number;
   currentDay: number;
   totalStoryPoints: number;
@@ -185,6 +203,10 @@ export interface AuditMetrics {
   rbacAuditRecords: number;
   complianceStatus: string;
   integrityAlgorithm: string;
+  chainVerifiedRecords?: number;
+  chainBrokenRecords?: number;
+  legacyUnchainedRecords?: number;
+  firstBrokenRecordId?: number | null;
 }
 
 export interface Sprint {
@@ -246,17 +268,21 @@ export interface ProjectFinancials {
   projectId: number;
   projectName: string;
   currency: string;
-  totalBudget: number;
-  allocatedBudget: number;
+  /** Null when no budget has been set for the project. */
+  totalBudget: number | null;
+  allocatedBudget: number | null;
   spentBudget: number;
-  remainingBudget: number;
-  burnRatePercent: number;
-  estimatedCostPerStoryPoint: number;
+  remainingBudget: number | null;
+  burnRatePercent: number | null;
+  /** Null until at least one story point has been completed. */
+  estimatedCostPerStoryPoint: number | null;
   totalStoryPoints: number;
   completedStoryPoints: number;
   roleHourlyRates: { [role: string]: number };
   spentByRole: { [role: string]: number };
   projectedCostAtCompletion: number;
+  totalHoursLogged?: number;
+  blendedHourlyRate?: number;
 }
 
 export interface WorkflowGateValidationResult {
@@ -305,23 +331,6 @@ export interface TeamCapacity {
   overallUtilizationPercent: number;
   overloadedMembersCount: number;
   members: MemberCapacity[];
-}
-
-export interface BiometricAuthChallenge {
-  challengeId: string;
-  challengeToken: string;
-  rpName: string;
-  rpId: string;
-  userEmail: string;
-  expiresAtMillis: number;
-}
-
-export interface PasskeyVerificationResponse {
-  verified: boolean;
-  elevatedApprovalToken: string;
-  message: string;
-  verifiedMethod: string;
-  expiresAtMillis: number;
 }
 
 export interface TaskTimeLog {

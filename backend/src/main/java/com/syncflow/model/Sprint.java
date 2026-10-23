@@ -1,5 +1,7 @@
 package com.syncflow.model;
 
+import com.syncflow.model.enums.*;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -36,11 +38,19 @@ public class Sprint {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "PLANNING"; // PLANNING, ACTIVE, COMPLETED
+    @Enumerated(EnumType.STRING)
+    private SprintStatus status = SprintStatus.PLANNING;
 
     @Column(name = "target_story_points")
     @Builder.Default
     private Integer targetStoryPoints = 30;
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
+    /** Story points finished when the sprint was closed; used for velocity. */
+    @Column(name = "completed_story_points")
+    private Integer completedStoryPoints;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

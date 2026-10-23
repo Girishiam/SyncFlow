@@ -1,0 +1,393 @@
+<div class="rbac-view">
+  <!-- Enterprise Governance Header -->
+  <div class="rbac-header-card">
+    <div class="rbac-title-area">
+      <div class="badge-tag">ENTERPRISE SECURITY & GOVERNANCE</div>
+      <h2>Role-Based Access Control (RBAC) Architecture</h2>
+      <p class="rbac-subtitle">
+        Configure granular permission matrices, audit operational roles, and enforce least-privilege governance across all core banking modules.
+      </p>
+    </div>
+    <div class="rbac-actions-area">
+      <span *ngIf="rbacSuccessMsg()" class="save-toast-msg">{{ rbacSuccessMsg() }}</span>
+      <button class="btn-create-role" (click)="openCreateRole()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        <span>Create New Role</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 4 Top KPI Metric Cards (BanglaQR Pattern) -->
+  <div class="rbac-kpi-grid">
+    <div class="kpi-stat-card">
+      <div class="kpi-icon-wrap emerald">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+        </svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Total Roles</span>
+        <span class="kpi-value">{{ totalRolesCount() }}</span>
+        <span class="kpi-subtext">System & Custom Roles</span>
+      </div>
+    </div>
+
+    <div class="kpi-stat-card">
+      <div class="kpi-icon-wrap active-green">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Active Roles</span>
+        <span class="kpi-value">{{ activeRolesCount() }}</span>
+        <span class="kpi-subtext">Operational & Assignable</span>
+      </div>
+    </div>
+
+    <div class="kpi-stat-card">
+      <div class="kpi-icon-wrap amber">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+        </svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Deactivated Roles</span>
+        <span class="kpi-value">{{ deactivatedRolesCount() }}</span>
+        <span class="kpi-subtext">Suspended Governance</span>
+      </div>
+    </div>
+
+    <div class="kpi-stat-card">
+      <div class="kpi-icon-wrap gold">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+          <circle cx="9" cy="7" r="4"></circle>
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+          <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+        </svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Assigned Users</span>
+        <span class="kpi-value">{{ totalAssignedUsersCount() }}</span>
+        <span class="kpi-subtext">Bank Members Linked</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RBAC Sub-Navigation Tabs: Matrix vs Members -->
+  <div class="rbac-nav-tabs">
+    <button
+      class="rbac-nav-pill"
+      [class.active]="activeRbacTab() === 'MATRIX'"
+      (click)="activeRbacTab.set('MATRIX')"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="7" height="7"></rect>
+        <rect x="14" y="3" width="7" height="7"></rect>
+        <rect x="14" y="14" width="7" height="7"></rect>
+        <rect x="3" y="14" width="7" height="7"></rect>
+      </svg>
+      <span>Roles & Granular Permissions Matrix</span>
+    </button>
+    <button
+      class="rbac-nav-pill"
+      [class.active]="activeRbacTab() === 'MEMBERS'"
+      (click)="activeRbacTab.set('MEMBERS')"
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+        <circle cx="9" cy="7" r="4"></circle>
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+      </svg>
+      <span>Bank Member Role Assignments ({{ rbacBankUsers().length }})</span>
+    </button>
+  </div>
+
+  <!-- Tab 1: Roles Governance & Granular Permissions Matrix -->
+  <ng-container *ngIf="activeRbacTab() === 'MATRIX'">
+    <!-- SECTION 1: Roles Inventory, Search & Filter Bar -->
+    <div class="roles-inventory-section">
+      <div class="role-search-filter-bar">
+        <div class="search-box-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="search-icon">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input
+            type="text"
+            [ngModel]="rbacSearchQuery()"
+            (ngModelChange)="rbacSearchQuery.set($event)"
+            placeholder="Search roles by title, description, or authority..."
+            class="rbac-search-input"
+          />
+          <button *ngIf="rbacSearchQuery()" class="clear-search-btn" (click)="rbacSearchQuery.set('')">×</button>
+        </div>
+
+        <div class="status-filters-group">
+          <button
+            class="filter-pill"
+            [class.active]="rbacStatusFilter() === 'ALL'"
+            (click)="setRbacStatusFilter('ALL')"
+          >
+            All Roles ({{ totalRolesCount() }})
+          </button>
+          <button
+            class="filter-pill"
+            [class.active]="rbacStatusFilter() === 'ACTIVE'"
+            (click)="setRbacStatusFilter('ACTIVE')"
+          >
+            <span class="status-dot green"></span>
+            Active ({{ activeRolesCount() }})
+          </button>
+          <button
+            class="filter-pill"
+            [class.active]="rbacStatusFilter() === 'INACTIVE'"
+            (click)="setRbacStatusFilter('INACTIVE')"
+          >
+            <span class="status-dot amber"></span>
+            Deactivated ({{ deactivatedRolesCount() }})
+          </button>
+        </div>
+      </div>
+
+      <!-- Roles Summary Table -->
+      <div class="roles-table-container">
+        <table class="roles-summary-table">
+          <thead>
+            <tr>
+              <th>Role Name & Code</th>
+              <th>Description</th>
+              <th>Permissions</th>
+              <th>Assigned Users</th>
+              <th>Status</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              *ngFor="let role of filteredRoles()"
+              [class.selected-row]="role.id === selectedRoleId()"
+            >
+              <td class="role-cell-title">
+                <div class="role-name-wrapper">
+                  <span class="role-code-badge" [class.admin-badge]="role.name.includes('ADMIN')">
+                    {{ role.name }}
+                  </span>
+                </div>
+              </td>
+              <td class="role-cell-desc">
+                {{ role.description || 'Enterprise role definition' }}
+              </td>
+              <td class="role-cell-perms">
+                <span class="perm-counter-chip">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  {{ role.permissionAuthorities.length || 0 }} Authorities
+                </span>
+              </td>
+              <td class="role-cell-users">
+                <span class="users-counter-pill">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  {{ role.assignedUsersCount || 0 }} Members
+                </span>
+              </td>
+              <td class="role-cell-status">
+                <label class="status-switch-wrap" [title]="role.status !== false ? 'Active: Click to Deactivate' : 'Deactivated: Click to Activate'">
+                  <input
+                    type="checkbox"
+                    [checked]="role.status !== false"
+                    (change)="toggleRoleStatus(role.id)"
+                    class="toggle-input"
+                  />
+                  <span class="toggle-slider"></span>
+                  <span class="status-text" [class.active-text]="role.status !== false">
+                    {{ role.status !== false ? 'Active' : 'Inactive' }}
+                  </span>
+                </label>
+              </td>
+              <td class="role-cell-actions text-right">
+                <div class="actions-flex">
+                  <button
+                    class="btn-action-configure"
+                    [class.active]="role.id === selectedRoleId()"
+                    (click)="selectRole(role.id)"
+                    title="Configure Module Permissions Matrix"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                      <polyline points="2 17 12 22 22 17" />
+                      <polyline points="2 12 12 17 22 12" />
+                    </svg>
+                    <span>{{ role.id === selectedRoleId() ? 'Configuring' : 'Configure' }}</span>
+                  </button>
+
+                  <button
+                    class="btn-action-delete"
+                    (click)="openDeleteRoleModal(role)"
+                    title="Delete Role Safeguard"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="filteredRoles().length === 0">
+              <td colspan="6" class="no-records-cell">
+                <div class="empty-state-box">
+                  <p>No roles found matching criteria "<strong>{{ rbacSearchQuery() }}</strong>".</p>
+                  <button class="btn-clear-filter" (click)="rbacSearchQuery.set(''); setRbacStatusFilter('ALL')">Clear Filters</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SECTION 2: Granular Module Permissions Matrix for Selected Role (BanglaQR Pattern) -->
+    <div class="matrix-configuration-section" *ngIf="selectedRole()">
+      <!-- Matrix Action Header with Batch Controls -->
+      <div class="matrix-action-header">
+        <div class="matrix-role-info">
+          <div class="matrix-role-title-row">
+            <h3>Granular Permissions Matrix</h3>
+            <span class="active-role-tag">{{ selectedRole()!.name }}</span>
+            <span class="active-status-badge" [class.inactive]="selectedRole()!.status === false">
+              {{ selectedRole()!.status !== false ? 'OPERATIONAL' : 'DEACTIVATED' }}
+            </span>
+          </div>
+          <p class="matrix-role-desc">
+            {{ selectedRole()!.description || 'Enforce module-level operational entitlements for this role.' }}
+          </p>
+        </div>
+
+        <div class="matrix-batch-actions">
+          <button class="btn-batch-control" (click)="selectAllPermissions()" title="Grant all available authorities">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+            <span>Select All</span>
+          </button>
+
+          <button class="btn-batch-control" (click)="clearAllPermissions()" title="Revoke all authorities">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            <span>Clear All</span>
+          </button>
+
+          <button class="btn-save-matrix-solid" (click)="saveRolePermissions()" [disabled]="isSavingRbac()">
+            <svg *ngIf="!isSavingRbac()" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            <span *ngIf="!isSavingRbac()">Save Matrix Changes</span>
+            <span *ngIf="isSavingRbac()">Saving to Database...</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Module Permissions Table / Rows -->
+      <div class="module-perm-table-card">
+        <div *ngFor="let mod of modules()" class="module-perm-row">
+          <div class="module-header-col">
+            <div class="module-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                <polyline points="2 17 12 22 22 17" />
+                <polyline points="2 12 12 17 22 12" />
+              </svg>
+            </div>
+            <div class="module-text-info">
+              <h4 class="module-title">{{ mod }} Governance</h4>
+              <p class="module-desc">{{ getModuleDescription(mod) }}</p>
+            </div>
+            <div class="module-select-all-switch">
+              <label class="module-switch-label" [title]="'Toggle all ' + mod + ' permissions'">
+                <input
+                  type="checkbox"
+                  [checked]="isModuleAllSelected(mod)"
+                  (change)="toggleModulePermissions(mod)"
+                  class="toggle-input"
+                />
+                <span class="toggle-slider"></span>
+                <span class="module-toggle-text">All in Module</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- BanglaQR Signature .perm-checkbox-chip flex grid -->
+          <div class="module-chips-col">
+            <div class="perm-chips-grid">
+              <div
+                *ngFor="let perm of getPermissionsForModule(mod)"
+                class="perm-checkbox-chip"
+                [class.selected]="hasPermission(perm.id)"
+                (click)="togglePermission(perm.id)"
+                [title]="perm.description"
+              >
+                <span class="chip-checkbox-indicator">
+                  <svg *ngIf="hasPermission(perm.id)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </span>
+                <div class="chip-content">
+                  <span class="chip-authority">{{ perm.authority }}</span>
+                  <span class="chip-desc">{{ perm.description }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- Tab 2: Bank Member Role Assignment -->
+  <ng-container *ngIf="activeRbacTab() === 'MEMBERS'">
+    <div class="members-role-grid">
+      <div *ngFor="let user of rbacBankUsers()" class="member-role-card">
+        <div class="member-info-col">
+          <div class="member-avatar">{{ user.fullName.slice(0, 2).toUpperCase() }}</div>
+          <div class="member-names">
+            <span class="name">{{ user.fullName }}</span>
+            <span class="email">{{ user.email }}</span>
+          </div>
+        </div>
+
+        <div class="member-role-col">
+          <label class="assign-label">Assigned Role</label>
+          <select
+            class="role-assign-select"
+            (change)="onMemberRoleChange(user.id, $event)"
+          >
+            <option
+              *ngFor="let role of roles()"
+              [value]="role.id"
+              [selected]="user.role?.id === role.id || user.role?.name === role.name"
+            >
+              {{ role.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>

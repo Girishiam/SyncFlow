@@ -22,4 +22,6 @@ public class ProjectFinancialsDTO {
     private Map<String, Double> roleHourlyRates;
     private Map<String, Double> spentByRole;
     private Double projectedCostAtCompletion;
+    private Double totalHoursLogged;
+    private Double blendedHourlyRate;
 }

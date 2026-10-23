@@ -1,5 +1,7 @@
 package com.syncflow.auth.infrastructure.persistence;
 
+import com.syncflow.model.enums.UserStatus;
+
 import com.syncflow.auth.application.port.out.UserRepositoryPort;
 import com.syncflow.model.User;
 import com.syncflow.repository.UserRepository;
@@ -39,5 +41,26 @@ public class UserPersistenceAdapter implements UserRepositoryPort {
     @Override
     public User save(User user) {
         return userRepository.save(user);
+    }
+
+    @Override
+    public long countByRoleId(Long roleId) {
+        return userRepository.countByRoleId(roleId);
+    }
+
+    @Override
+    public List<User> findByStatus(UserStatus status) {
+        return userRepository.findByStatus(status);
+    }
+
+    @Override
+    public List<User> findByRoleNameAndStatus(String roleName, UserStatus status) {
+        return userRepository.findByRole_NameAndStatus(roleName, status);
+    }
+
+    @Override
+    public List<User> findActiveByMentionToken(String token) {
+        String escaped = token.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        return userRepository.findActiveByMentionToken(token, escaped + "@%", escaped + " %");
     }
 }

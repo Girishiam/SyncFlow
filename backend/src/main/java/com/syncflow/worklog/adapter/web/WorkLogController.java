@@ -1,9 +1,7 @@
 package com.syncflow.worklog.adapter.web;
 
-import com.syncflow.auth.application.port.out.UserRepositoryPort;
 import com.syncflow.dto.DailyWorkLogDTO;
 import com.syncflow.dto.SubmitWorkLogRequest;
-import com.syncflow.model.User;
 import com.syncflow.security.UserDetailsImpl;
 import com.syncflow.worklog.application.port.in.WorkLogUseCase;
 import jakarta.validation.Valid;
@@ -22,11 +20,9 @@ import java.util.UUID;
 @RequestMapping("/v1/worklogs")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class WorkLogController {
 
     private final WorkLogUseCase workLogUseCase;
-    private final UserRepositoryPort userRepositoryPort;
 
     @PostMapping
     public ResponseEntity<DailyWorkLogDTO> submitWorkLog(
@@ -60,12 +56,9 @@ public class WorkLogController {
     }
 
     private UUID resolveUserId(UserDetailsImpl userDetails) {
-        if (userDetails != null && userDetails.getId() != null) {
-            return userDetails.getId();
+        if (userDetails == null) {
+            throw new com.syncflow.common.domain.ForbiddenException("An authenticated user is required");
         }
-        return userRepositoryPort.findAll().stream()
-                .findFirst()
-                .map(User::getId)
-                .orElseThrow(() -> new IllegalStateException("No active user available"));
+        return userDetails.getId();
     }
 }

@@ -46,8 +46,13 @@ public class AuditLog {
     @Builder.Default
     private String ipAddress = "127.0.0.1";
 
+    /** SHA-256 over this record's content chained to {@link #previousHash}. */
     @Column(name = "verification_hash", length = 64)
     private String verificationHash;
+
+    /** Hash of the preceding record; null for records created before hash chaining was introduced. */
+    @Column(name = "previous_hash", length = 64)
+    private String previousHash;
 
     @Column(nullable = false)
     @Builder.Default

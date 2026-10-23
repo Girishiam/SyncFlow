@@ -3,13 +3,14 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { TaskCard, BankUser, TaskDependency } from '../models/project.models';
 import { ITaskPort, CreateTaskPayload, TaskComment } from '../ports/task.port';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class TaskService implements ITaskPort {
-  private readonly apiUrl = 'http://localhost:9090/api/v1/tasks';
-  private readonly authApiUrl = 'http://localhost:9090/api/v1/auth';
+  private readonly apiUrl = `${environment.apiBaseUrl}/v1/tasks`;
+  private readonly authApiUrl = `${environment.apiBaseUrl}/v1/auth`;
 
   constructor(private http: HttpClient) {}
 
@@ -21,8 +22,8 @@ export class TaskService implements ITaskPort {
     return this.http.post<TaskCard>(this.apiUrl, payload);
   }
 
-  moveTask(taskId: number, targetStageId: number, overrideGate?: boolean, overrideReason?: string): Observable<TaskCard> {
-    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/move`, { targetStageId, overrideGate, overrideReason });
+  moveTask(taskId: number, targetStageId: number, overrideGate?: boolean, overrideReason?: string, elevationToken?: string): Observable<TaskCard> {
+    return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/move`, { targetStageId, overrideGate, overrideReason, elevationToken });
   }
 
   updateProgress(taskId: number, progress: number): Observable<TaskCard> {
@@ -75,8 +76,21 @@ export class TaskService implements ITaskPort {
     return this.http.get<import('../models/project.models').TaskAttachmentItem[]>(`${this.apiUrl}/${taskId}/attachments`);
   }
 
-  addAttachment(taskId: number, payload: { fileName: string; fileType: string; fileSize?: string; fileUrl: string }): Observable<import('../models/project.models').TaskAttachmentItem> {
-    return this.http.post<import('../models/project.models').TaskAttachmentItem>(`${this.apiUrl}/${taskId}/attachments`, payload);
+  /** Links an external http(s) deliverable. */
+  addLinkAttachment(taskId: number, fileName: string, fileUrl: string): Observable<import('../models/project.models').TaskAttachmentItem> {
+    return this.http.post<import('../models/project.models').TaskAttachmentItem>(`${this.apiUrl}/${taskId}/attachments`, { fileName, fileUrl });
+  }
+
+  /** Uploads a file (stored server-side, max 25 MB). */
+  uploadAttachment(taskId: number, file: File): Observable<import('../models/project.models').TaskAttachmentItem> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.http.post<import('../models/project.models').TaskAttachmentItem>(`${this.apiUrl}/${taskId}/attachments`, form);
+  }
+
+  /** Downloads a stored file with the caller's credentials. */
+  downloadAttachment(taskId: number, attachmentId: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/${taskId}/attachments/${attachmentId}/download`, { responseType: 'blob' });
   }
 
   deleteAttachment(taskId: number, attachmentId: number): Observable<void> {
@@ -117,7 +131,7 @@ export class TaskService implements ITaskPort {
     return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/story-points`, { storyPoints });
   }
 
-  assignSprint(taskId: number, sprintId: number): Observable<TaskCard> {
+  assignSprint(taskId: number, sprintId: number | null): Observable<TaskCard> {
     return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/sprint`, { sprintId });
   }
 
@@ -131,17 +145,6 @@ export class TaskService implements ITaskPort {
   // --- Git Repository & Pull Request Integration ---
   linkGit(taskId: number, payload: { gitBranch?: string; gitCommitHash?: string; gitPrUrl?: string }): Observable<TaskCard> {
     return this.http.put<TaskCard>(`${this.apiUrl}/${taskId}/git`, payload);
-  }
-
-  // --- WebAuthn / FIDO2 Biometric Challenge & Verification ---
-  getPasskeyChallenge(actionScope: string = 'WORKFLOW_GATE_OVERRIDE'): Observable<import('../models/project.models').BiometricAuthChallenge> {
-    return this.http.get<import('../models/project.models').BiometricAuthChallenge>(`${this.authApiUrl}/passkey/challenge`, {
-      params: { actionScope }
-    });
-  }
-
-  verifyPasskey(payload: { challengeId: string; clientDataJSON?: string; authenticatorData?: string; signature?: string; actionScope?: string }): Observable<import('../models/project.models').PasskeyVerificationResponse> {
-    return this.http.post<import('../models/project.models').PasskeyVerificationResponse>(`${this.authApiUrl}/passkey/verify`, payload);
   }
 
   // --- Task Work Logs & Time Tracking ---

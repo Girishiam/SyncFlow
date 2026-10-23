@@ -1,5 +1,7 @@
 package com.syncflow.model;
 
+import com.syncflow.model.enums.*;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -38,7 +40,8 @@ public class Meeting {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String status = "ACTIVE"; // ACTIVE, ENDED
+    @Enumerated(EnumType.STRING)
+    private MeetingStatus status = MeetingStatus.ACTIVE;
 
     @Column(name = "started_at", nullable = false)
     @Builder.Default

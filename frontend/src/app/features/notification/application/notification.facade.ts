@@ -78,7 +78,7 @@ export class NotificationFacade implements OnDestroy {
     this.loadSummary();
 
     if (userId) {
-      const sub = this.wsService.subscribeToUserNotifications(userId, roleName).subscribe({
+      const sub = this.wsService.subscribeToNotifications().subscribe({
         next: (incoming: NotificationItem) => {
           if (!incoming || !incoming.id) return;
 

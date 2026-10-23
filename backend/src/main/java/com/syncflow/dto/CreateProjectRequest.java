@@ -13,4 +13,10 @@ public class CreateProjectRequest {
     private String name;
 
     private String description;
+    @jakarta.validation.constraints.PositiveOrZero
+    private Double totalBudget;
+    @jakarta.validation.constraints.PositiveOrZero
+    private Double allocatedBudget;
+    @jakarta.validation.constraints.Size(max = 10)
+    private String currency;
 }

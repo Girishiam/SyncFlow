@@ -14,6 +14,9 @@ public class StageDTO {
     private String name;
     private Integer position;
     private Boolean isDoneStage;
+    private Boolean requiresChecklistComplete;
+    private Boolean requiresDeliverable;
+    private Boolean requiresNoBlockers;
     @Builder.Default
     private List<TaskDTO> tasks = new ArrayList<>();
 }

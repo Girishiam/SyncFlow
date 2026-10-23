@@ -1,5 +1,7 @@
 package com.syncflow.model;
 
+import com.syncflow.model.enums.*;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -41,7 +43,8 @@ public class Channel {
 
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String type = "TEXT"; // TEXT, VOICE, ANNOUNCEMENT
+    @Enumerated(EnumType.STRING)
+    private ChannelType type = ChannelType.TEXT;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "created_by")

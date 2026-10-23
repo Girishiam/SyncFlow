@@ -1,5 +1,7 @@
 package com.syncflow.auth.application.service;
 
+import com.syncflow.auth.application.port.out.UserRepositoryPort;
+
 import com.syncflow.auth.application.port.in.RbacUseCase;
 import com.syncflow.auth.application.port.out.PermissionRepositoryPort;
 import com.syncflow.auth.application.port.out.RoleRepositoryPort;
@@ -15,7 +17,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.syncflow.repository.UserRepository;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,7 +28,8 @@ public class RbacApplicationService implements RbacUseCase {
 
     private final RoleRepositoryPort roleRepositoryPort;
     private final PermissionRepositoryPort permissionRepositoryPort;
-    private final UserRepository userRepository;
+    private final UserRepositoryPort userRepository;
+    private final com.syncflow.audit.application.port.in.AuditLogUseCase auditLogUseCase;
 
     @Override
     @Transactional(readOnly = true)
@@ -55,13 +57,15 @@ public class RbacApplicationService implements RbacUseCase {
     @Transactional
     public RoleDTO updateRolePermissions(Long roleId, UpdateRolePermissionsRequest request) {
         Role role = roleRepositoryPort.findById(roleId)
-                .orElseThrow(() -> new DomainException("Role not found: " + roleId));
+                .orElseThrow(() -> new com.syncflow.common.domain.NotFoundException("Role not found: " + roleId));
 
         List<Permission> permissions = permissionRepositoryPort.findAllById(request.getPermissionIds());
         role.setPermissions(new HashSet<>(permissions));
 
         Role saved = roleRepositoryPort.save(role);
         log.info("Updated permissions for Role: {} (total: {})", saved.getName(), saved.getPermissions().size());
+        auditLogUseCase.recordLog("ROLE_UPDATED", "ROLE", saved.getId(), saved.getName(), null, null, null,
+                "Permission set: " + saved.getPermissions().stream().map(Permission::getAuthorityString).sorted().toList());
         return toRoleDTO(saved);
     }
 
@@ -71,7 +75,7 @@ public class RbacApplicationService implements RbacUseCase {
         String roleName = request.getName().trim().toUpperCase().replace(" ", "_");
 
         if (roleRepositoryPort.findByName(roleName).isPresent()) {
-            throw new DomainException("Role with name " + roleName + " already exists");
+            throw new com.syncflow.common.domain.ConflictException("Role with name " + roleName + " already exists");
         }
 
         Set<Permission> permissions = new HashSet<>();
@@ -88,6 +92,8 @@ public class RbacApplicationService implements RbacUseCase {
 
         Role saved = roleRepositoryPort.save(role);
         log.info("Created custom role: {}", saved.getName());
+        auditLogUseCase.recordLog("ROLE_CREATED", "ROLE", saved.getId(), saved.getName(), null, null, null,
+                "Created with " + saved.getPermissions().size() + " permission(s)");
         return toRoleDTO(saved);
     }
 
@@ -95,12 +101,17 @@ public class RbacApplicationService implements RbacUseCase {
     @Transactional
     public RoleDTO toggleRoleStatus(Long roleId) {
         Role role = roleRepositoryPort.findById(roleId)
-                .orElseThrow(() -> new DomainException("Role not found with ID: " + roleId));
+                .orElseThrow(() -> new com.syncflow.common.domain.NotFoundException("Role not found with ID: " + roleId));
 
+        if (com.syncflow.security.Permissions.ADMIN_ROLE.equalsIgnoreCase(role.getName())) {
+            throw new com.syncflow.common.domain.ConflictException("The ADMIN role cannot be deactivated");
+        }
         boolean newStatus = role.getStatus() == null || !role.getStatus();
         role.setStatus(newStatus);
         Role saved = roleRepositoryPort.save(role);
         log.info("Toggled status for Role: {} to {}", saved.getName(), newStatus ? "ACTIVE" : "DEACTIVATED");
+        auditLogUseCase.recordLog("ROLE_STATUS_CHANGED", "ROLE", saved.getId(), saved.getName(), null, null, null,
+                newStatus ? "Role activated" : "Role deactivated; its members lose all role permissions");
         return toRoleDTO(saved);
     }
 
@@ -108,7 +119,7 @@ public class RbacApplicationService implements RbacUseCase {
     @Transactional
     public void deleteRole(Long roleId) {
         Role role = roleRepositoryPort.findById(roleId)
-                .orElseThrow(() -> new DomainException("Role not found with ID: " + roleId));
+                .orElseThrow(() -> new com.syncflow.common.domain.NotFoundException("Role not found with ID: " + roleId));
 
         if (Boolean.TRUE.equals(role.getIsSystemRole())) {
             throw new DomainException("System roles cannot be deleted.");
@@ -116,10 +127,11 @@ public class RbacApplicationService implements RbacUseCase {
 
         long assignedUsers = userRepository.countByRoleId(roleId);
         if (assignedUsers > 0) {
-            throw new DomainException("Cannot delete role '" + role.getName() + "' because " + assignedUsers + " bank member(s) are currently assigned to it. Please reassign those members first.");
+            throw new com.syncflow.common.domain.ConflictException("Cannot delete role '" + role.getName() + "' because " + assignedUsers + " bank member(s) are currently assigned to it. Please reassign those members first.");
         }
 
         roleRepositoryPort.deleteById(roleId);
+        auditLogUseCase.recordLog("ROLE_DELETED", "ROLE", roleId, role.getName(), null, null, null, "Custom role deleted");
         log.info("Permanently deleted custom role: {}", role.getName());
     }
 

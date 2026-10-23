@@ -9,17 +9,19 @@ import com.syncflow.model.Channel;
 import java.util.List;
 import java.util.UUID;
 
+/** Chat use cases; the acting user is always the authenticated principal. */
 public interface ChatUseCase {
+    /** Public channels plus private channels the current user belongs to. */
     List<Channel> getAllChannels();
-    List<ChatMessageDTO> getChannelMessages(Long channelId);
-    ChatMessageDTO postMessage(Long channelId, UUID userId, String content);
 
-    Channel createChannel(CreateChannelRequest request, UUID creatorId);
-    Channel updateChannel(Long channelId, UpdateChannelRequest request, UUID userId);
-    void deleteChannel(Long channelId, UUID userId);
+    /** Up to {@code limit} messages older than {@code beforeId} (or the newest), oldest first. */
+    List<ChatMessageDTO> getChannelMessages(Long channelId, Long beforeId, int limit);
 
+    ChatMessageDTO postMessage(Long channelId, String content);
+    Channel createChannel(CreateChannelRequest request);
+    Channel updateChannel(Long channelId, UpdateChannelRequest request);
+    void deleteChannel(Long channelId);
     List<UserDTO> getChannelMembers(Long channelId);
-    void addMemberToChannel(Long channelId, UUID memberId, UUID requesterId);
-    void removeMemberFromChannel(Long channelId, UUID memberId, UUID requesterId);
+    void addMemberToChannel(Long channelId, UUID memberId);
+    void removeMemberFromChannel(Long channelId, UUID memberId);
 }
-

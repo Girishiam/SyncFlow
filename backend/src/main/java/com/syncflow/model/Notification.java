@@ -1,5 +1,7 @@
 package com.syncflow.model;
 
+import com.syncflow.model.enums.*;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -18,15 +20,10 @@ public class Notification {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Specific recipient (null if targeted to role or system-wide)
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "recipient_id")
+    /** Every notification belongs to exactly one user (role-wide alerts are fanned out per user). */
+    @ManyToOne(fetch = FetchType.EAGER, optional = false)
+    @JoinColumn(name = "recipient_id", nullable = false)
     private User recipient;
-
-    // Role-based target (e.g. TEAM_LEAD, ADMIN, SQA)
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "target_role_id")
-    private Role targetRole;
 
     @Column(nullable = false, length = 255)
     private String title;
@@ -36,12 +33,14 @@ public class Notification {
 
     // TASK_ASSIGNED, TASK_DUE_SOON, TASK_OVERDUE, CHANNEL_MENTION, BLOCKER_ALERT, ROLE_UPDATE, SYSTEM
     @Column(nullable = false, length = 50)
-    private String type;
+    @Enumerated(EnumType.STRING)
+    private NotificationType type;
 
     // INFO, WARNING, CRITICAL
     @Column(nullable = false, length = 20)
     @Builder.Default
-    private String priority = "INFO";
+    @Enumerated(EnumType.STRING)
+    private NotificationPriority priority = NotificationPriority.INFO;
 
     @Column(name = "is_read", nullable = false)
     @Builder.Default
@@ -53,7 +52,8 @@ public class Notification {
     // NAVIGATE_TASK, NAVIGATE_CHANNEL, NAVIGATE_RBAC, NONE
     @Column(name = "action_type", length = 50)
     @Builder.Default
-    private String actionType = "NONE";
+    @Enumerated(EnumType.STRING)
+    private NotificationAction actionType = NotificationAction.NONE;
 
     // Task ID or Channel ID
     @Column(name = "reference_id")

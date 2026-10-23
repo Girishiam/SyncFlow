@@ -5,10 +5,12 @@ import com.syncflow.dto.*;
 import java.util.List;
 
 public interface ProjectUseCase {
+    /** Projects visible to the current user. */
     List<ProjectDTO> getAllProjects();
     ProjectDTO createProject(CreateProjectRequest request);
     ProjectBoardDTO getProjectBoard(Long projectId);
     StageDTO createStage(Long projectId, CreateStageRequest request);
+    StageDTO updateStage(Long stageId, UpdateStageRequest request);
     void reorderStages(Long projectId, ReorderStagesRequest request);
     BurndownAnalyticsDTO getBurndownAnalytics(Long projectId);
 
@@ -21,17 +23,17 @@ public interface ProjectUseCase {
     SprintDTO startSprint(Long sprintId);
     SprintDTO completeSprint(Long sprintId);
 
-    // Butler Automation Rules
+    // Automation Rules
     List<AutomationRuleDTO> getAutomationRules(Long projectId);
     AutomationRuleDTO toggleAutomationRule(Long ruleId);
 
-    // Executive Financial Budget & Resource Cost Tracking
+    // Budget & Cost Tracking
     ProjectFinancialsDTO getProjectFinancials(Long projectId);
 
-    // Team Workload Capacity & Resource Allocation Matrix
+    // Team Workload Capacity
     TeamCapacityDTO getTeamCapacity(Long projectId);
 
-    // Real-Time Webhooks & Enterprise Connectors
+    // Webhooks
     List<WebhookSubscriptionDTO> getWebhooks(Long projectId);
     WebhookSubscriptionDTO createWebhook(Long projectId, CreateWebhookRequest request);
     WebhookSubscriptionDTO toggleWebhook(Long webhookId);

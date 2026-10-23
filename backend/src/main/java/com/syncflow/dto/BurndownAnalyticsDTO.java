@@ -11,6 +11,9 @@ import java.util.List;
 public class BurndownAnalyticsDTO {
     private Long projectId;
     private String projectName;
+    /** Sprint the chart is based on; null when no sprint exists and the last 14 days are shown. */
+    private Long sprintId;
+    private String sprintName;
     private Integer sprintDurationDays;
     private Integer currentDay;
     private Integer totalStoryPoints;

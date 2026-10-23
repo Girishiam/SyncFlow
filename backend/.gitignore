@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local secrets & runtime data ###
+config/application-local.yml
+data/

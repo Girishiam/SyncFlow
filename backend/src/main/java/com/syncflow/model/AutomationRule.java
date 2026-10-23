@@ -1,5 +1,7 @@
 package com.syncflow.model;
 
+import com.syncflow.model.enums.*;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -28,10 +30,12 @@ public class AutomationRule {
     private String description;
 
     @Column(name = "trigger_event", nullable = false, length = 50)
-    private String triggerEvent; // ALL_SUBTASKS_COMPLETED, STAGE_CHANGED_TO_QA, TASK_MARKED_BLOCKED, DEADLINE_APPROACHING
+    @Enumerated(EnumType.STRING)
+    private AutomationTrigger triggerEvent;
 
     @Column(name = "action_type", nullable = false, length = 50)
-    private String actionType; // AUTO_COMPLETE_TASK, AUTO_ASSIGN_QA, NOTIFY_MANAGER_URGENT, AUTO_ARCHIVE_DONE
+    @Enumerated(EnumType.STRING)
+    private AutomationAction actionType;
 
     @Column(name = "target_role", length = 50)
     private String targetRole; // ROLE_SQA_ENGINEER, ROLE_PROJECT_MANAGER

@@ -1,0 +1,14 @@
+# Copy to config/application-local.yml (git-ignored) for local development,
+# or provide the same values through environment variables instead:
+#   SYNCFLOW_DB_PASSWORD, SYNCFLOW_JWT_SECRET, SYNCFLOW_ADMIN_EMAIL, SYNCFLOW_ADMIN_PASSWORD
+spring:
+  profiles:
+    active: dev          # 'dev' seeds demo projects, users and sample data
+  datasource:
+    password: "change-me"
+
+syncflow:
+  jwt:
+    secret: "generate-with: openssl rand -base64 48"
+  webhooks:
+    allow-private-targets: true   # allow webhook targets on localhost while developing

@@ -1,5 +1,7 @@
 package com.syncflow.model;
 
+import com.syncflow.model.enums.*;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,7 +31,8 @@ public class Project {
 
     @Column(nullable = false, length = 30)
     @Builder.Default
-    private String status = "ACTIVE"; // ACTIVE, ON_HOLD, COMPLETED, ARCHIVED
+    @Enumerated(EnumType.STRING)
+    private ProjectStatus status = ProjectStatus.ACTIVE;
 
     @Column(name = "start_date")
     private LocalDate startDate;
@@ -47,12 +50,10 @@ public class Project {
 
     // Financial Budgeting & Resource Cost Tracking
     @Column(name = "total_budget")
-    @Builder.Default
-    private Double totalBudget = 150000.0;
+    private Double totalBudget;
 
     @Column(name = "allocated_budget")
-    @Builder.Default
-    private Double allocatedBudget = 120000.0;
+    private Double allocatedBudget;
 
     @Column(name = "currency", length = 10)
     @Builder.Default

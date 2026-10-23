@@ -1,0 +1,106 @@
+<div class="roadmap-view">
+  <div class="roadmap-header">
+    <div class="roadmap-title-wrap">
+      <div class="roadmap-icon-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="4" y1="6" x2="16" y2="6" stroke-linecap="round"/>
+          <line x1="8" y1="12" x2="20" y2="12" stroke-linecap="round"/>
+          <line x1="4" y1="18" x2="12" y2="18" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <h2 class="view-title">Sprint Roadmap & Gantt Timeline</h2>
+        <p class="view-subtitle">Interactive schedule projection, delivery milestones, and task dependency critical path.</p>
+      </div>
+    </div>
+
+    <div class="roadmap-actions">
+      <button class="roadmap-refresh-btn" (click)="refreshTimeline()" title="Recalculate timeline">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M23 4v6h-6"></path>
+          <path d="M1 20v-6h6"></path>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+        <span>Refresh Schedule</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Roadmap Metrics Summary -->
+  <div class="roadmap-metrics-row">
+    <div class="roadmap-metric-pill">
+      <span class="label">Total Tasks</span>
+      <span class="val">{{ timelineTasks().length }}</span>
+    </div>
+    <div class="roadmap-metric-pill">
+      <span class="label">Critical Path</span>
+      <span class="val gold">{{ (timelineTasks() | slice:0:3).length }} Milestones</span>
+    </div>
+    <div class="roadmap-metric-pill">
+      <span class="label">Sprint Velocity</span>
+      <span class="val emerald">34 pts / sprint</span>
+    </div>
+    <div class="roadmap-metric-pill">
+      <span class="label">Delivery SLA</span>
+      <span class="val emerald">98.2% On-Time</span>
+    </div>
+  </div>
+
+  <!-- Interactive Gantt Chart Container -->
+  <div class="gantt-container">
+    <!-- Gantt Header Days Bar -->
+    <div class="gantt-timeline-header">
+      <div class="task-col-header">Task & Deliverable</div>
+      <div class="days-scale">
+        <div class="scale-mark" *ngFor="let day of [1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27]">
+          Day {{ day }}
+        </div>
+      </div>
+    </div>
+
+    <!-- Gantt Task Rows -->
+    <div class="gantt-body">
+      <!-- Today Reference Marker Line -->
+      <div class="gantt-today-line" style="left: 46%;">
+        <div class="gantt-today-badge">TODAY</div>
+      </div>
+
+      <div *ngFor="let t of timelineTasks()" class="gantt-row" [class.blocked-row]="t.isBlocked">
+        <div class="task-info-col" (click)="openTaskDetail(t)">
+          <span class="task-prio-dot" [class]="t.priority.toLowerCase()"></span>
+          <span class="task-title-text">#{{ t.id }} · {{ t.title }}</span>
+          <span class="task-pts-badge">{{ t.storyPoints || 3 }} pts</span>
+        </div>
+
+        <div class="timeline-track">
+          <!-- Grid background guides -->
+          <div class="track-guides">
+            <div class="guide-line" *ngFor="let i of [1,2,3,4,5,6,7,8]"></div>
+          </div>
+
+          <!-- Gantt Progress Bar -->
+          <div
+            class="gantt-bar"
+            [class.done]="t.progress === 100 || t.isDoneStage"
+            [class.blocked]="t.isBlocked"
+            [style.left.%]="getGanttBarLeft(t.startDate)"
+            [style.width.%]="getGanttBarWidth(t.startDate, t.deadline)"
+            (click)="openTaskDetail(t)"
+            [title]="t.title + ' (' + t.progress + '%) - Assignee: ' + t.assignee"
+          >
+            <div class="bar-fill" [style.width.%]="t.progress"></div>
+            <div class="bar-content">
+              <span class="bar-avatar">{{ t.avatar || (t.assignee ? t.assignee.substring(0, 2).toUpperCase() : 'UN') }}</span>
+              <span class="bar-text">{{ t.progress }}%</span>
+            </div>
+          </div>
+
+          <!-- Blocker Indicator Link -->
+          <div *ngIf="t.blockedByTaskIds && t.blockedByTaskIds.length > 0" class="dependency-connector-flag" [style.left.%]="getGanttBarLeft(t.startDate) + 2">
+            ⚠️ Blocked by #{{ t.blockedByTaskIds.join(', #') }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

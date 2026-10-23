@@ -1,0 +1,73 @@
+<div class="webhooks-view">
+  <div class="view-header-row">
+    <div>
+      <h2>Enterprise Webhooks & Integrations</h2>
+      <p class="view-subtitle">Real-time HTTP event dispatchers for Slack, Microsoft Teams, Jenkins, and GitHub</p>
+    </div>
+    <div class="header-action-group">
+      <button class="btn-create-webhook-pill" (click)="openWebhooksModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        <span>+ Add Webhook</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Webhooks Grid -->
+  <div class="webhooks-grid">
+    <div *ngFor="let hook of webhooks()" class="webhook-card" [class.disabled-hook]="!hook.isEnabled">
+      <div class="wh-top-row">
+        <div class="wh-title-group">
+          <span class="wh-connector-icon">🔗</span>
+          <div>
+            <h4 class="wh-name">{{ hook.name }}</h4>
+            <code class="wh-url">{{ hook.targetUrl }}</code>
+          </div>
+        </div>
+        <div class="wh-toggle-wrap">
+          <button class="wh-toggle-btn" [class.enabled]="hook.isEnabled" (click)="toggleWebhook(hook.id)">
+            {{ hook.isEnabled ? 'ACTIVE' : 'PAUSED' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="wh-events-row">
+        <span *ngFor="let ev of hook.events" class="wh-event-pill">{{ ev }}</span>
+      </div>
+
+      <div class="wh-footer">
+        <div class="wh-stats">
+          <span>Deliveries: <strong>{{ hook.deliveryCount }}</strong></span>
+          <span *ngIf="hook.lastResponseStatus" class="wh-status-badge">{{ hook.lastResponseStatus }}</span>
+        </div>
+        <div class="wh-actions">
+          <button
+            class="btn-wh-ping"
+            (click)="testWebhook(hook.id)"
+            [disabled]="isTestingWebhook() === hook.id"
+          >
+            {{ isTestingWebhook() === hook.id ? 'Testing...' : 'Test Ping' }}
+          </button>
+          <button class="btn-wh-delete" (click)="deleteWebhook(hook.id)" title="Delete webhook">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Ping Success Banner -->
+      <div *ngIf="webhookTestResult()?.id === hook.id" class="ping-success-toast">
+        ✓ Webhook Ping Delivered: {{ webhookTestResult()!.status }}
+      </div>
+    </div>
+
+    <div *ngIf="webhooks().length === 0" class="empty-webhooks-card">
+      <p>No webhooks configured for this project yet. Connect Slack, Jenkins, or custom HTTP endpoints.</p>
+      <button class="btn-create-webhook-pill" (click)="openWebhooksModal()">+ Register First Webhook</button>
+    </div>
+  </div>
+</div>
