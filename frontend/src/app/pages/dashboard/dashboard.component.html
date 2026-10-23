@@ -681,10 +681,15 @@
 
         <!-- Gantt Task Rows -->
         <div class="gantt-body">
+          <!-- Today Reference Marker Line -->
+          <div class="gantt-today-line" style="left: 46%;">
+            <div class="gantt-today-badge">TODAY</div>
+          </div>
+
           <div *ngFor="let t of timelineTasks()" class="gantt-row" [class.blocked-row]="t.isBlocked">
             <div class="task-info-col" (click)="openTaskDetail(t)">
               <span class="task-prio-dot" [class]="t.priority.toLowerCase()"></span>
-              <span class="task-title-text">{{ t.title }}</span>
+              <span class="task-title-text">#{{ t.id }} · {{ t.title }}</span>
               <span class="task-pts-badge">{{ t.storyPoints || 3 }} pts</span>
             </div>
 
@@ -706,7 +711,7 @@
               >
                 <div class="bar-fill" [style.width.%]="t.progress"></div>
                 <div class="bar-content">
-                  <span class="bar-avatar">{{ t.avatar || 'UN' }}</span>
+                  <span class="bar-avatar">{{ t.avatar || (t.assignee ? t.assignee.substring(0, 2).toUpperCase() : 'UN') }}</span>
                   <span class="bar-text">{{ t.progress }}%</span>
                 </div>
               </div>
@@ -767,6 +772,19 @@
               <button *ngIf="sprint.status === 'PLANNING'" class="btn-sprint-action start-btn" (click)="startSprint(sprint.id)">Start Sprint</button>
               <button *ngIf="sprint.status === 'ACTIVE'" class="btn-sprint-action complete-btn" (click)="completeSprint(sprint.id)">Complete Sprint</button>
             </div>
+          </div>
+
+          <!-- Sprint Burndown Progress Bar -->
+          <div class="sprint-burndown-row">
+            <div class="sprint-burndown-track">
+              <div
+                class="sprint-burndown-fill"
+                [style.width.%]="Math.min(100, Math.round(((sprint.completedStoryPoints || 0) / (sprint.totalStoryPoints || sprint.targetStoryPoints || 1)) * 100))"
+              ></div>
+            </div>
+            <span class="sprint-burndown-pct">
+              {{ Math.min(100, Math.round(((sprint.completedStoryPoints || 0) / (sprint.totalStoryPoints || sprint.targetStoryPoints || 1)) * 100)) }}% Burned
+            </span>
           </div>
 
           <div *ngIf="sprint.goal" class="sprint-goal-box">
@@ -2451,6 +2469,7 @@
   <div *ngIf="activeDetailTask()" class="task-detail-drawer">
     <div class="drawer-header">
       <div class="drawer-badge-group">
+        <span class="task-id-badge">#{{ activeDetailTask()!.id }}</span>
         <span class="project-tag">{{ activeDetailTask()!.projectName || 'Core Project' }}</span>
         <span class="priority-tag" [class]="activeDetailTask()!.priority.toLowerCase()">
           {{ activeDetailTask()!.priority }}
@@ -2463,7 +2482,7 @@
           COMPLETED
         </span>
       </div>
-      <button class="drawer-close" (click)="closeTaskDetail()">×</button>
+      <button class="drawer-close-btn" (click)="closeTaskDetail()" title="Close Drawer">×</button>
     </div>
 
     <div class="drawer-body">
@@ -2480,7 +2499,7 @@
         <div class="meta-item">
           <label>Assignee</label>
           <div class="assignee-select-wrap">
-            <div class="avatar-circle">{{ activeDetailTask()!.avatar || 'UN' }}</div>
+            <div class="avatar-circle">{{ activeDetailTask()!.avatar || (activeDetailTask()!.assignee ? activeDetailTask()!.assignee!.substring(0, 2).toUpperCase() : 'UN') }}</div>
             <select
               class="meta-select"
               [ngModel]="detailAssigneeId()"
@@ -2515,12 +2534,12 @@
             [value]="activeDetailTask()!.storyPoints || 3"
             (change)="updateTaskStoryPoints(activeDetailTask()!.id, $event)"
           >
-            <option [value]="1">1 pt (Trivial)</option>
-            <option [value]="2">2 pts (Small)</option>
-            <option [value]="3">3 pts (Standard)</option>
-            <option [value]="5">5 pts (Medium)</option>
-            <option [value]="8">8 pts (Complex)</option>
-            <option [value]="13">13 pts (Epic)</option>
+            <option value="1" [selected]="(activeDetailTask()!.storyPoints || 3) == 1">1 pt (Trivial)</option>
+            <option value="2" [selected]="(activeDetailTask()!.storyPoints || 3) == 2">2 pts (Small)</option>
+            <option value="3" [selected]="(activeDetailTask()!.storyPoints || 3) == 3">3 pts (Standard)</option>
+            <option value="5" [selected]="(activeDetailTask()!.storyPoints || 3) == 5">5 pts (Medium)</option>
+            <option value="8" [selected]="(activeDetailTask()!.storyPoints || 3) == 8">8 pts (Complex)</option>
+            <option value="13" [selected]="(activeDetailTask()!.storyPoints || 3) == 13">13 pts (Epic)</option>
           </select>
         </div>
 
@@ -2531,25 +2550,35 @@
             [value]="activeDetailTask()!.sprintId || ''"
             (change)="assignTaskSprint(activeDetailTask()!.id, $event)"
           >
-            <option value="">No Sprint (Product Backlog)</option>
-            <option *ngFor="let s of projectSprints()" [value]="s.id">
+            <option value="" [selected]="!activeDetailTask()!.sprintId">No Sprint (Product Backlog)</option>
+            <option *ngFor="let s of projectSprints()" [value]="s.id" [selected]="activeDetailTask()!.sprintId === s.id">
               {{ s.name }} ({{ s.status }})
             </option>
           </select>
         </div>
 
         <div class="meta-item full-width">
-          <label>Progress</label>
-          <div class="progress-display">
+          <div class="progress-label-row">
+            <label>Progress</label>
+            <span class="prog-val">{{ activeDetailTask()!.progress }}%</span>
+          </div>
+          <div class="drawer-progress-control">
             <input
               type="range"
               min="0"
               max="100"
+              step="5"
               [(ngModel)]="activeDetailTask()!.progress"
               (change)="onProgressChange(activeDetailTask()!)"
-              class="range-slider"
+              class="drawer-range-slider"
             />
-            <span class="prog-val">{{ activeDetailTask()!.progress }}%</span>
+            <div class="progress-step-chips">
+              <button type="button" class="prog-chip" [class.active]="activeDetailTask()!.progress === 0" (click)="setTaskProgress(0)">0%</button>
+              <button type="button" class="prog-chip" [class.active]="activeDetailTask()!.progress === 25" (click)="setTaskProgress(25)">25%</button>
+              <button type="button" class="prog-chip" [class.active]="activeDetailTask()!.progress === 50" (click)="setTaskProgress(50)">50%</button>
+              <button type="button" class="prog-chip" [class.active]="activeDetailTask()!.progress === 75" (click)="setTaskProgress(75)">75%</button>
+              <button type="button" class="prog-chip" [class.active]="activeDetailTask()!.progress === 100" (click)="setTaskProgress(100)">100%</button>
+            </div>
           </div>
         </div>
 
@@ -3977,16 +4006,16 @@
 
   <!-- Butler Automations Modal -->
   <div *ngIf="isAutomationsModalOpen()" class="dialog-backdrop" (click)="closeAutomationsModal()">
-    <div class="dialog-card automations-dialog-card" (click)="$event.stopPropagation()">
+    <div class="automations-dialog-card" (click)="$event.stopPropagation()">
       <div class="dialog-header">
-        <div class="automations-header-title">
-          <div class="automations-bolt-icon">⚡</div>
+        <div class="dialog-title-group">
+          <div class="dialog-icon-pill">⚡</div>
           <div>
             <h3 class="dialog-title">Workspace Butler Automation Rules</h3>
             <p class="dialog-subtitle">Event-driven automations that trigger actions based on card movements, checklist completion, and blockers.</p>
           </div>
         </div>
-        <button class="dialog-close" (click)="closeAutomationsModal()">×</button>
+        <button class="dialog-close-btn" (click)="closeAutomationsModal()" title="Close Dialog">×</button>
       </div>
 
       <div class="dialog-body automations-body">
@@ -4009,24 +4038,30 @@
                 <input type="checkbox" [checked]="rule.isEnabled" (change)="toggleAutomationRule(rule.id)">
                 <span class="slider round"></span>
               </label>
-              <span class="toggle-status-text">{{ rule.isEnabled ? 'Active' : 'Paused' }}</span>
+              <span class="toggle-status-text" [class.active-text]="rule.isEnabled">{{ rule.isEnabled ? 'Active' : 'Paused' }}</span>
             </div>
           </div>
         </div>
       </div>
 
       <div class="dialog-footer">
-        <button class="btn-secondary" (click)="closeAutomationsModal()">Close</button>
+        <button class="btn-primary" (click)="closeAutomationsModal()">Done & Save</button>
       </div>
     </div>
   </div>
 
   <!-- Create Sprint Modal -->
   <div *ngIf="isCreateSprintModalOpen()" class="dialog-backdrop" (click)="closeCreateSprintModal()">
-    <div class="dialog-card" (click)="$event.stopPropagation()">
+    <div class="sprint-dialog-card" (click)="$event.stopPropagation()">
       <div class="dialog-header">
-        <h3 class="dialog-title">Create Agile Sprint</h3>
-        <button class="dialog-close" (click)="closeCreateSprintModal()">×</button>
+        <div class="dialog-title-group">
+          <div class="dialog-icon-pill">🏃</div>
+          <div>
+            <h3 class="dialog-title">Create Agile Sprint</h3>
+            <p class="dialog-subtitle">Define iteration cadence, target velocity commitments, and definition of done.</p>
+          </div>
+        </div>
+        <button class="dialog-close-btn" (click)="closeCreateSprintModal()" title="Close Dialog">×</button>
       </div>
       <div class="dialog-body">
         <div class="form-group">
@@ -4066,7 +4101,7 @@
             <span class="gate-target-pill">Target: {{ gateValidationResult()?.targetStageName }}</span>
           </div>
         </div>
-        <button class="dialog-close" (click)="cancelGateOverride()">×</button>
+        <button class="dialog-close-btn" (click)="cancelGateOverride()" title="Close Dialog">×</button>
       </div>
 
       <div class="dialog-body">

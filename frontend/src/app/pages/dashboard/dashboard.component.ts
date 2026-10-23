@@ -342,6 +342,14 @@ export class DashboardComponent implements OnInit {
     this.boardFacade.onProgressChange(task);
   }
 
+  setTaskProgress(prog: number): void {
+    const task = this.activeDetailTask();
+    if (task) {
+      task.progress = prog;
+      this.boardFacade.onProgressChange(task);
+    }
+  }
+
   openBlocker(task: TaskCard): void {
     this.boardFacade.openBlocker(task);
   }
