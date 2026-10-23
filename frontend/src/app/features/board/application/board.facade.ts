@@ -67,6 +67,7 @@ export class BoardFacade implements OnDestroy {
   public newTaskStageId = signal<number | null>(null);
   public newTaskAssigneeId = signal<string>('');
   public newTaskDeadline = signal<string>('');
+  public newTaskSprintId = signal<number | null>(null);
 
   public selectedTask = signal<TaskCard | null>(null);
   public blockerReasonInput = signal('');
@@ -463,8 +464,9 @@ export class BoardFacade implements OnDestroy {
   }
 
   // Create Task Modal Controls
-  public openCreateTask(stageId: number): void {
+  public openCreateTask(stageId: number, sprintId?: number): void {
     this.newTaskStageId.set(stageId);
+    this.newTaskSprintId.set(sprintId || null);
     this.newTaskTitle.set('');
     this.newTaskDescription.set('');
     this.newTaskPriority.set('MEDIUM');
@@ -481,6 +483,7 @@ export class BoardFacade implements OnDestroy {
     const title = this.newTaskTitle().trim();
     const stageId = this.newTaskStageId();
     const projectId = this.selectedProjectId();
+    const sprintId = this.newTaskSprintId();
 
     if (!title || !stageId) return;
 
@@ -498,6 +501,9 @@ export class BoardFacade implements OnDestroy {
     }).subscribe({
       next: (created) => {
         this.applyTaskUpdateLocally(created);
+        if (sprintId) {
+          this.assignSprint(created.id, sprintId);
+        }
         this.closeCreateTask();
       },
       error: (err) => console.error('BoardFacade: Failed to create task', err)

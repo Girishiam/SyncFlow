@@ -166,6 +166,7 @@ export class DashboardComponent implements OnInit {
   newTaskPriority = this.boardFacade.newTaskPriority;
   newTaskAssigneeId = this.boardFacade.newTaskAssigneeId;
   newTaskDeadline = this.boardFacade.newTaskDeadline;
+  newTaskSprintId = this.boardFacade.newTaskSprintId;
 
   // Blocker Dialog Delegates
   selectedTask = this.boardFacade.selectedTask;
@@ -362,8 +363,21 @@ export class DashboardComponent implements OnInit {
     this.boardFacade.closeBlocker();
   }
 
-  openCreateTask(stageId: number): void {
-    this.boardFacade.openCreateTask(stageId);
+  openCreateTask(stageId?: number, sprintId?: number): void {
+    const sId = stageId || (this.columns().length > 0 ? this.columns()[0].numericId : 1);
+    this.boardFacade.openCreateTask(sId, sprintId);
+  }
+
+  getTasksForSprint(sprintId: number): TaskCard[] {
+    const res: TaskCard[] = [];
+    for (const col of this.columns()) {
+      for (const t of col.tasks) {
+        if (t.sprintId === sprintId) {
+          res.push(t);
+        }
+      }
+    }
+    return res;
   }
 
   closeCreateTask(): void {

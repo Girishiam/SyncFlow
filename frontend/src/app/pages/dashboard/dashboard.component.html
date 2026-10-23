@@ -769,6 +769,9 @@
                 <span class="tally-num">{{ sprint.completedStoryPoints || 0 }} / {{ sprint.totalStoryPoints || sprint.targetStoryPoints }} pts</span>
                 <span class="tally-label">Velocity</span>
               </div>
+              <button class="btn-sprint-action add-task-btn" (click)="openCreateTask(undefined, sprint.id)" title="Create task directly in {{ sprint.name }}">
+                + Add Task
+              </button>
               <button *ngIf="sprint.status === 'PLANNING'" class="btn-sprint-action start-btn" (click)="startSprint(sprint.id)">Start Sprint</button>
               <button *ngIf="sprint.status === 'ACTIVE'" class="btn-sprint-action complete-btn" (click)="completeSprint(sprint.id)">Complete Sprint</button>
             </div>
@@ -789,6 +792,30 @@
 
           <div *ngIf="sprint.goal" class="sprint-goal-box">
             <strong>Sprint Goal:</strong> {{ sprint.goal }}
+          </div>
+
+          <!-- Tasks Staged in This Sprint -->
+          <div class="sprint-staged-tasks" *ngIf="getTasksForSprint(sprint.id).length > 0">
+            <div class="staged-header-row">
+              <span class="staged-label">Staged Tasks ({{ getTasksForSprint(sprint.id).length }})</span>
+            </div>
+            <div class="staged-tasks-grid">
+              <div
+                *ngFor="let st of getTasksForSprint(sprint.id)"
+                class="staged-task-chip"
+                (click)="openTaskDetail(st)"
+                title="Click to view/edit #{{ st.id }}"
+              >
+                <span class="chip-id">#{{ st.id }}</span>
+                <span class="chip-title">{{ st.title }}</span>
+                <span class="chip-pts">{{ st.storyPoints || 3 }} pts</span>
+                <span class="chip-stage" [class.done]="st.progress === 100">{{ st.stageName || (st.progress === 100 ? 'Done' : 'Active') }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="sprint-empty-tasks-hint" *ngIf="getTasksForSprint(sprint.id).length === 0">
+            <span>No tasks in this sprint yet. Click <strong>"+ Add Task"</strong> above or allocate tasks from the Backlog table below.</span>
           </div>
         </div>
       </div>
@@ -2279,6 +2306,14 @@
           <option value="">Unassigned</option>
           <option *ngFor="let u of bankUsers()" [value]="u.id">
             {{ u.fullName }} ({{ u.role?.name || 'Member' }})
+          </option>
+        </select>
+
+        <label for="taskSprintSelect">Agile Sprint</label>
+        <select id="taskSprintSelect" [(ngModel)]="newTaskSprintId" class="dialog-select">
+          <option [ngValue]="null">No Sprint (Product Backlog)</option>
+          <option *ngFor="let s of projectSprints()" [ngValue]="s.id">
+            {{ s.name }} ({{ s.status }})
           </option>
         </select>
 

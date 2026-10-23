@@ -7190,6 +7190,20 @@
             font-size: 0.78rem;
             font-weight: 700;
             cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+            &.add-task-btn {
+              background: #E8F4EC;
+              color: #006022;
+              border: 1px solid #A7F3D0;
+
+              &:hover {
+                background: #006022;
+                color: #FFFFFF;
+                border-color: #006022;
+                box-shadow: 0 2px 6px rgba(0, 96, 34, 0.18);
+              }
+            }
 
             &.start-btn {
               background: #006022;
@@ -7250,6 +7264,105 @@
         padding: 0.5rem 0.75rem;
         border-radius: 6px;
         border-left: 3px solid #006022;
+      }
+
+      .sprint-staged-tasks {
+        margin-top: 0.65rem;
+        padding-top: 0.65rem;
+        border-top: 1px dashed #E2E8F0;
+
+        .staged-header-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 0.45rem;
+
+          .staged-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #64748B;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+          }
+        }
+
+        .staged-tasks-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.45rem;
+
+          .staged-task-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.3rem 0.65rem;
+            background: #FFFFFF;
+            border: 1px solid #CBD5E1;
+            border-radius: 6px;
+            font-size: 0.74rem;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+            transition: all 0.15s ease;
+
+            &:hover {
+              border-color: #006022;
+              background: #F8FAF9;
+              transform: translateY(-1px);
+              box-shadow: 0 2px 5px rgba(0, 96, 34, 0.1);
+            }
+
+            .chip-id {
+              font-weight: 800;
+              color: #006022;
+            }
+
+            .chip-title {
+              font-weight: 600;
+              color: #1E293B;
+              max-width: 200px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            }
+
+            .chip-pts {
+              font-weight: 700;
+              font-size: 0.7rem;
+              color: #475569;
+              background: #F1F5F9;
+              padding: 0.08rem 0.35rem;
+              border-radius: 4px;
+            }
+
+            .chip-stage {
+              font-size: 0.65rem;
+              font-weight: 700;
+              color: #0284C7;
+              background: #E0F2FE;
+              padding: 0.08rem 0.35rem;
+              border-radius: 4px;
+
+              &.done {
+                color: #15803D;
+                background: #DCFCE7;
+              }
+            }
+          }
+        }
+      }
+
+      .sprint-empty-tasks-hint {
+        margin-top: 0.5rem;
+        padding: 0.45rem 0.75rem;
+        background: #F8FAFC;
+        border: 1px dashed #E2E8F0;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        color: #64748B;
+
+        strong {
+          color: #006022;
+        }
       }
     }
   }
