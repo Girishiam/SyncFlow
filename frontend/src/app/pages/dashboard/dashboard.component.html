@@ -36,7 +36,7 @@
         id="sidebar-nav-board"
         class="nav-item"
         [class.active]="activeNav() === 'board'"
-        (click)="activeNav.set('board')"
+        (click)="switchNav('board')"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="3" width="7" height="9" />
@@ -92,7 +92,7 @@
         id="sidebar-nav-discussions"
         class="nav-item"
         [class.active]="activeNav() === 'discussions'"
-        (click)="activeNav.set('discussions')"
+        (click)="switchNav('discussions')"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
@@ -105,7 +105,7 @@
         id="sidebar-nav-analytics"
         class="nav-item"
         [class.active]="activeNav() === 'analytics'"
-        (click)="activeNav.set('analytics')"
+        (click)="switchNav('analytics')"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="20" x2="18" y2="10" />
@@ -119,7 +119,7 @@
         id="sidebar-nav-rbac"
         class="nav-item"
         [class.active]="activeNav() === 'rbac'"
-        (click)="activeNav.set('rbac')"
+        (click)="switchNav('rbac')"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
@@ -219,7 +219,7 @@
           *ngFor="let ch of channels()"
           class="channel-item"
           [class.active]="activeNav() === 'discussions' && activeChannel()?.id === ch.id"
-          (click)="activeNav.set('discussions'); selectChannel(ch)"
+          (click)="switchNav('discussions'); selectChannel(ch)"
         >
           <span class="channel-icon-badge"><sf-icon [name]="getChannelIconName(ch.icon)" [size]="14"></sf-icon></span>
           <span class="channel-name">{{ ch.name }}</span>

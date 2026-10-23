@@ -10,7 +10,9 @@ export type DashboardView = typeof DASHBOARD_VIEWS[number];
 @Injectable({ providedIn: 'root' })
 export class DashboardNavService {
   private readonly router = inject(Router);
-  readonly activeNav = signal<DashboardView>(this.parse(this.router.url));
+  private readonly current = signal<DashboardView>(this.parse(this.router.url));
+  /** Read-only: the view changes only through navigation, so the highlight always matches the URL. */
+  readonly activeNav = this.current.asReadonly();
   /** Emits each time a different view becomes active. */
   readonly entered$ = new Subject<DashboardView>();
 
@@ -18,7 +20,7 @@ export class DashboardNavService {
     this.router.events.pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd)).subscribe(e => {
       const view = this.parse(e.urlAfterRedirects);
       if (view !== this.activeNav()) {
-        this.activeNav.set(view);
+        this.current.set(view);
         this.entered$.next(view);
       }
     });
