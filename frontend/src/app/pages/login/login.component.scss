@@ -1,14 +1,25 @@
+// Split layout: brand panel on the left, sign-in form on the right.
+// The form stays first in the markup so keyboard and screen-reader users reach it first.
+$brand: #006022;
+$brand-deep: #004d1b;
+$gold: #c59b27;
+
 .login-container {
   min-height: 100vh;
-  width: 100vw;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   background-color: #f7f9f7;
+  box-sizing: border-box;
+}
+
+.login-pane {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
-  position: relative;
   overflow: hidden;
-  box-sizing: border-box;
 }
 
 .ambient-glow {
@@ -20,6 +31,384 @@
   height: 500px;
   background: radial-gradient(circle, rgba(0, 96, 34, 0.08) 0%, rgba(197, 155, 39, 0.03) 45%, transparent 70%);
   pointer-events: none;
+}
+
+// ---------------------------------------------------------------- brand panel
+
+.brand-pane {
+  order: -1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2.5rem;
+  background: $brand;
+  color: #ffffff;
+}
+
+.brand-pane-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.55;
+  }
+
+  .blob-a {
+    width: 420px;
+    height: 420px;
+    top: -120px;
+    right: -100px;
+    background: rgba(197, 155, 39, 0.35);
+    animation: drift-a 18s ease-in-out infinite alternate;
+  }
+
+  .blob-b {
+    width: 480px;
+    height: 480px;
+    bottom: -180px;
+    left: -140px;
+    background: rgba(0, 0, 0, 0.25);
+    animation: drift-b 22s ease-in-out infinite alternate;
+  }
+
+  .grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  }
+}
+
+.brand-pane-content {
+  position: relative;
+  z-index: 1;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+// Orbiting logo mark
+.orbit {
+  position: relative;
+  width: 180px;
+  height: 180px;
+  margin-bottom: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1.5px dashed rgba(255, 255, 255, 0.28);
+  }
+
+  .ring-outer {
+    inset: 0;
+    animation: spin-slow 28s linear infinite;
+  }
+
+  .ring-inner {
+    inset: 28px;
+    border-style: solid;
+    border-color: rgba(197, 155, 39, 0.45);
+    animation: spin-slow 18s linear infinite reverse;
+  }
+
+  .node {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
+
+    &.small {
+      width: 8px;
+      height: 8px;
+    }
+  }
+
+  .node-gold {
+    background: $gold;
+    top: -6px;
+    left: calc(50% - 6px);
+  }
+
+  .node-white {
+    background: #ffffff;
+    bottom: 18px;
+    right: 6px;
+
+    &.small {
+      top: calc(50% - 4px);
+      bottom: auto;
+      left: -4px;
+      right: auto;
+    }
+  }
+
+  .orbit-logo {
+    width: 84px;
+    height: 84px;
+    filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.25));
+    animation: breathe 4s ease-in-out infinite;
+
+    .arc {
+      stroke-dasharray: 26;
+      stroke-dashoffset: 26;
+      animation: draw-arc 3.2s ease-in-out infinite;
+    }
+
+    .arc-bottom {
+      animation-delay: 0.4s;
+    }
+  }
+}
+
+.brand-name {
+  margin: 0;
+  color: #ffffff; // the global h1 style is dark
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.8px;
+}
+
+.brand-motto {
+  margin: 0.5rem 0 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #f3e3b3;
+}
+
+.brand-sub {
+  margin: 0.6rem 0 2rem;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+// Mini board: 3 columns of 108px, 12px gap, 14px padding → card steps of 120px
+.mini-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 108px);
+  gap: 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.18);
+  text-align: left;
+}
+
+.mini-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 160px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.12);
+
+  .mini-col-title {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 2px;
+  }
+}
+
+%mini-lines {
+  i {
+    display: block;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.55);
+
+    &.short {
+      width: 60%;
+    }
+  }
+}
+
+.mini-card {
+  @extend %mini-lines;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+
+  &.done i {
+    background: rgba(197, 155, 39, 0.8);
+  }
+}
+
+.traveller {
+  @extend %mini-lines;
+  position: absolute;
+  top: 112px;
+  left: 24px;
+  width: 88px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+  animation: travel 9s ease-in-out infinite;
+
+  i {
+    background: rgba(0, 77, 27, 0.35);
+  }
+
+  .traveller-tag {
+    width: 26px;
+    height: 6px;
+    border-radius: 3px;
+    background: $gold;
+    animation: tag-done 9s ease-in-out infinite;
+  }
+
+  .traveller-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(0, 77, 27, 0.12);
+    overflow: hidden;
+
+    span {
+      display: block;
+      height: 100%;
+      background: $brand;
+      animation: fill 9s ease-in-out infinite;
+    }
+  }
+}
+
+.sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 1.75rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+
+  .pulse-dot {
+    position: relative;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #6ee7a0;
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid #6ee7a0;
+      animation: ping 1.8s ease-out infinite;
+    }
+  }
+}
+
+// ---------------------------------------------------------------- animations
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes draw-arc {
+  0% { stroke-dashoffset: 26; }
+  40%, 70% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -26; }
+}
+
+@keyframes drift-a {
+  to { transform: translate(-60px, 50px); }
+}
+
+@keyframes drift-b {
+  to { transform: translate(70px, -40px); }
+}
+
+@keyframes travel {
+  0% { transform: translateX(0) scale(0.92); opacity: 0; }
+  6% { transform: translateX(0) scale(1); opacity: 1; }
+  26% { transform: translateX(0); }
+  36% { transform: translateX(120px) rotate(-2deg); }
+  40%, 59% { transform: translateX(120px) rotate(0); }
+  69% { transform: translateX(240px) rotate(-2deg); }
+  73%, 88% { transform: translateX(240px) rotate(0); opacity: 1; }
+  96%, 100% { transform: translateX(240px); opacity: 0; }
+}
+
+@keyframes fill {
+  0%, 6% { width: 10%; }
+  26% { width: 35%; }
+  59% { width: 75%; }
+  73%, 100% { width: 100%; }
+}
+
+@keyframes tag-done {
+  0%, 66% { background: $gold; }
+  73%, 100% { background: #22c55e; }
+}
+
+@keyframes ping {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-pane *,
+  .brand-pane *::after {
+    animation: none !important;
+  }
+
+  .traveller {
+    transform: translateX(240px);
+  }
+
+  .orbit .orbit-logo .arc {
+    stroke-dashoffset: 0;
+  }
+}
+
+// ---------------------------------------------------------------- narrow screens
+
+@media (max-width: 960px) {
+  .login-container {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .brand-pane {
+    display: none;
+  }
 }
 
 .login-card {
