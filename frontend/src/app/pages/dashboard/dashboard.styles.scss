@@ -3191,6 +3191,8 @@
     .drawer-body {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
+      container-type: inline-size;
       padding: 1.5rem;
       display: flex;
       flex-direction: column;
@@ -3229,9 +3231,19 @@
         }
       }
 
+      @container (max-width: 380px) {
+        .drawer-meta-grid {
+          grid-template-columns: minmax(0, 1fr);
+
+          .meta-item.full-width {
+            grid-column: auto;
+          }
+        }
+      }
+
       .drawer-meta-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 1rem;
         background: #F8FAF9;
         border: 1px solid #E5EBE7;
@@ -3242,6 +3254,15 @@
           display: flex;
           flex-direction: column;
           gap: 0.35rem;
+          min-width: 0;
+
+          select,
+          input:not([type="range"]):not([type="checkbox"]) {
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            box-sizing: border-box;
+          }
 
           label {
             font-size: 0.72rem;
@@ -3341,6 +3362,7 @@
 
               .prog-chip {
                 flex: 1;
+                min-width: 0;
                 padding: 0.22rem 0;
                 background: #FFFFFF;
                 border: 1px solid #CBD5E1;
