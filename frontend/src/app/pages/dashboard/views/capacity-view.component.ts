@@ -9,6 +9,8 @@ import { DashboardViewBase } from '../dashboard-view.base';
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './capacity-view.component.html',
-  encapsulation: ViewEncapsulation.None
+  encapsulation: ViewEncapsulation.None,
+  // The host is the flex child of .main-content; it must pass the bounded height down to the view.
+  host: { class: 'dashboard-view-host' }
 })
 export class CapacityViewComponent extends DashboardViewBase {}
