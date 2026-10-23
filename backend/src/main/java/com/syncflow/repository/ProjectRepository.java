@@ -15,37 +15,27 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findByStatus(String status);
     List<Project> findAllByOrderByCreatedAtDesc();
 
-    /**
-     * A project without a team is organisation-wide. Otherwise access is limited to the
-     * project manager, the team lead and the team members.
-     */
+    /** Project members and the project manager can access a project (admins are handled by the caller). */
     @Query("""
             SELECT COUNT(p) > 0 FROM Project p
-            LEFT JOIN p.team t
-            LEFT JOIN p.manager mg
-            LEFT JOIN t.lead ld
-            LEFT JOIN t.members m
             WHERE p.id = :projectId
-              AND (t IS NULL OR mg.id = :userId OR ld.id = :userId OR m.id = :userId)
+              AND (p.manager.id = :userId
+                   OR EXISTS (SELECT 1 FROM ProjectMember m WHERE m.projectId = p.id AND m.user.id = :userId))
             """)
     boolean isAccessibleBy(@Param("projectId") Long projectId, @Param("userId") UUID userId);
 
     @Query("""
-            SELECT DISTINCT p FROM Project p
-            LEFT JOIN p.team t
-            LEFT JOIN p.manager mg
-            LEFT JOIN t.lead ld
-            LEFT JOIN t.members m
-            WHERE t IS NULL OR mg.id = :userId OR ld.id = :userId OR m.id = :userId
+            SELECT p FROM Project p
+            WHERE p.manager.id = :userId
+               OR EXISTS (SELECT 1 FROM ProjectMember m WHERE m.projectId = p.id AND m.user.id = :userId)
             ORDER BY p.id
             """)
     List<Project> findAccessibleBy(@Param("userId") UUID userId);
 
-    /** Members of a project's team including its lead and the project manager. */
+    /** The project team: every member plus the project manager. */
     @Query("""
             SELECT DISTINCT u FROM User u
-            WHERE u.id IN (SELECT m.id FROM Project p JOIN p.team t JOIN t.members m WHERE p.id = :projectId)
-               OR u.id IN (SELECT t.lead.id FROM Project p JOIN p.team t WHERE p.id = :projectId)
+            WHERE u.id IN (SELECT m.user.id FROM ProjectMember m WHERE m.projectId = :projectId)
                OR u.id IN (SELECT p.manager.id FROM Project p WHERE p.id = :projectId)
             """)
     List<User> findTeamMembers(@Param("projectId") Long projectId);

@@ -42,6 +42,7 @@ public class DemoDataSeeder implements CommandLineRunner {
     private final com.syncflow.task.infrastructure.persistence.SpringDataSubtaskRepository subtaskRepository;
     private final com.syncflow.task.infrastructure.persistence.SpringDataTaskAttachmentRepository attachmentRepository;
     private final SprintRepository sprintRepository;
+    private final ProjectMemberRepository projectMemberRepository;
     private final TaskDependencyRepository taskDependencyRepository;
     private final AutomationRuleRepository automationRuleRepository;
     private final WebhookSubscriptionRepository webhookSubscriptionRepository;
@@ -142,6 +143,16 @@ public class DemoDataSeeder implements CommandLineRunner {
                     .completedAt(java.time.Instant.now().minusSeconds(86400)).build());
 
             log.info("Created Seed Project, Stages, and Tasks!");
+        }
+
+        // 6b. Project teams: the manager runs each project, the lead, developer and SQA work on it.
+        if (projectMemberRepository.count() == 0) {
+            for (Project p : projectRepository.findAll()) {
+                addMember(p, manager, ProjectRole.MANAGER);
+                addMember(p, lead, ProjectRole.LEAD);
+                addMember(p, dev, ProjectRole.MEMBER);
+                addMember(p, sqa, ProjectRole.MEMBER);
+            }
         }
 
         // 7. Create Channels if none exist
@@ -601,5 +612,10 @@ public class DemoDataSeeder implements CommandLineRunner {
             log.info("Created Seed User: {} with Role: {}", email, role.getName());
             return saved;
         });
+    }
+
+    private void addMember(Project project, User user, ProjectRole role) {
+        if (user == null || projectMemberRepository.existsByProjectIdAndUserId(project.getId(), user.getId())) return;
+        projectMemberRepository.save(ProjectMember.builder().projectId(project.getId()).user(user).role(role).build());
     }
 }

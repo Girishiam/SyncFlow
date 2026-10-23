@@ -28,6 +28,10 @@ export interface TaskCard {
   gitPrUrl?: string;
   estimatedHours?: number;
   totalHoursSpent?: number;
+  /** Checklist items in total / completed, and attached files (for "what is still needed" hints). */
+  checklistTotal?: number;
+  checklistDone?: number;
+  attachmentCount?: number;
 }
 
 export interface BankUser {
@@ -61,11 +65,48 @@ export interface StageGateFlags {
   requiresNoBlockers?: boolean;
 }
 
+export type ProjectRole = 'MANAGER' | 'LEAD' | 'MEMBER';
+
 export interface Project {
   id: number;
   name: string;
   description?: string;
   status: string;
+  startDate?: string;
+  dueDate?: string;
+  managerName?: string;
+  memberCount?: number;
+  /** The signed-in user's role in this project; absent when they only see it as an admin. */
+  myRole?: ProjectRole | null;
+  canManageTeam?: boolean;
+}
+
+export interface ProjectMember {
+  userId: string;
+  fullName: string;
+  email: string;
+  avatar: string;
+  systemRole?: string;
+  role: ProjectRole;
+  onLeave?: boolean;
+  openPoints: number;
+  openTasks: number;
+  addedAt?: string;
+}
+
+export interface NewProjectRequest {
+  name: string;
+  description?: string;
+  dueDate?: string | null;
+  totalBudget?: number | null;
+  currency?: string;
+  members: { userId: string; role: ProjectRole }[];
+}
+
+/** Where an unfinished task goes when its sprint closes (null sprintId = backlog). */
+export interface SprintCarryOver {
+  taskId: number;
+  sprintId: number | null;
 }
 
 export interface ProjectBoard {

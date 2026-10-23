@@ -280,6 +280,11 @@
             {{ p.name }}
           </option>
         </select>
+        <button class="btn-team-pill" (click)="team.openPanel()" title="People on this project">
+          <sf-icon name="users" [size]="15"></sf-icon>
+          <span>Team</span>
+          <span class="team-count" *ngIf="team.currentProject()?.memberCount as n">{{ n }}</span>
+        </button>
         <button class="btn-new-project-pill" (click)="openCreateProject()" title="New project">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19" />
@@ -397,16 +402,16 @@
         <label for="taskAssigneeSelect">Assignee</label>
         <select id="taskAssigneeSelect" [(ngModel)]="newTaskAssigneeId" class="dialog-select">
           <option value="">Unassigned</option>
-          <option *ngFor="let u of bankUsers()" [value]="u.id">
-            {{ u.fullName }} ({{ u.role?.name || 'Member' }})
+          <option *ngFor="let u of team.assignable()" [value]="u.id">
+            {{ u.fullName }}{{ u.onLeave ? ' (on leave)' : '' }}
           </option>
         </select>
 
         <label for="taskSprintSelect">Sprint</label>
         <select id="taskSprintSelect" [(ngModel)]="newTaskSprintId" class="dialog-select">
           <option [ngValue]="null">No sprint (backlog)</option>
-          <option *ngFor="let s of projectSprints()" [ngValue]="s.id">
-            {{ s.name }} ({{ s.status }})
+          <option *ngFor="let s of openSprints()" [ngValue]="s.id">
+            {{ s.name }}{{ s.status === 'ACTIVE' ? ' (running)' : '' }}
           </option>
         </select>
 
@@ -648,7 +653,7 @@
             >
               <option value="">Unassigned</option>
               <option
-                *ngFor="let u of bankUsers()"
+                *ngFor="let u of team.assignable()"
                 [value]="u.id"
                 [selected]="u.id === detailAssigneeId() || u.fullName === activeDetailTask()!.assignee"
               >
@@ -692,8 +697,8 @@
             (change)="assignTaskSprint(activeDetailTask()!.id, $event)"
           >
             <option value="" [selected]="!activeDetailTask()!.sprintId">No sprint (backlog)</option>
-            <option *ngFor="let s of projectSprints()" [value]="s.id" [selected]="activeDetailTask()!.sprintId === s.id">
-              {{ s.name }} ({{ s.status }})
+            <option *ngFor="let s of projectSprints()" [value]="s.id" [selected]="activeDetailTask()!.sprintId === s.id" [disabled]="s.status === 'COMPLETED'">
+              {{ s.name }}{{ s.status === 'ACTIVE' ? ' (running)' : s.status === 'COMPLETED' ? ' (closed)' : '' }}
             </option>
           </select>
         </div>
@@ -1429,53 +1434,192 @@
       </div>
     </div>
 
-  <!-- Create Project Modal -->
-  <div *ngIf="isCreateProjectModalOpen()" class="dialog-backdrop" (click)="closeCreateProject()">
-    <div class="dialog-card" (click)="$event.stopPropagation()">
+  <!-- New project: details, then team -->
+  <div *ngIf="team.isWizardOpen()" class="dialog-backdrop" (click)="team.closeWizard()">
+    <div class="dialog-card project-wizard" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="wizardTitle">
       <div class="dialog-header">
-        <h4>New project</h4>
-        <button class="dialog-close icon-btn" (click)="closeCreateProject()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
+        <div>
+          <h4 id="wizardTitle">New project</h4>
+          <p class="dialog-subtitle">Step {{ team.wizardStep() }} of 2 · {{ team.wizardStep() === 1 ? 'Details' : 'Team' }}</p>
+        </div>
+        <button class="dialog-close icon-btn" (click)="team.closeWizard()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
-      <div class="dialog-body">
-        <label for="projectNameInput">Project Name *</label>
-        <input
-          id="projectNameInput"
-          type="text"
-          [(ngModel)]="newProjectName"
-          placeholder="e.g. Swift Financial Messaging Platform"
-          class="dialog-input"
-        />
+      <div class="dialog-body" *ngIf="team.wizardStep() === 1">
+        <label for="projectNameInput">Name</label>
+        <input id="projectNameInput" type="text" class="dialog-input" [(ngModel)]="team.draftName"
+               placeholder="Payments API v3" maxlength="150" (keydown.enter)="team.nextStep()" />
 
-        <label for="projectDescInput">Project Description</label>
-        <textarea
-          id="projectDescInput"
-          [(ngModel)]="newProjectDescription"
-          placeholder="What is this project about?"
-          rows="3"
-          class="dialog-textarea"
-        ></textarea>
+        <label for="projectDescInput">What is it for? <span class="optional">optional</span></label>
+        <textarea id="projectDescInput" class="dialog-textarea" rows="3" [(ngModel)]="team.draftDescription"
+                  placeholder="One or two lines so the team knows what this covers"></textarea>
 
-        <div class="dialog-helper-box">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          <span>SyncFlow will automatically initialize canonical banking workflow stages: Backlog, In Development, Code Review & QA, and Done & Verified.</span>
+        <div class="wizard-row">
+          <div>
+            <label for="projectDueInput">Target date <span class="optional">optional</span></label>
+            <input id="projectDueInput" type="date" class="dialog-input" [min]="team.today" [(ngModel)]="team.draftDueDate" />
+          </div>
+          <div *ngIf="features.isEnabled('budget')">
+            <label for="projectBudgetInput">Budget <span class="optional">optional</span></label>
+            <div class="budget-input">
+              <input id="projectBudgetInput" type="number" min="0" class="dialog-input" [(ngModel)]="team.draftBudget" placeholder="0" />
+              <select class="dialog-select" [(ngModel)]="team.draftCurrency" aria-label="Currency">
+                <option>USD</option><option>EUR</option><option>GBP</option><option>BDT</option>
+              </select>
+            </div>
+          </div>
         </div>
+
+        <p class="wizard-note">The board starts with four stages: Backlog, In Development, Code Review &amp; QA, and Done &amp; Verified. You can change them later.</p>
+      </div>
+
+      <div class="dialog-body" *ngIf="team.wizardStep() === 2">
+        <p class="wizard-note top">You'll be the project manager. Pick who else works on it; only they will see the project.</p>
+        <input type="search" class="dialog-input" [(ngModel)]="team.draftSearch" placeholder="Search by name, email or role" aria-label="Search people" />
+        <ul class="people-pick-list">
+          <li *ngFor="let u of team.draftCandidates()" [class.picked]="team.draftTeam().has(u.id)">
+            <label class="people-pick">
+              <input type="checkbox" [checked]="team.draftTeam().has(u.id)" (change)="team.toggleDraftMember(u.id)" />
+              <span class="avatar-circle sm">{{ u.fullName.substring(0, 2).toUpperCase() }}</span>
+              <span class="people-text">
+                <strong>{{ u.fullName }}</strong>
+                <small>{{ u.role?.name || 'No role' }}{{ u.onLeave ? ' · on leave' : '' }}</small>
+              </span>
+            </label>
+            <select *ngIf="team.draftTeam().has(u.id)" class="role-select" aria-label="Project role"
+                    [ngModel]="team.draftTeam().get(u.id)" (ngModelChange)="team.setDraftRole(u.id, $event)">
+              <option *ngFor="let r of projectRoles" [ngValue]="r.value">{{ r.label }}</option>
+            </select>
+          </li>
+          <li *ngIf="team.draftCandidates().length === 0" class="people-empty">No one matches that search.</li>
+        </ul>
       </div>
 
       <div class="dialog-footer">
-        <button class="btn-cancel" (click)="closeCreateProject()">Cancel</button>
-        <button
-          class="btn-primary"
-          (click)="submitCreateProject()"
-          [disabled]="isCreatingProject() || !newProjectName().trim()"
-        >
-          {{ isCreatingProject() ? 'Creating Project...' : 'Create Project' }}
-        </button>
+        <ng-container *ngIf="team.wizardStep() === 1">
+          <button class="btn-cancel" (click)="team.closeWizard()">Cancel</button>
+          <button class="btn-primary" (click)="team.nextStep()" [disabled]="!team.draftDetailsValid()">Next: choose the team</button>
+        </ng-container>
+        <ng-container *ngIf="team.wizardStep() === 2">
+          <button class="btn-cancel" (click)="team.wizardStep.set(1)">Back</button>
+          <button class="btn-primary" (click)="team.createProject()" [disabled]="team.isCreating()">
+            {{ team.isCreating() ? 'Creating…' : (team.draftTeam().size ? 'Create with ' + (team.draftTeam().size + 1) + ' people' : 'Create, just me for now') }}
+          </button>
+        </ng-container>
       </div>
+    </div>
+  </div>
+
+  <!-- Team panel -->
+  <div *ngIf="team.isPanelOpen()" class="drawer-overlay" (click)="team.closePanel()"></div>
+  <aside *ngIf="team.isPanelOpen()" class="team-drawer" role="dialog" aria-labelledby="teamTitle">
+    <div class="team-drawer-header">
+      <div>
+        <h3 id="teamTitle">Team</h3>
+        <p>{{ team.currentProject()?.name }} · {{ team.members().length }} {{ team.members().length === 1 ? 'person' : 'people' }}</p>
+      </div>
+      <button class="icon-btn" (click)="team.closePanel()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
+    </div>
+
+    <div class="team-add" *ngIf="team.canManageTeam()">
+      <div class="team-add-row">
+        <input type="search" class="dialog-input" [(ngModel)]="team.search" placeholder="Add someone by name or email" aria-label="Find a person to add" />
+        <select class="role-select" [(ngModel)]="team.newMemberRole" aria-label="Role for new people">
+          <option *ngFor="let r of projectRoles" [ngValue]="r.value">{{ r.label }}</option>
+        </select>
+      </div>
+      <ul class="team-candidates" *ngIf="team.search().trim()">
+        <li *ngFor="let u of team.candidates()">
+          <span class="avatar-circle sm">{{ u.fullName.substring(0, 2).toUpperCase() }}</span>
+          <span class="people-text"><strong>{{ u.fullName }}</strong><small>{{ u.email }}</small></span>
+          <button class="btn-secondary btn-sm" (click)="team.addMember(u)">Add</button>
+        </li>
+        <li *ngIf="team.candidates().length === 0" class="people-empty">Everyone matching is already on the team.</li>
+      </ul>
+    </div>
+
+    <ul class="team-list">
+      <li *ngFor="let m of team.members()">
+        <span class="avatar-circle">{{ m.avatar }}</span>
+        <span class="people-text">
+          <strong>{{ m.fullName }}<span class="you-tag" *ngIf="team.isMe(m)">you</span></strong>
+          <small>{{ m.openTasks }} open {{ m.openTasks === 1 ? 'task' : 'tasks' }} · {{ m.openPoints }} pts{{ m.onLeave ? ' · on leave' : '' }}</small>
+        </span>
+        <select *ngIf="team.canManageTeam(); else roleText" class="role-select" [ngModel]="m.role"
+                (ngModelChange)="team.changeRole(m, $event)" [attr.aria-label]="'Role of ' + m.fullName">
+          <option *ngFor="let r of projectRoles" [ngValue]="r.value">{{ r.label }}</option>
+        </select>
+        <ng-template #roleText><span class="role-text">{{ roleLabel(m.role) }}</span></ng-template>
+        <button *ngIf="team.canManageTeam()" class="icon-btn icon-btn-sm" (click)="team.removeMember(m)" [attr.aria-label]="'Remove ' + m.fullName" title="Remove from team">
+          <sf-icon name="x" [size]="14"></sf-icon>
+        </button>
+      </li>
+    </ul>
+    <p class="team-footnote">Only people on the team can see this project and be assigned its tasks.{{ team.canManageTeam() ? '' : ' Ask a manager or lead to make changes.' }}</p>
+  </aside>
+
+  <!-- Sprint close summary -->
+  <div *ngIf="closingSummary() as sum" class="dialog-backdrop" (click)="boardFacade.dismissCloseSprint()">
+    <div class="dialog-card close-sprint-card" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="closeSprintTitle">
+      <ng-container *ngIf="!closedSprintResult(); else closedView">
+        <div class="dialog-header">
+          <div>
+            <h4 id="closeSprintTitle">Close {{ sum.sprint.name }}</h4>
+            <p class="dialog-subtitle">Check what got done and decide where the rest goes.</p>
+          </div>
+          <button class="dialog-close icon-btn" (click)="boardFacade.dismissCloseSprint()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
+        </div>
+        <div class="dialog-body">
+          <div class="close-stats">
+            <div><strong>{{ sum.done.length }}</strong><span>done · {{ sum.donePts }} pts</span></div>
+            <div><strong>{{ sum.open.length }}</strong><span>not finished · {{ sum.openPts }} pts</span></div>
+          </div>
+
+          <ng-container *ngIf="sum.open.length">
+            <div class="close-bulk">
+              <span>Unfinished work goes to</span>
+              <select class="role-select" (change)="boardFacade.setAllCloseTargets($any($event.target).value ? +$any($event.target).value : null)" aria-label="Move all unfinished tasks to">
+                <option value="">Choose for all…</option>
+                <option *ngFor="let sp of planningSprints()" [value]="sp.id">{{ sp.name }}</option>
+                <option value="">Backlog</option>
+              </select>
+            </div>
+            <ul class="close-task-list">
+              <li *ngFor="let t of sum.open">
+                <span class="close-task-title">#{{ t.id }} {{ t.title }}</span>
+                <span class="close-task-pts">{{ t.storyPoints ?? 3 }} pts</span>
+                <select class="role-select" [ngModel]="closeTargets()[t.id] ?? null" (ngModelChange)="boardFacade.setCloseTarget(t.id, $event)" [attr.aria-label]="'Where ' + t.title + ' goes'">
+                  <option *ngFor="let sp of planningSprints()" [ngValue]="sp.id">{{ sp.name }}</option>
+                  <option [ngValue]="null">Backlog</option>
+                </select>
+              </li>
+            </ul>
+            <p class="wizard-note" *ngIf="!planningSprints().length">No next sprint is planned, so unfinished work goes back to the backlog. Plan the next sprint first if you want to carry it over.</p>
+          </ng-container>
+          <p class="wizard-note" *ngIf="!sum.open.length">{{ sum.done.length ? 'Everything in this sprint is done.' : 'This sprint has no tasks.' }}</p>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn-cancel" (click)="boardFacade.dismissCloseSprint()">Cancel</button>
+          <button class="btn-primary" (click)="boardFacade.confirmCloseSprint()" [disabled]="isClosingSprint()">{{ isClosingSprint() ? 'Closing…' : 'Close sprint' }}</button>
+        </div>
+      </ng-container>
+
+      <ng-template #closedView>
+        <div class="dialog-header">
+          <div>
+            <h4>{{ closedSprintResult()!.name }} is closed</h4>
+            <p class="dialog-subtitle">{{ closedSprintResult()!.doneCount }} {{ closedSprintResult()!.doneCount === 1 ? 'task' : 'tasks' }} done ({{ closedSprintResult()!.donePts }} pts).
+              <ng-container *ngIf="closedSprintResult()!.moved">{{ closedSprintResult()!.moved }} moved to the next sprint.</ng-container>
+              <ng-container *ngIf="closedSprintResult()!.toBacklog">{{ closedSprintResult()!.toBacklog }} back in the backlog.</ng-container>
+            </p>
+          </div>
+          <button class="dialog-close icon-btn" (click)="boardFacade.dismissCloseSprint()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn-cancel" (click)="boardFacade.dismissCloseSprint()">Done</button>
+          <button *ngIf="planningSprints()[0] as next" class="btn-primary" (click)="boardFacade.startNextSprint()">Start {{ next.name }}</button>
+        </div>
+      </ng-template>
     </div>
   </div>
 

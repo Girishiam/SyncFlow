@@ -1,142 +1,101 @@
-<div class="backlog-view">
+<div class="backlog-view plan-view">
   <div class="backlog-header">
-    <div class="backlog-title-wrap">
-      <div class="backlog-icon-badge">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
-          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-          <path d="M9 14l2 2 4-4"/>
-        </svg>
-      </div>
-      <div>
-        <h2 class="view-title">Backlog</h2>
-        <p class="view-subtitle">Plan sprints and pull work in from the backlog.</p>
-      </div>
+    <div>
+      <h2 class="view-title">Backlog</h2>
+      <p class="view-subtitle">Drag tasks into a sprint to plan it. Drag them back to take them out.</p>
     </div>
-
     <div class="backlog-header-actions">
-      <button class="btn-create-sprint" (click)="openCreateSprintModal()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19"/>
-          <line x1="5" y1="12" x2="19" y2="12"/>
-        </svg>
-        <span>Create Sprint</span>
+      <button class="btn-secondary" (click)="openCreateTask(undefined, null)">
+        New task
       </button>
+      <button class="btn-primary" (click)="openCreateSprintModal()">New sprint</button>
     </div>
   </div>
 
-  <!-- Sprints Section -->
-  <div class="sprints-container">
-    <div *ngFor="let sprint of projectSprints()" class="sprint-card-block" [class.active-sprint]="sprint.status === 'ACTIVE'">
-      <div class="sprint-card-header">
-        <div class="sprint-title-area">
-          <span class="sprint-status-tag" [class]="sprint.status.toLowerCase()">{{ sprint.status }}</span>
-          <h3 class="sprint-card-name">{{ sprint.name }}</h3>
-          <span class="sprint-dates" *ngIf="sprint.startDate">{{ sprint.startDate }} – {{ sprint.endDate }}</span>
+  <div class="plan-grid" cdkDropListGroup>
+    <!-- Sprints -->
+    <section class="plan-column" aria-labelledby="planSprintsTitle">
+      <h3 id="planSprintsTitle" class="plan-column-title">Sprints</h3>
+
+      <div *ngIf="!openSprints().length" class="plan-empty-card">
+        <p>No sprint is planned yet.</p>
+        <button class="btn-secondary btn-sm" (click)="openCreateSprintModal()">Plan a sprint</button>
+      </div>
+
+      <article *ngFor="let sprint of openSprints(); trackBy: trackById" class="plan-sprint" [class.running]="sprint.status === 'ACTIVE'">
+        <header class="plan-sprint-head">
+          <div class="plan-sprint-title">
+            <strong>{{ sprint.name }}</strong>
+            <span class="plan-status" [class.running]="sprint.status === 'ACTIVE'">{{ sprint.status === 'ACTIVE' ? 'Running' : 'Planned' }}</span>
+            <span class="plan-dates" *ngIf="sprint.startDate">{{ sprint.startDate | date:'MMM d' }} – {{ sprint.endDate | date:'MMM d' }}</span>
+          </div>
+          <div class="plan-sprint-actions">
+            <button class="btn-ghost btn-sm" (click)="openCreateTask(undefined, sprint.id)">Add task</button>
+            <button *ngIf="sprint.status === 'PLANNING'" class="btn-secondary btn-sm" (click)="startSprint(sprint.id)"
+                    [disabled]="!!activeSprint()" [title]="activeSprint() ? 'Close ' + activeSprint()!.name + ' first' : 'Start this sprint'">Start</button>
+            <button *ngIf="sprint.status === 'ACTIVE'" class="btn-secondary btn-sm" (click)="completeSprint(sprint)">Close sprint</button>
+          </div>
+        </header>
+
+        <p *ngIf="sprint.goal" class="plan-goal">{{ sprint.goal }}</p>
+
+        <div class="plan-capacity" [class.over]="sprintPoints(sprint.id) > (sprint.targetStoryPoints || 0) && !!sprint.targetStoryPoints">
+          <div class="plan-capacity-bar"><div [style.width.%]="sprint.targetStoryPoints ? Math.min(100, sprintPoints(sprint.id) / sprint.targetStoryPoints * 100) : 0"></div></div>
+          <span>{{ sprintPoints(sprint.id) }}{{ sprint.targetStoryPoints ? ' / ' + sprint.targetStoryPoints : '' }} pts</span>
         </div>
 
-        <div class="sprint-header-controls">
-          <div class="sprint-point-tally">
-            <span class="tally-num">{{ sprint.completedStoryPoints || 0 }} / {{ sprint.totalStoryPoints || sprint.targetStoryPoints }} pts</span>
-            <span class="tally-label">Velocity</span>
-          </div>
-          <button class="btn-sprint-action add-task-btn" (click)="openCreateTask(undefined, sprint.id)" title="Create task directly in {{ sprint.name }}">
-            + Add Task
+        <ul class="plan-list" cdkDropList [cdkDropListData]="sprintTasks(sprint.id)" (cdkDropListDropped)="onPlanDrop($event, sprint.id)"
+            [attr.aria-label]="'Tasks in ' + sprint.name">
+          <li *ngFor="let task of sprintTasks(sprint.id); trackBy: trackById" class="plan-row" cdkDrag [cdkDragData]="task" [class.done]="task.progress === 100">
+            <span class="plan-handle" cdkDragHandle aria-hidden="true">⋮⋮</span>
+            <button type="button" class="plan-title" (click)="openTaskDetail(task)">
+              <span class="plan-id">#{{ task.id }}</span>{{ task.title }}
+            </button>
+            <span class="plan-stage">{{ task.stageName }}</span>
+            <span class="avatar-mini" [title]="task.assignee || 'Unassigned'">{{ task.assigneeId ? task.avatar : '–' }}</span>
+            <span class="plan-pts">{{ task.storyPoints ?? 3 }}</span>
+          </li>
+          <li *ngIf="!sprintTasks(sprint.id).length" class="plan-drop-hint">Drag tasks here from the backlog.</li>
+        </ul>
+      </article>
+
+      <details *ngIf="pastSprints().length" class="plan-past">
+        <summary>Closed sprints ({{ pastSprints().length }})</summary>
+        <ul>
+          <li *ngFor="let sprint of pastSprints()">
+            <span>{{ sprint.name }}</span>
+            <span>{{ sprint.completedStoryPoints || 0 }} pts done</span>
+          </li>
+        </ul>
+      </details>
+    </section>
+
+    <!-- Unplanned work -->
+    <section class="plan-column" aria-labelledby="planBacklogTitle">
+      <h3 id="planBacklogTitle" class="plan-column-title">
+        Not in a sprint
+        <span class="plan-count">{{ unplannedTasks().length }} tasks · {{ unplannedPoints() }} pts</span>
+      </h3>
+
+      <ul class="plan-list backlog-list" cdkDropList [cdkDropListData]="unplannedTasks()" (cdkDropListDropped)="onPlanDrop($event, null)"
+          aria-label="Tasks not in a sprint">
+        <li *ngFor="let task of unplannedTasks(); trackBy: trackById" class="plan-row" cdkDrag [cdkDragData]="task">
+          <span class="plan-handle" cdkDragHandle aria-hidden="true">⋮⋮</span>
+          <button type="button" class="plan-title" (click)="openTaskDetail(task)">
+            <span class="plan-id">#{{ task.id }}</span>{{ task.title }}
           </button>
-          <button *ngIf="sprint.status === 'PLANNING'" class="btn-sprint-action start-btn" (click)="startSprint(sprint.id)">Start Sprint</button>
-          <button *ngIf="sprint.status === 'ACTIVE'" class="btn-sprint-action complete-btn" (click)="completeSprint(sprint.id)">Complete Sprint</button>
-        </div>
-      </div>
-
-      <!-- Sprint Burndown Progress Bar -->
-      <div class="sprint-burndown-row">
-        <div class="sprint-burndown-track">
-          <div
-            class="sprint-burndown-fill"
-            [style.width.%]="Math.min(100, Math.round(((sprint.completedStoryPoints || 0) / (sprint.totalStoryPoints || sprint.targetStoryPoints || 1)) * 100))"
-          ></div>
-        </div>
-        <span class="sprint-burndown-pct">
-          {{ Math.min(100, Math.round(((sprint.completedStoryPoints || 0) / (sprint.totalStoryPoints || sprint.targetStoryPoints || 1)) * 100)) }}% Burned
-        </span>
-      </div>
-
-      <div *ngIf="sprint.goal" class="sprint-goal-box">
-        <strong>Sprint Goal:</strong> {{ sprint.goal }}
-      </div>
-
-      <!-- Tasks Staged in This Sprint -->
-      <div class="sprint-staged-tasks" *ngIf="getTasksForSprint(sprint.id).length > 0">
-        <div class="staged-header-row">
-          <span class="staged-label">Staged Tasks ({{ getTasksForSprint(sprint.id).length }})</span>
-        </div>
-        <div class="staged-tasks-grid">
-          <div
-            *ngFor="let st of getTasksForSprint(sprint.id)"
-            class="staged-task-chip"
-            (click)="openTaskDetail(st)"
-            title="Click to view/edit #{{ st.id }}"
-          >
-            <span class="chip-id">#{{ st.id }}</span>
-            <span class="chip-title">{{ st.title }}</span>
-            <span class="chip-pts">{{ st.storyPoints || 3 }} pts</span>
-            <span class="chip-stage" [class.done]="st.progress === 100">{{ st.stageName || (st.progress === 100 ? 'Done' : 'Active') }}</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="sprint-empty-tasks-hint" *ngIf="getTasksForSprint(sprint.id).length === 0">
-        <span>No tasks in this sprint yet. Click <strong>"+ Add Task"</strong> above or allocate tasks from the Backlog table below.</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Grooming & Backlog Tasks Table -->
-  <div class="backlog-tasks-section">
-    <div class="backlog-section-bar">
-      <span class="backlog-sec-title">Backlog ({{ totalTasksCount() }})</span>
-    </div>
-
-    <div class="backlog-table">
-      <div class="table-header-row">
-        <div class="col-title-hdr">Task Title</div>
-        <div class="col-prio-hdr">Priority</div>
-        <div class="col-pts-hdr">Story Points</div>
-        <div class="col-sprint-hdr">Sprint Allocation</div>
-        <div class="col-assignee-hdr">Assignee</div>
-      </div>
-
-      <ng-container *ngFor="let col of columns()">
-        <div *ngFor="let task of col.tasks" class="table-task-row" (click)="openTaskDetail(task)">
-          <div class="task-title-cell">
-            <span class="stage-tag-mini">{{ col.title }}</span>
-            <span class="title-bold" [title]="task.title">#{{ task.id }} - {{ task.title }}</span>
-          </div>
-          <div class="task-prio-cell">
-            <span class="prio-tag" [class]="task.priority.toLowerCase()">{{ task.priority }}</span>
-          </div>
-          <div class="task-pts-cell" (click)="$event.stopPropagation()">
-            <select class="mini-select" [value]="task.storyPoints || 3" (change)="updateTaskStoryPoints(task.id, $event)">
-              <option value="1" [selected]="(task.storyPoints || 3) == 1">1 pt</option>
-              <option value="2" [selected]="(task.storyPoints || 3) == 2">2 pts</option>
-              <option value="3" [selected]="(task.storyPoints || 3) == 3">3 pts</option>
-              <option value="5" [selected]="(task.storyPoints || 3) == 5">5 pts</option>
-              <option value="8" [selected]="(task.storyPoints || 3) == 8">8 pts</option>
-              <option value="13" [selected]="(task.storyPoints || 3) == 13">13 pts</option>
-            </select>
-          </div>
-          <div class="task-sprint-cell" (click)="$event.stopPropagation()">
-            <select class="mini-select" [value]="task.sprintId || ''" (change)="assignTaskSprint(task.id, $event)">
-              <option value="" [selected]="!task.sprintId">Backlog</option>
-              <option *ngFor="let s of projectSprints()" [value]="s.id" [selected]="task.sprintId === s.id">{{ s.name }}</option>
-            </select>
-          </div>
-          <div class="task-assignee-cell">
-            <span class="avatar-mini">{{ task.avatar || (task.assignee ? task.assignee.substring(0, 2).toUpperCase() : 'UN') }}</span>
-            <span class="name-mini" [title]="task.assignee || 'Unassigned'">{{ task.assignee || 'Unassigned' }}</span>
-          </div>
-        </div>
-      </ng-container>
-    </div>
+          <span class="prio-tag" [class]="task.priority.toLowerCase()">{{ task.priority | titlecase }}</span>
+          <span class="avatar-mini" [title]="task.assignee || 'Unassigned'">{{ task.assigneeId ? task.avatar : '–' }}</span>
+          <select class="mini-select plan-pts-select" [value]="task.storyPoints ?? 3" (change)="updateTaskStoryPoints(task.id, $event)" aria-label="Story points">
+            <option *ngFor="let p of [1, 2, 3, 5, 8, 13]" [value]="p" [selected]="(task.storyPoints ?? 3) === p">{{ p }}</option>
+          </select>
+          <select class="mini-select plan-move" (change)="assignTaskSprint(task.id, $event)" aria-label="Move to sprint">
+            <option value="" selected>Move to…</option>
+            <option *ngFor="let s of openSprints()" [value]="s.id">{{ s.name }}</option>
+          </select>
+        </li>
+        <li *ngIf="!unplannedTasks().length" class="plan-drop-hint">Nothing waiting. New tasks without a sprint show up here.</li>
+      </ul>
+    </section>
   </div>
 </div>

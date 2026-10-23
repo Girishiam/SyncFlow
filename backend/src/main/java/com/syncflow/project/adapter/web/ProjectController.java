@@ -4,11 +4,14 @@ import com.syncflow.dto.*;
 import com.syncflow.project.application.port.in.ProjectUseCase;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1/projects")
@@ -17,6 +20,8 @@ public class ProjectController {
 
     private static final String VIEW = "@access.can('PROJECT:VIEW') and @access.project(#id)";
     private static final String EDIT = "@access.can('PROJECT:EDIT') and @access.project(#id)";
+    /** Admins, or the project manager / lead. */
+    private static final String MANAGE_TEAM = "@access.manageTeam(#id)";
 
     private final ProjectUseCase projectUseCase;
 
@@ -35,6 +40,32 @@ public class ProjectController {
     @PreAuthorize(VIEW)
     public ResponseEntity<ProjectBoardDTO> getProjectBoard(@PathVariable Long id) {
         return ResponseEntity.ok(projectUseCase.getProjectBoard(id));
+    }
+
+    // --- Team ---
+    @GetMapping("/{id}/members")
+    @PreAuthorize(VIEW)
+    public ResponseEntity<List<ProjectMemberDTO>> getMembers(@PathVariable Long id) {
+        return ResponseEntity.ok(projectUseCase.getMembers(id));
+    }
+
+    @PostMapping("/{id}/members")
+    @PreAuthorize(MANAGE_TEAM)
+    public ResponseEntity<ProjectMemberDTO> addMember(@PathVariable Long id, @RequestBody ProjectMemberRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(projectUseCase.addMember(id, request));
+    }
+
+    @PutMapping("/{id}/members/{userId}")
+    @PreAuthorize(MANAGE_TEAM)
+    public ResponseEntity<ProjectMemberDTO> updateMemberRole(@PathVariable Long id, @PathVariable UUID userId,
+                                                             @RequestBody ProjectMemberRequest request) {
+        return ResponseEntity.ok(projectUseCase.updateMemberRole(id, userId, request));
+    }
+
+    @DeleteMapping("/{id}/members/{userId}")
+    @PreAuthorize(MANAGE_TEAM)
+    public ResponseEntity<Map<String, Integer>> removeMember(@PathVariable Long id, @PathVariable UUID userId) {
+        return ResponseEntity.ok(Map.of("unassignedTasks", projectUseCase.removeMember(id, userId)));
     }
 
     @PostMapping("/{id}/stages")
@@ -90,8 +121,9 @@ public class ProjectController {
 
     @PutMapping("/sprints/{sprintId}/complete")
     @PreAuthorize("@access.can('SPRINT:MANAGE') and @access.sprint(#sprintId)")
-    public ResponseEntity<SprintDTO> completeSprint(@PathVariable Long sprintId) {
-        return ResponseEntity.ok(projectUseCase.completeSprint(sprintId));
+    public ResponseEntity<SprintDTO> completeSprint(@PathVariable Long sprintId,
+                                                    @RequestBody(required = false) CompleteSprintRequest request) {
+        return ResponseEntity.ok(projectUseCase.completeSprint(sprintId, request));
     }
 
     // --- Automations ---

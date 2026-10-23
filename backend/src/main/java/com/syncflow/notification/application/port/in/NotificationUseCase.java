@@ -6,6 +6,7 @@ import com.syncflow.dto.NotificationDTO;
 import com.syncflow.dto.NotificationSummaryDTO;
 import com.syncflow.model.Channel;
 import com.syncflow.model.Message;
+import com.syncflow.model.Project;
 import com.syncflow.model.Task;
 import com.syncflow.model.User;
 
@@ -20,6 +21,7 @@ public interface NotificationUseCase {
     void markAllAsRead(UUID userId);
 
     NotificationDTO notifyTaskAssigned(Task task, User assignee, User actor);
+    NotificationDTO notifyAddedToProject(Project project, User member, User actor);
     void notifyBlockerAlert(Task task, String blockerReason, User actor);
     NotificationDTO notifyChannelMention(Channel channel, Message message, User sender, User recipient);
     void notifyTaskCompleted(Task task, User actor);

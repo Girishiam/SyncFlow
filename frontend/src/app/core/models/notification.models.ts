@@ -6,6 +6,7 @@ export type NotificationType =
   | 'BLOCKER_ALERT'
   | 'TASK_COMPLETED'
   | 'ROLE_UPDATE'
+  | 'PROJECT_ADDED'
   | 'SYSTEM';
 
 export type NotificationPriority = 'INFO' | 'WARNING' | 'CRITICAL';
@@ -20,7 +21,7 @@ export interface NotificationItem {
   priority: NotificationPriority;
   isRead: boolean;
   linkUrl?: string;
-  actionType?: 'NAVIGATE_TASK' | 'NAVIGATE_CHANNEL' | 'NAVIGATE_RBAC' | 'NONE';
+  actionType?: 'NAVIGATE_TASK' | 'NAVIGATE_CHANNEL' | 'NAVIGATE_RBAC' | 'NAVIGATE_PROJECT' | 'NONE';
   referenceId?: number;
   senderName?: string;
   senderAvatar?: string;

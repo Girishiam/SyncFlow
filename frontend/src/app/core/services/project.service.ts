@@ -3,6 +3,10 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   Project,
+  ProjectMember,
+  ProjectRole,
+  NewProjectRequest,
+  SprintCarryOver,
   ProjectBoard,
   TimelineTask,
   Sprint,
@@ -28,8 +32,25 @@ export class ProjectService implements IProjectPort {
     return this.http.get<Project[]>(this.apiUrl);
   }
 
-  createProject(name: string, description?: string): Observable<Project> {
-    return this.http.post<Project>(this.apiUrl, { name, description });
+  createProject(request: NewProjectRequest): Observable<Project> {
+    return this.http.post<Project>(this.apiUrl, request);
+  }
+
+  // --- Project team ---
+  getMembers(projectId: number): Observable<ProjectMember[]> {
+    return this.http.get<ProjectMember[]>(`${this.apiUrl}/${projectId}/members`);
+  }
+
+  addMember(projectId: number, userId: string, role: ProjectRole): Observable<ProjectMember> {
+    return this.http.post<ProjectMember>(`${this.apiUrl}/${projectId}/members`, { userId, role });
+  }
+
+  updateMemberRole(projectId: number, userId: string, role: ProjectRole): Observable<ProjectMember> {
+    return this.http.put<ProjectMember>(`${this.apiUrl}/${projectId}/members/${userId}`, { role });
+  }
+
+  removeMember(projectId: number, userId: string): Observable<{ unassignedTasks: number }> {
+    return this.http.delete<{ unassignedTasks: number }>(`${this.apiUrl}/${projectId}/members/${userId}`);
   }
 
   getProjectBoard(projectId: number): Observable<ProjectBoard> {
@@ -71,8 +92,8 @@ export class ProjectService implements IProjectPort {
     return this.http.put<Sprint>(`${this.apiUrl}/sprints/${sprintId}/start`, {});
   }
 
-  completeSprint(sprintId: number): Observable<Sprint> {
-    return this.http.put<Sprint>(`${this.apiUrl}/sprints/${sprintId}/complete`, {});
+  completeSprint(sprintId: number, moves: SprintCarryOver[] = []): Observable<Sprint> {
+    return this.http.put<Sprint>(`${this.apiUrl}/sprints/${sprintId}/complete`, { moves });
   }
 
   // --- Butler Automation Rules ---

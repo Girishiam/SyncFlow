@@ -11,6 +11,7 @@ import com.syncflow.dto.NotificationSummaryDTO;
 import com.syncflow.model.Channel;
 import com.syncflow.model.Message;
 import com.syncflow.model.Notification;
+import com.syncflow.model.Project;
 import com.syncflow.model.Task;
 import com.syncflow.model.User;
 import com.syncflow.notification.application.port.in.NotificationUseCase;
@@ -93,6 +94,26 @@ public class NotificationApplicationService implements NotificationUseCase {
     public void markAllAsRead(UUID userId) {
         User user = requireUser(userId);
         notificationRepositoryPort.markAllAsRead(user, Instant.now());
+    }
+
+    @Override
+    @Transactional
+    public NotificationDTO notifyAddedToProject(Project project, User member, User actor) {
+        if (member == null || (actor != null && actor.getId().equals(member.getId()))) {
+            return null;
+        }
+        String actorName = (actor != null && actor.getFullName() != null) ? actor.getFullName() : "SyncFlow";
+        return send(Notification.builder()
+                .recipient(member)
+                .title("Added to " + project.getName())
+                .message(actorName + " added you to the " + project.getName() + " team.")
+                .type(NotificationType.PROJECT_ADDED)
+                .priority(NotificationPriority.INFO)
+                .actionType(NotificationAction.NAVIGATE_PROJECT)
+                .referenceId(project.getId())
+                .senderName(actorName)
+                .senderAvatar(getInitials(actorName))
+                .build());
     }
 
     @Override

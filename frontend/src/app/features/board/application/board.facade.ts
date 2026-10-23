@@ -80,12 +80,6 @@ export class BoardFacade implements OnDestroy {
   public isLoadingComments = signal(false);
   public completionCelebrationMsg = signal<string | null>(null);
 
-  // Project Creator Modal State
-  public isCreateProjectModalOpen = signal(false);
-  public newProjectName = signal('');
-  public newProjectDescription = signal('');
-  public isCreatingProject = signal(false);
-
   // Stage Creator Modal State
   public isCreateStageModalOpen = signal(false);
   public newStageName = signal('');
@@ -157,6 +151,57 @@ export class BoardFacade implements OnDestroy {
   public newSprintName = signal<string>('');
   public newSprintGoal = signal<string>('');
   public newSprintTargetPoints = signal<number>(30);
+
+  /** The board shows the running sprint by default; "ALL" shows every open task in the project. */
+  public boardScope = signal<'SPRINT' | 'ALL'>('SPRINT');
+  public activeSprint = computed(() => this.projectSprints().find(sp => sp.status === 'ACTIVE') ?? null);
+  public planningSprints = computed(() => this.projectSprints().filter(sp => sp.status === 'PLANNING'));
+
+  /** Numbers for the sprint banner, taken from the live board. */
+  public sprintProgress = computed(() => {
+    const sprint = this.activeSprint();
+    if (!sprint) return null;
+    let total = 0, done = 0, totalPts = 0, donePts = 0;
+    for (const col of this.columns()) {
+      for (const t of col.tasks) {
+        if (t.sprintId !== sprint.id) continue;
+        const pts = t.storyPoints ?? 3;
+        total++; totalPts += pts;
+        if (col.isDoneStage) { done++; donePts += pts; }
+      }
+    }
+    let daysLeft: number | null = null;
+    if (sprint.endDate) {
+      const end = new Date(sprint.endDate + 'T23:59:59');
+      daysLeft = Math.ceil((end.getTime() - Date.now()) / 86400000);
+    }
+    return { sprint, total, done, totalPts, donePts, daysLeft, percent: totalPts ? Math.round((donePts / totalPts) * 100) : 0 };
+  });
+
+  /** Task whose quick-assign menu is open on the board. */
+  public quickAssignTaskId = signal<number | null>(null);
+
+  // Sprint close summary
+  public closingSprint = signal<Sprint | null>(null);
+  /** taskId -> target sprint id, or null for the backlog. */
+  public closeTargets = signal<Record<number, number | null>>({});
+  public isClosingSprint = signal(false);
+  public closedSprintResult = signal<{ name: string; donePts: number; doneCount: number; moved: number; toBacklog: number } | null>(null);
+
+  public closingSummary = computed(() => {
+    const sprint = this.closingSprint();
+    if (!sprint) return null;
+    const done: TaskCard[] = [];
+    const open: TaskCard[] = [];
+    for (const col of this.columns()) {
+      for (const t of col.tasks) {
+        if (t.sprintId !== sprint.id) continue;
+        (col.isDoneStage ? done : open).push(t);
+      }
+    }
+    const pts = (list: TaskCard[]) => list.reduce((sum, t) => sum + (t.storyPoints ?? 3), 0);
+    return { sprint, done, open, donePts: pts(done), openPts: pts(open) };
+  });
 
   // --- Feature 5: Smart Automation Rules Engine (Butler Automations) ---
   public automationRules = signal<AutomationRule[]>([]);
@@ -237,9 +282,12 @@ export class BoardFacade implements OnDestroy {
     const mode = this.filterMode();
     const hideCompleted = this.hideCompletedFilter();
     const cols = this.columns();
+    // An empty running sprint would leave a blank board, so it only narrows the view once it has work.
+    const running = this.boardScope() === 'SPRINT' ? this.activeSprint() : null;
+    const sprint = running && cols.some(c => c.tasks.some(t => t.sprintId === running.id)) ? running : null;
 
     return cols.map(col => {
-      let tasks = col.tasks;
+      let tasks = sprint ? col.tasks.filter(t => t.sprintId === sprint.id) : col.tasks;
 
       // Hide completed tasks if filter enabled
       if (hideCompleted && col.isDoneStage) {
@@ -309,13 +357,15 @@ export class BoardFacade implements OnDestroy {
     });
   }
 
-  public loadProjects(): void {
+  /** Reloads the project list and opens `preferId` when it is in the list, else the first project. */
+  public loadProjects(preferId?: number): void {
     this.projectService.getAllProjects().subscribe({
       next: (projs) => {
         this.projects.set(projs);
         if (projs.length > 0) {
-          this.selectedProjectId.set(projs[0].id);
-          this.loadBoard(projs[0].id);
+          const pick = projs.find(p => p.id === preferId) ?? projs[0];
+          this.selectedProjectId.set(pick.id);
+          this.loadBoard(pick.id);
         }
       },
       error: (err) => { console.error('BoardFacade: Failed to load projects', err); this.notifier.showClientError(err); }
@@ -474,9 +524,10 @@ export class BoardFacade implements OnDestroy {
   }
 
   // Create Task Modal Controls
-  public openCreateTask(stageId: number, sprintId?: number): void {
+  public openCreateTask(stageId: number, sprintId?: number | null): void {
     this.newTaskStageId.set(stageId);
-    this.newTaskSprintId.set(sprintId || null);
+    const running = this.boardScope() === 'SPRINT' ? this.activeSprint() : null;
+    this.newTaskSprintId.set(sprintId !== undefined ? sprintId : (running?.id ?? null));
     this.newTaskTitle.set('');
     this.newTaskDescription.set('');
     this.newTaskPriority.set('MEDIUM');
@@ -594,6 +645,12 @@ export class BoardFacade implements OnDestroy {
     this.newAttachmentUrl.set('');
     this.taskDependencies.set([]);
     this.newDependencyTargetId.set(null);
+  }
+
+  public quickAssign(task: TaskCard, assigneeId: string | null): void {
+    this.quickAssignTaskId.set(null);
+    if ((task.assigneeId ?? null) === assigneeId) return;
+    this.assignTaskTo(task, assigneeId);
   }
 
   public assignTaskTo(task: TaskCard, assigneeId: string | null): void {
@@ -875,39 +932,6 @@ export class BoardFacade implements OnDestroy {
       error: (err) => {
         this.isSavingWorkLog.set(false);
         console.error('BoardFacade: Failed to submit work log', err);
-      }
-    });
-  }
-
-  // Project Creation Actions
-  public openCreateProjectModal(): void {
-    this.newProjectName.set('');
-    this.newProjectDescription.set('');
-    this.isCreateProjectModalOpen.set(true);
-  }
-
-  public closeCreateProjectModal(): void {
-    this.isCreateProjectModalOpen.set(false);
-  }
-
-  public submitCreateProject(): void {
-    const name = this.newProjectName().trim();
-    if (!name) return;
-
-    this.isCreatingProject.set(true);
-    const desc = this.newProjectDescription().trim();
-
-    this.projectService.createProject(name, desc).subscribe({
-      next: (createdProject) => {
-        this.isCreatingProject.set(false);
-        this.projects.update(projs => [...projs, createdProject]);
-        this.selectedProjectId.set(createdProject.id);
-        this.loadBoard(createdProject.id);
-        this.closeCreateProjectModal();
-      },
-      error: (err) => {
-        this.isCreatingProject.set(false);
-        console.error('BoardFacade: Failed to create project', err);
       }
     });
   }
@@ -1247,20 +1271,68 @@ export class BoardFacade implements OnDestroy {
         this.projectSprints.update(list =>
           list.map(s => s.id === sprintId ? updated : s)
         );
+        this.notifier.showInfo(`${updated.name} has started.`);
       },
       error: (err) => { console.error('BoardFacade: Failed to start sprint', err); this.notifier.showClientError(err); }
     });
   }
 
-  public completeSprint(sprintId: number): void {
-    this.projectService.completeSprint(sprintId).subscribe({
+  /** Opens the closing summary; unfinished work defaults to the next planned sprint, or the backlog. */
+  public openCloseSprint(sprint: Sprint): void {
+    const next = this.planningSprints()[0]?.id ?? null;
+    const targets: Record<number, number | null> = {};
+    for (const col of this.columns()) {
+      if (col.isDoneStage) continue;
+      for (const t of col.tasks) if (t.sprintId === sprint.id) targets[t.id] = next;
+    }
+    this.closeTargets.set(targets);
+    this.closedSprintResult.set(null);
+    this.closingSprint.set(sprint);
+  }
+
+  public setCloseTarget(taskId: number, sprintId: number | null): void {
+    this.closeTargets.update(t => ({ ...t, [taskId]: sprintId }));
+  }
+
+  public setAllCloseTargets(sprintId: number | null): void {
+    this.closeTargets.update(t => Object.fromEntries(Object.keys(t).map(id => [id, sprintId])));
+  }
+
+  public dismissCloseSprint(): void {
+    if (this.isClosingSprint()) return;
+    this.closingSprint.set(null);
+    this.closedSprintResult.set(null);
+  }
+
+  public confirmCloseSprint(): void {
+    const summary = this.closingSummary();
+    if (!summary || this.isClosingSprint()) return;
+    const targets = this.closeTargets();
+    const moves = Object.entries(targets).map(([taskId, sprintId]) => ({ taskId: Number(taskId), sprintId }));
+    this.isClosingSprint.set(true);
+    this.projectService.completeSprint(summary.sprint.id, moves).subscribe({
       next: (updated) => {
-        this.projectSprints.update(list =>
-          list.map(s => s.id === sprintId ? updated : s)
-        );
+        this.isClosingSprint.set(false);
+        this.projectSprints.update(list => list.map(sp => sp.id === updated.id ? updated : sp));
+        const moved = moves.filter(m => m.sprintId !== null).length;
+        this.closedSprintResult.set({
+          name: summary.sprint.name, donePts: summary.donePts, doneCount: summary.done.length,
+          moved, toBacklog: moves.length - moved
+        });
+        this.loadBoard(this.selectedProjectId());
       },
-      error: (err) => { console.error('BoardFacade: Failed to complete sprint', err); this.notifier.showClientError(err); }
+      error: (err) => { this.isClosingSprint.set(false); this.notifier.showClientError(err); }
     });
+  }
+
+  /** Starts the next planned sprint straight from the closing summary. */
+  public startNextSprint(): void {
+    const next = this.planningSprints()[0];
+    if (!next) return;
+    this.startSprint(next.id);
+    this.closingSprint.set(null);
+    this.closedSprintResult.set(null);
+    this.boardScope.set('SPRINT');
   }
 
   public updateStoryPoints(taskId: number, storyPoints: number): void {
@@ -1280,7 +1352,7 @@ export class BoardFacade implements OnDestroy {
     });
   }
 
-  public assignSprint(taskId: number, sprintId: number): void {
+  public assignSprint(taskId: number, sprintId: number | null): void {
     this.taskService.assignSprint(taskId, sprintId).subscribe({
       next: (updated) => {
         this.columns.update(cols =>

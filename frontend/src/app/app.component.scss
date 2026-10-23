@@ -30,6 +30,12 @@
   }
 }
 
+.toast-info {
+  background: var(--bg-surface-card);
+  border-color: var(--border-medium);
+  color: var(--text-primary);
+}
+
 .toast-body {
   flex: 1;
 }

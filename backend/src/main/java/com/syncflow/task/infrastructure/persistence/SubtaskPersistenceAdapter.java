@@ -3,8 +3,7 @@ package com.syncflow.task.infrastructure.persistence;
 import com.syncflow.task.application.port.out.SubtaskRepositoryPort;
 import com.syncflow.task.infrastructure.persistence.SpringDataSubtaskRepository;
 import com.syncflow.model.Subtask;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -42,6 +41,25 @@ public class SubtaskPersistenceAdapter implements SubtaskRepositoryPort {
     @Override
     public void delete(Subtask subtask) {
         repository.delete(subtask);
+    }
+
+    @Override
+    public Map<Long, long[]> checklistCounts(Collection<Long> taskIds) {
+        Map<Long, long[]> counts = new HashMap<>();
+        for (List<Long> chunk : chunks(taskIds)) {
+            for (Object[] row : repository.countByTaskIds(chunk)) {
+                counts.put((Long) row[0], new long[]{((Number) row[1]).longValue(), ((Number) row[2]).longValue()});
+            }
+        }
+        return counts;
+    }
+
+    /** SQL Server caps a statement at 2100 parameters, so large id sets are queried in chunks. */
+    private static <T> List<List<T>> chunks(Collection<T> items) {
+        List<T> all = new ArrayList<>(items);
+        List<List<T>> out = new ArrayList<>();
+        for (int i = 0; i < all.size(); i += 1000) out.add(all.subList(i, Math.min(all.size(), i + 1000)));
+        return out;
     }
 
     @Override

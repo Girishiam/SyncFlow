@@ -1,5 +1,6 @@
 package com.syncflow.project.application.port.out;
 
+import com.syncflow.model.ProjectMember;
 import com.syncflow.model.User;
 import java.util.UUID;
 
@@ -12,11 +13,18 @@ public interface ProjectRepositoryPort {
     Optional<Project> findById(Long id);
     Project save(Project project);
 
-    /** Whether the user may access the project (organisation-wide or team member/lead/manager). */
+    /** Whether the user is on the project team (a member or the project manager). */
     boolean isAccessibleBy(Long projectId, UUID userId);
 
     List<Project> findAccessibleBy(UUID userId);
 
-    /** Team members, team lead and project manager. */
+    /** Every member plus the project manager. */
     List<User> findTeamMembers(Long projectId);
+
+    // --- membership
+    List<ProjectMember> findMembers(Long projectId);
+    Optional<ProjectMember> findMember(Long projectId, UUID userId);
+    ProjectMember saveMember(ProjectMember member);
+    void deleteMember(ProjectMember member);
+    long countMembers(Long projectId);
 }

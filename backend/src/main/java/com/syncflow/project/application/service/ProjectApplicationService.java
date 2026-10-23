@@ -21,6 +21,7 @@ import com.syncflow.common.event.ProjectEvent;
 import com.syncflow.config.SyncFlowProperties;
 import com.syncflow.dto.*;
 import com.syncflow.model.*;
+import com.syncflow.notification.application.port.in.NotificationUseCase;
 import com.syncflow.project.application.port.in.ProjectUseCase;
 import com.syncflow.project.application.port.out.ProjectRepositoryPort;
 import com.syncflow.project.application.port.out.StageRepositoryPort;
@@ -61,6 +62,7 @@ public class ProjectApplicationService implements ProjectUseCase {
     private final TaskMapper taskMapper;
     private final TaskNotificationPort taskNotificationPort;
     private final AutomationEngine automationEngine;
+    private final NotificationUseCase notificationUseCase;
     private final ApplicationEventPublisher eventPublisher;
     private final CurrentUser currentUser;
     private final SyncFlowProperties properties;
@@ -81,11 +83,15 @@ public class ProjectApplicationService implements ProjectUseCase {
     @Transactional
     public ProjectDTO createProject(CreateProjectRequest request) {
         User manager = currentUser.get().flatMap(u -> userRepositoryPort.findById(u.getId())).orElse(null);
+        if (request.getDueDate() != null && request.getDueDate().isBefore(LocalDate.now())) {
+            throw new DomainException("The due date cannot be in the past");
+        }
         Project savedProject = projectRepositoryPort.save(Project.builder()
                 .name(request.getName().trim())
                 .description(request.getDescription())
                 .status(ProjectStatus.ACTIVE)
                 .startDate(LocalDate.now())
+                .dueDate(request.getDueDate())
                 .manager(manager)
                 .totalBudget(request.getTotalBudget())
                 .allocatedBudget(request.getAllocatedBudget())
@@ -101,9 +107,157 @@ public class ProjectApplicationService implements ProjectUseCase {
         stageRepositoryPort.save(Stage.builder().project(savedProject).name("Done & Verified").position(4)
                 .isDoneStage(true).requiresDeliverable(true).requiresNoBlockers(true).build());
 
+        // The creator manages the project; everyone else joins with the role they were given.
+        if (manager != null) {
+            projectRepositoryPort.saveMember(ProjectMember.builder()
+                    .projectId(savedProject.getId()).user(manager).role(ProjectRole.MANAGER).build());
+        }
+        int added = 0;
+        for (ProjectMemberRequest m : request.getMembers()) {
+            if (m.getUserId() == null || (manager != null && manager.getId().equals(m.getUserId()))) continue;
+            if (projectRepositoryPort.findMember(savedProject.getId(), m.getUserId()).isPresent()) continue;
+            User user = requireActiveUser(m.getUserId());
+            projectRepositoryPort.saveMember(ProjectMember.builder()
+                    .projectId(savedProject.getId()).user(user).role(parseProjectRole(m.getRole())).build());
+            notificationUseCase.notifyAddedToProject(savedProject, user, manager);
+            added++;
+        }
+
         auditLogUseCase.recordLog("PROJECT_CREATED", "PROJECT", savedProject.getId(), savedProject.getName(),
-                null, null, null, "Created project with default 4-stage workflow");
+                null, null, null, "Created project with default 4-stage workflow and " + (added + 1) + " team member(s)");
         return toProjectDTO(savedProject);
+    }
+
+    // ---------------------------------------------------------------- project team
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProjectMemberDTO> getMembers(Long projectId) {
+        requireProject(projectId);
+        Map<UUID, List<Task>> openByAssignee = taskRepository.findByProjectIdAndIsArchivedFalse(projectId).stream()
+                .filter(t -> t.getAssignee() != null && !TaskMapper.isDone(t))
+                .collect(Collectors.groupingBy(t -> t.getAssignee().getId()));
+        return projectRepositoryPort.findMembers(projectId).stream()
+                .map(m -> toMemberDTO(m, openByAssignee.getOrDefault(m.getUser().getId(), List.of())))
+                .sorted(Comparator.comparing((ProjectMemberDTO d) -> ProjectRole.valueOf(d.getRole()).ordinal())
+                        .thenComparing(ProjectMemberDTO::getFullName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ProjectMemberDTO addMember(Long projectId, ProjectMemberRequest request) {
+        Project project = requireProject(projectId);
+        if (request.getUserId() == null) {
+            throw new DomainException("Choose a person to add");
+        }
+        if (projectRepositoryPort.findMember(projectId, request.getUserId()).isPresent()) {
+            throw new ConflictException("That person is already on the team");
+        }
+        User user = requireActiveUser(request.getUserId());
+        ProjectRole role = parseProjectRole(request.getRole());
+        ProjectMember saved = projectRepositoryPort.saveMember(ProjectMember.builder()
+                .projectId(projectId).user(user).role(role).build());
+
+        User actor = actorEntity();
+        notificationUseCase.notifyAddedToProject(project, user, actor);
+        auditLogUseCase.recordLog("PROJECT_MEMBER_ADDED", "PROJECT", projectId, project.getName(),
+                null, null, role.name(), "Added " + user.getFullName() + " as " + role.name().toLowerCase(Locale.ROOT));
+        return toMemberDTO(saved, List.of());
+    }
+
+    @Override
+    @Transactional
+    public ProjectMemberDTO updateMemberRole(Long projectId, UUID userId, ProjectMemberRequest request) {
+        Project project = requireProject(projectId);
+        ProjectMember member = requireMember(projectId, userId);
+        ProjectRole newRole = parseProjectRole(request.getRole());
+        ProjectRole oldRole = member.getRole();
+        if (oldRole == newRole) {
+            return toMemberDTO(member, List.of());
+        }
+        if (oldRole == ProjectRole.MANAGER && newRole != ProjectRole.MANAGER && managerCount(projectId) <= 1) {
+            throw new ConflictException("A project needs at least one manager. Make someone else a manager first.");
+        }
+        member.setRole(newRole);
+        ProjectMember saved = projectRepositoryPort.saveMember(member);
+        auditLogUseCase.recordLog("PROJECT_MEMBER_ROLE_CHANGED", "PROJECT", projectId, project.getName(),
+                "role", oldRole.name(), newRole.name(), member.getUser().getFullName() + " is now " + newRole.name().toLowerCase(Locale.ROOT));
+        return toMemberDTO(saved, List.of());
+    }
+
+    /** Removes someone from the team; their unfinished tasks in this project become unassigned. */
+    @Override
+    @Transactional
+    public int removeMember(Long projectId, UUID userId) {
+        Project project = requireProject(projectId);
+        ProjectMember member = requireMember(projectId, userId);
+        if (member.getRole() == ProjectRole.MANAGER && managerCount(projectId) <= 1) {
+            throw new ConflictException("A project needs at least one manager. Make someone else a manager first.");
+        }
+
+        int unassigned = 0;
+        for (Task task : taskRepository.findByProjectIdAndIsArchivedFalse(projectId)) {
+            if (task.getAssignee() != null && task.getAssignee().getId().equals(userId) && !TaskMapper.isDone(task)) {
+                task.setAssignee(null);
+                taskRepository.save(task);
+                taskNotificationPort.broadcastBoardUpdate(taskMapper.toDTO(task));
+                unassigned++;
+            }
+        }
+        projectRepositoryPort.deleteMember(member);
+        auditLogUseCase.recordLog("PROJECT_MEMBER_REMOVED", "PROJECT", projectId, project.getName(),
+                null, member.getRole().name(), null,
+                "Removed " + member.getUser().getFullName() + " from the team; " + unassigned + " open task(s) unassigned");
+        return unassigned;
+    }
+
+    private long managerCount(Long projectId) {
+        return projectRepositoryPort.findMembers(projectId).stream()
+                .filter(m -> m.getRole() == ProjectRole.MANAGER).count();
+    }
+
+    private ProjectMember requireMember(Long projectId, UUID userId) {
+        return projectRepositoryPort.findMember(projectId, userId)
+                .orElseThrow(() -> new NotFoundException("That person is not on this project"));
+    }
+
+    private User requireActiveUser(UUID userId) {
+        User user = userRepositoryPort.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found: " + userId));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new DomainException(user.getFullName() + " is not an active user");
+        }
+        return user;
+    }
+
+    private User actorEntity() {
+        return currentUser.get().flatMap(u -> userRepositoryPort.findById(u.getId())).orElse(null);
+    }
+
+    private static ProjectRole parseProjectRole(String role) {
+        if (role == null || role.isBlank()) return ProjectRole.MEMBER;
+        try {
+            return ProjectRole.valueOf(role.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new DomainException("Unknown project role: " + role + ". Use MANAGER, LEAD or MEMBER.");
+        }
+    }
+
+    private ProjectMemberDTO toMemberDTO(ProjectMember m, List<Task> openTasks) {
+        User u = m.getUser();
+        return ProjectMemberDTO.builder()
+                .userId(u.getId())
+                .fullName(u.getFullName())
+                .email(u.getEmail())
+                .avatar(TaskMapper.initials(u.getFullName()))
+                .systemRole(u.getRole() != null ? u.getRole().getName() : null)
+                .role(m.getRole().name())
+                .onLeave(Boolean.TRUE.equals(u.getOnLeave()))
+                .openPoints(openTasks.stream().mapToInt(this::points).sum())
+                .openTasks(openTasks.size())
+                .addedAt(m.getAddedAt())
+                .build();
     }
 
     @Override
@@ -427,21 +581,41 @@ public class ProjectApplicationService implements ProjectUseCase {
      */
     @Override
     @Transactional
-    public SprintDTO completeSprint(Long sprintId) {
+    public SprintDTO completeSprint(Long sprintId, CompleteSprintRequest request) {
         Sprint sprint = requireSprint(sprintId);
         if (sprint.getStatus() != SprintStatus.ACTIVE) {
             throw new ConflictException("Only an active sprint can be completed");
         }
 
+        Map<Long, Long> targets = new HashMap<>();
+        Set<Long> checkedSprints = new HashSet<>();
+        if (request != null && request.getMoves() != null) {
+            for (CompleteSprintRequest.Move move : request.getMoves()) {
+                if (move.getTaskId() == null) continue;
+                if (move.getSprintId() != null && checkedSprints.add(move.getSprintId())) {
+                    Sprint target = requireSprint(move.getSprintId());
+                    if (!target.getProjectId().equals(sprint.getProjectId())) {
+                        throw new DomainException("Unfinished work can only move to a sprint in the same project");
+                    }
+                    if (target.getStatus() != SprintStatus.PLANNING) {
+                        throw new ConflictException("Unfinished work can only move to a sprint that has not started yet");
+                    }
+                }
+                targets.put(move.getTaskId(), move.getSprintId());
+            }
+        }
+
         List<Task> sprintTasks = taskRepository.findBySprintId(sprintId);
         int completedPoints = sprintTasks.stream().filter(TaskMapper::isDone).mapToInt(this::points).sum();
-        int carriedOver = 0;
+        int toBacklog = 0;
+        int toNextSprint = 0;
         for (Task task : sprintTasks) {
             if (!TaskMapper.isDone(task) && !Boolean.TRUE.equals(task.getIsArchived())) {
-                task.setSprintId(null);
+                Long target = targets.get(task.getId());
+                task.setSprintId(target);
                 taskRepository.save(task);
                 taskNotificationPort.broadcastBoardUpdate(taskMapper.toDTO(task));
-                carriedOver++;
+                if (target != null) toNextSprint++; else toBacklog++;
             }
         }
 
@@ -453,7 +627,8 @@ public class ProjectApplicationService implements ProjectUseCase {
         String operator = currentUser.get().map(UserDetailsImpl::getFullName).orElse("SyncFlow System");
         automationEngine.onSprintClosed(saved, operator);
         auditLogUseCase.recordLog("SPRINT_COMPLETED", "SPRINT", saved.getId(), saved.getName(), null, null, null,
-                "Closed sprint with " + completedPoints + " pts done; " + carriedOver + " unfinished task(s) returned to backlog");
+                "Closed sprint with " + completedPoints + " pts done; " + toNextSprint + " unfinished task(s) moved to the next sprint, "
+                        + toBacklog + " returned to the backlog");
 
         SprintDTO dto = toSprintDTO(saved, taskRepository.findBySprintId(sprintId));
         eventPublisher.publishEvent(ProjectEvent.of(saved.getProjectId(), ProjectEvent.SPRINT_COMPLETED, dto));
@@ -597,9 +772,9 @@ public class ProjectApplicationService implements ProjectUseCase {
                 .filter(t -> t.getAssignee() != null)
                 .collect(Collectors.groupingBy(t -> t.getAssignee().getId()));
 
-        List<User> members = project.getTeam() != null
-                ? projectRepositoryPort.findTeamMembers(projectId)
-                : userRepositoryPort.findByStatus(UserStatus.ACTIVE);
+        List<User> members = projectRepositoryPort.findTeamMembers(projectId).stream()
+                .filter(u -> u.getStatus() == UserStatus.ACTIVE)
+                .toList();
 
         List<MemberCapacityDTO> memberDTOs = new ArrayList<>();
         int totalCapacity = 0;
@@ -820,11 +995,21 @@ public class ProjectApplicationService implements ProjectUseCase {
     }
 
     private ProjectDTO toProjectDTO(Project p) {
+        Optional<UserDetailsImpl> me = currentUser.get();
+        ProjectRole myRole = me.flatMap(u -> projectRepositoryPort.findMember(p.getId(), u.getId()))
+                .map(ProjectMember::getRole).orElse(null);
+        boolean admin = me.map(CurrentUser::isAdmin).orElse(false);
         return ProjectDTO.builder()
                 .id(p.getId())
                 .name(p.getName())
                 .description(p.getDescription())
                 .status(p.getStatus().name())
+                .startDate(p.getStartDate())
+                .dueDate(p.getDueDate())
+                .managerName(p.getManager() != null ? p.getManager().getFullName() : null)
+                .memberCount(projectRepositoryPort.countMembers(p.getId()))
+                .myRole(myRole != null ? myRole.name() : null)
+                .canManageTeam(admin || (myRole != null && myRole.canManageTeam()))
                 .build();
     }
 

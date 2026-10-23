@@ -89,7 +89,7 @@ public class TaskApplicationService implements TaskUseCase {
         Project project = projectRepositoryPort.findById(request.getProjectId())
                 .orElseThrow(() -> new NotFoundException("Project not found: " + request.getProjectId()));
         Stage stage = requireStageInProject(request.getStageId(), project.getId());
-        User assignee = request.getAssigneeId() != null ? requireActiveUser(request.getAssigneeId()) : null;
+        User assignee = request.getAssigneeId() != null ? requireAssignableMember(project, request.getAssigneeId()) : null;
         User actor = actorEntity();
 
         Task task = Task.builder()
@@ -229,7 +229,7 @@ public class TaskApplicationService implements TaskUseCase {
     @Transactional
     public TaskDTO assignTask(Long id, AssignTaskRequest request) {
         Task task = requireTask(id);
-        User assignee = request.getAssigneeId() != null ? requireActiveUser(request.getAssigneeId()) : null;
+        User assignee = request.getAssigneeId() != null ? requireAssignableMember(task.getProject(), request.getAssigneeId()) : null;
         task.setAssignee(assignee);
         Task saved = taskRepositoryPort.save(task);
 
@@ -768,6 +768,15 @@ public class TaskApplicationService implements TaskUseCase {
             throw new DomainException("The stage belongs to a different project");
         }
         return stage;
+    }
+
+    /** Tasks can only be assigned to active people on the project team. */
+    private User requireAssignableMember(Project project, UUID userId) {
+        User user = requireActiveUser(userId);
+        if (!projectRepositoryPort.isAccessibleBy(project.getId(), userId)) {
+            throw new DomainException(user.getFullName() + " is not on the " + project.getName() + " team. Add them to the team first.");
+        }
+        return user;
     }
 
     private User requireActiveUser(UUID userId) {

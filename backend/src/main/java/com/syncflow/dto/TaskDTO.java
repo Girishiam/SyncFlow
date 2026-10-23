@@ -37,4 +37,8 @@ public class TaskDTO {
     private String gitPrUrl;
     private Double estimatedHours;
     private Double totalHoursSpent;
+    /** Checklist items in total and completed (0/0 when the task has no checklist). */
+    private Integer checklistTotal;
+    private Integer checklistDone;
+    private Integer attachmentCount;
 }

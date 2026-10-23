@@ -1,6 +1,8 @@
 package com.syncflow.task.application.service;
 
 import com.syncflow.project.application.port.out.SprintRepositoryPort;
+import com.syncflow.task.application.port.out.SubtaskRepositoryPort;
+import com.syncflow.task.application.port.out.TaskAttachmentRepositoryPort;
 
 import com.syncflow.model.enums.*;
 
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
 public class TaskMapper {
 
     private final SprintRepositoryPort sprintRepository;
+    private final SubtaskRepositoryPort subtaskRepository;
+    private final TaskAttachmentRepositoryPort attachmentRepository;
 
     public TaskDTO toDTO(Task task) {
         Map<Long, String> sprintNames = task.getSprintId() == null
@@ -29,7 +33,8 @@ public class TaskMapper {
                 : sprintRepository.findById(task.getSprintId())
                         .map(s -> Map.of(s.getId(), s.getName()))
                         .orElse(Map.of());
-        return toDTO(task, sprintNames);
+        List<Long> id = task.getId() != null ? List.of(task.getId()) : List.of();
+        return toDTO(task, sprintNames, subtaskRepository.checklistCounts(id), attachmentRepository.attachmentCounts(id));
     }
 
     /** Maps many tasks with a single sprint lookup. */
@@ -42,10 +47,14 @@ public class TaskMapper {
                 ? Map.of()
                 : sprintRepository.findAllById(sprintIds).stream()
                         .collect(Collectors.toMap(Sprint::getId, Sprint::getName, (a, b) -> a));
-        return tasks.stream().map(t -> toDTO(t, sprintNames)).toList();
+        List<Long> ids = tasks.stream().map(Task::getId).filter(Objects::nonNull).toList();
+        Map<Long, long[]> checklists = ids.isEmpty() ? Map.of() : subtaskRepository.checklistCounts(ids);
+        Map<Long, Long> attachments = ids.isEmpty() ? Map.of() : attachmentRepository.attachmentCounts(ids);
+        return tasks.stream().map(t -> toDTO(t, sprintNames, checklists, attachments)).toList();
     }
 
-    private TaskDTO toDTO(Task task, Map<Long, String> sprintNames) {
+    private TaskDTO toDTO(Task task, Map<Long, String> sprintNames, Map<Long, long[]> checklists, Map<Long, Long> attachments) {
+        long[] checklist = checklists.getOrDefault(task.getId(), new long[]{0, 0});
         String assigneeName = task.getAssignee() != null ? task.getAssignee().getFullName() : "Unassigned";
         return TaskDTO.builder()
                 .id(task.getId())
@@ -76,6 +85,9 @@ public class TaskMapper {
                 .gitPrUrl(task.getGitPrUrl())
                 .estimatedHours(task.getEstimatedHours() != null ? task.getEstimatedHours() : 8.0)
                 .totalHoursSpent(task.getTotalHoursSpent() != null ? task.getTotalHoursSpent() : 0.0)
+                .checklistTotal((int) checklist[0])
+                .checklistDone((int) checklist[1])
+                .attachmentCount(attachments.getOrDefault(task.getId(), 0L).intValue())
                 .build();
     }
 

@@ -6,9 +6,11 @@ export interface Toast {
   id: number;
   message: string;
   details: string[];
+  /** Errors are red; info toasts confirm that something worked. */
+  kind: 'error' | 'info';
 }
 
-/** Collects user-facing error messages from failed API calls and shows them as toasts. */
+/** Shows short toasts: errors from failed API calls, and confirmations of completed actions. */
 @Injectable({ providedIn: 'root' })
 export class ErrorNotifierService {
   readonly toasts = signal<Toast[]>([]);
@@ -29,10 +31,14 @@ export class ErrorNotifierService {
     return 'Something went wrong. Please try again.';
   }
 
-  show(message: string, details: string[] = []): void {
-    const toast = { id: this.nextId++, message, details };
+  show(message: string, details: string[] = [], kind: Toast['kind'] = 'error'): void {
+    const toast: Toast = { id: this.nextId++, message, details, kind };
     this.toasts.update(list => [...list.slice(-3), toast]);
     setTimeout(() => this.dismiss(toast.id), 6000);
+  }
+
+  showInfo(message: string): void {
+    this.show(message, [], 'info');
   }
 
   showError(err: unknown): void {

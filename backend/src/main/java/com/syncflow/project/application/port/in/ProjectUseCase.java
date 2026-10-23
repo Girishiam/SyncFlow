@@ -3,11 +3,20 @@ package com.syncflow.project.application.port.in;
 import com.syncflow.dto.*;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface ProjectUseCase {
     /** Projects visible to the current user. */
     List<ProjectDTO> getAllProjects();
     ProjectDTO createProject(CreateProjectRequest request);
+
+    // Project team
+    List<ProjectMemberDTO> getMembers(Long projectId);
+    ProjectMemberDTO addMember(Long projectId, ProjectMemberRequest request);
+    ProjectMemberDTO updateMemberRole(Long projectId, UUID userId, ProjectMemberRequest request);
+    /** Returns how many open tasks were unassigned. */
+    int removeMember(Long projectId, UUID userId);
+
     ProjectBoardDTO getProjectBoard(Long projectId);
     StageDTO createStage(Long projectId, CreateStageRequest request);
     StageDTO updateStage(Long stageId, UpdateStageRequest request);
@@ -21,7 +30,7 @@ public interface ProjectUseCase {
     List<SprintDTO> getProjectSprints(Long projectId);
     SprintDTO createSprint(Long projectId, SprintDTO request);
     SprintDTO startSprint(Long sprintId);
-    SprintDTO completeSprint(Long sprintId);
+    SprintDTO completeSprint(Long sprintId, CompleteSprintRequest request);
 
     // Automation Rules
     List<AutomationRuleDTO> getAutomationRules(Long projectId);

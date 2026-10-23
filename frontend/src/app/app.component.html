@@ -2,7 +2,7 @@
 
 <div class="toast-stack" aria-live="polite">
   @for (toast of notifier.toasts(); track toast.id) {
-    <div class="toast" role="alert">
+    <div class="toast" [class.toast-info]="toast.kind === 'info'" [attr.role]="toast.kind === 'info' ? 'status' : 'alert'">
       <div class="toast-body">
         <strong>{{ toast.message }}</strong>
         @if (toast.details.length) {

@@ -26,6 +26,52 @@
     </div>
   </div>
 
+  <!-- Getting started (new projects) -->
+  <section *ngIf="setupSteps() as setup" class="setup-card" aria-labelledby="setupTitle">
+    <div class="setup-head">
+      <div>
+        <h3 id="setupTitle">Get {{ team.currentProject()?.name }} going</h3>
+        <p>{{ setup.doneCount }} of {{ setup.steps.length }} done</p>
+      </div>
+      <button class="icon-btn icon-btn-sm" (click)="dismissSetup()" aria-label="Hide this list" title="Hide this list"><sf-icon name="x" [size]="14"></sf-icon></button>
+    </div>
+    <ol class="setup-steps">
+      <li *ngFor="let step of setup.steps" [class.done]="step.done">
+        <span class="setup-mark"><sf-icon *ngIf="step.done" name="check" [size]="12" [stroke]="2.5"></sf-icon></span>
+        <span class="setup-text"><strong>{{ step.label }}</strong><small>{{ step.hint }}</small></span>
+        <button *ngIf="!step.done" class="btn-secondary btn-sm" (click)="runSetupStep(step.key)">
+          {{ step.key === 'team' ? 'Add people' : step.key === 'tasks' ? 'Add a task' : step.key === 'sprint' ? 'Plan' : 'Go to backlog' }}
+        </button>
+      </li>
+    </ol>
+  </section>
+
+  <!-- Running sprint -->
+  <section *ngIf="sprintProgress() as sp" class="sprint-banner" aria-label="Current sprint">
+    <div class="sprint-banner-main">
+      <div class="sprint-banner-title">
+        <strong>{{ sp.sprint.name }}</strong>
+        <span *ngIf="sp.daysLeft !== null" [class.late]="sp.daysLeft < 0">
+          {{ sp.daysLeft > 1 ? sp.daysLeft + ' days left' : sp.daysLeft === 1 ? '1 day left' : sp.daysLeft === 0 ? 'Ends today' : 'Ended ' + (-sp.daysLeft) + (sp.daysLeft === -1 ? ' day ago' : ' days ago') }}
+        </span>
+      </div>
+      <p *ngIf="sp.sprint.goal" class="sprint-banner-goal">{{ sp.sprint.goal }}</p>
+    </div>
+    <div class="sprint-banner-stats">
+      <div class="sprint-banner-bar" role="progressbar" [attr.aria-valuenow]="sp.percent" aria-valuemin="0" aria-valuemax="100">
+        <div [style.width.%]="sp.percent"></div>
+      </div>
+      <span *ngIf="sp.total; else emptySprint">{{ sp.donePts }} of {{ sp.totalPts }} pts · {{ sp.done }}/{{ sp.total }} tasks</span>
+      <ng-template #emptySprint><span>No tasks planned in this sprint yet. Showing all tasks.</span></ng-template>
+    </div>
+    <button *ngIf="!sp.total" class="btn-secondary btn-sm" (click)="switchNav('backlog')">Plan this sprint</button>
+    <div *ngIf="sp.total" class="scope-switch" role="group" aria-label="What the board shows">
+      <button [class.on]="boardScope() === 'SPRINT'" (click)="boardScope.set('SPRINT')">This sprint</button>
+      <button [class.on]="boardScope() === 'ALL'" (click)="boardScope.set('ALL')">All tasks</button>
+    </div>
+    <button class="btn-secondary btn-sm" (click)="completeSprint(sp.sprint)">Close sprint</button>
+  </section>
+
   <!-- Board Filters Bar -->
   <div class="board-filters-bar">
     <div class="filter-pill-group">
@@ -201,6 +247,11 @@
             <span>{{ task.blockerReason || 'Blocker reported' }}</span>
           </div>
 
+          <!-- What the card still needs before it can move on -->
+          <div *ngIf="cardNeeds(task, col) as needs" class="card-needs" [hidden]="!needs.length">
+            <span *ngFor="let need of needs" class="need-chip" [class.warn]="need === 'Blocked'">{{ need }}</span>
+          </div>
+
           <!-- Sleek Progress Bar -->
           <div class="progress-wrap">
             <div class="progress-header">
@@ -214,9 +265,23 @@
 
           <!-- Card Footer -->
           <div class="card-footer">
-            <div class="assignee-wrap" (click)="openTaskDetail(task)" title="View Task Details">
-              <div class="user-avatar-sm">{{ task.avatar || (task.assignee ? task.assignee.substring(0, 2).toUpperCase() : 'UN') }}</div>
-              <span class="assignee-name">{{ task.assignee || 'Unassigned' }}</span>
+            <div class="assignee-wrap quick-assign-anchor">
+              <button type="button" class="assignee-trigger" (click)="toggleQuickAssign(task, $event)"
+                      [attr.aria-expanded]="quickAssignTaskId() === task.id" aria-haspopup="listbox" title="Change who is on this">
+                <span class="user-avatar-sm" [class.empty]="!task.assigneeId">{{ task.assigneeId ? (task.avatar || task.assignee?.substring(0, 2)?.toUpperCase()) : '+' }}</span>
+                <span class="assignee-name">{{ task.assigneeId ? task.assignee : 'Assign' }}</span>
+              </button>
+              <div *ngIf="quickAssignTaskId() === task.id" class="quick-assign-menu" role="listbox" (click)="$event.stopPropagation()"
+                   [style.top.px]="quickAssignPos().top" [style.left.px]="quickAssignPos().left">
+                <button *ngFor="let u of team.assignable()" type="button" role="option" [attr.aria-selected]="task.assigneeId === u.id"
+                        [class.current]="task.assigneeId === u.id" (click)="quickAssign(task, u.id)">
+                  <span class="user-avatar-sm">{{ u.avatar }}</span>
+                  <span class="qa-name">{{ u.fullName }}</span>
+                  <span class="qa-load" [title]="u.openPoints + ' open points in this project'">{{ u.onLeave ? 'on leave' : u.openPoints + ' pts' }}</span>
+                </button>
+                <button *ngIf="task.assigneeId" type="button" role="option" class="qa-clear" (click)="quickAssign(task, null)">Unassign</button>
+                <p *ngIf="!team.assignable().length" class="qa-empty">No one is on the team yet.</p>
+              </div>
             </div>
 
             <div class="card-actions-row">

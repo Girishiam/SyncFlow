@@ -22,6 +22,7 @@ public class AccessGuard {
 
     private final CurrentUser currentUser;
     private final ProjectRepository projectRepository;
+    private final ProjectMemberRepository projectMemberRepository;
     private final TaskRepository taskRepository;
     private final SprintRepository sprintRepository;
     private final AutomationRuleRepository automationRuleRepository;
@@ -48,6 +49,17 @@ public class AccessGuard {
         if (projectId == null || CurrentUser.isAdmin(user)) return true;
         if (!projectRepository.existsById(projectId)) return true;
         return projectRepository.isAccessibleBy(projectId, user.getId());
+    }
+
+    /** Admins, or a MANAGER / LEAD of this project, can change who is on the team. */
+    public boolean manageTeam(Long projectId) {
+        return currentUser.get().map(u -> {
+            if (CurrentUser.isAdmin(u)) return true;
+            if (!projectRepository.existsById(projectId)) return true;
+            return projectMemberRepository.findByProjectIdAndUserId(projectId, u.getId())
+                    .map(m -> m.getRole().canManageTeam())
+                    .orElse(false);
+        }).orElse(false);
     }
 
     public boolean task(Long taskId) {

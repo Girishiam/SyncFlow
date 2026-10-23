@@ -1,4 +1,4 @@
-import { Directive, signal, computed, inject } from '@angular/core';
+import { Directive, HostListener, signal, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { DashboardNavService, DashboardView } from './dashboard-nav.service';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
@@ -7,7 +7,8 @@ import { WebSocketService } from '../../core/services/websocket.service';
 import { BoardFacade } from '../../features/board/application/board.facade';
 import { ChatFacade } from '../../features/chat/application/chat.facade';
 import { RbacFacade } from '../../features/rbac/application/rbac.facade';
-import { Channel, TaskCard, BankUser, TaskAttachmentItem } from '../../core/models/project.models';
+import { Channel, TaskCard, BankUser, TaskAttachmentItem, KanbanColumn, Sprint } from '../../core/models/project.models';
+import { TeamFacade, PROJECT_ROLES } from '../../features/team/application/team.facade';
 import { NotificationFacade } from '../../features/notification/application/notification.facade';
 import { NotificationItem } from '../../core/models/notification.models';
 import { FeatureFlagsService } from '../../core/services/feature-flags.service';
@@ -25,6 +26,8 @@ export abstract class DashboardViewBase {
   public notificationFacade = inject(NotificationFacade);
   public wsService = inject(WebSocketService);
   public features = inject(FeatureFlagsService);
+  public team = inject(TeamFacade);
+  readonly projectRoles = PROJECT_ROLES;
   protected route = inject(ActivatedRoute);
   protected nav = inject(DashboardNavService);
   readonly Math = Math;
@@ -176,12 +179,6 @@ export abstract class DashboardViewBase {
   commentInput = this.boardFacade.commentInput;
   isLoadingComments = this.boardFacade.isLoadingComments;
   completionCelebrationMsg = this.boardFacade.completionCelebrationMsg;
-
-  // Project Creator Modal Delegates
-  isCreateProjectModalOpen = this.boardFacade.isCreateProjectModalOpen;
-  newProjectName = this.boardFacade.newProjectName;
-  newProjectDescription = this.boardFacade.newProjectDescription;
-  isCreatingProject = this.boardFacade.isCreatingProject;
 
   // Stage Creator Modal Delegates
   isCreateStageModalOpen = this.boardFacade.isCreateStageModalOpen;
@@ -350,7 +347,8 @@ export abstract class DashboardViewBase {
     this.boardFacade.closeBlocker();
   }
 
-  openCreateTask(stageId?: number, sprintId?: number): void {
+  /** sprintId: undefined = the running sprint when the board shows it, null = backlog. */
+  openCreateTask(stageId?: number, sprintId?: number | null): void {
     const sId = stageId || (this.columns().length > 0 ? this.columns()[0].numericId : 1);
     this.boardFacade.openCreateTask(sId, sprintId);
   }
@@ -535,6 +533,7 @@ export abstract class DashboardViewBase {
       case 'BLOCKER_ALERT': return 'ban';
       case 'TASK_COMPLETED': return 'check-circle';
       case 'ROLE_UPDATE': return 'shield';
+      case 'PROJECT_ADDED': return 'users';
       default: return 'bell';
     }
   }
@@ -548,6 +547,7 @@ export abstract class DashboardViewBase {
       case 'BLOCKER_ALERT': return 'Blocked';
       case 'TASK_COMPLETED': return 'Done';
       case 'ROLE_UPDATE': return 'Role change';
+      case 'PROJECT_ADDED': return 'New project';
       default: return 'Update';
     }
   }
@@ -639,17 +639,9 @@ export abstract class DashboardViewBase {
     }
   }
 
-  // Project Creation Operations
+  // Project Creation Operations (two steps: details, then team)
   openCreateProject(): void {
-    this.boardFacade.openCreateProjectModal();
-  }
-
-  closeCreateProject(): void {
-    this.boardFacade.closeCreateProjectModal();
-  }
-
-  submitCreateProject(): void {
-    this.boardFacade.submitCreateProject();
+    this.team.openWizard();
   }
 
   // Availability Toggle
@@ -715,6 +707,9 @@ export abstract class DashboardViewBase {
       }
     } else if (item.actionType === 'NAVIGATE_RBAC') {
       this.switchNav('rbac');
+    } else if (item.actionType === 'NAVIGATE_PROJECT' && item.referenceId) {
+      this.boardFacade.loadProjects(item.referenceId);
+      this.switchNav('board');
     }
   }
 
@@ -864,8 +859,9 @@ export abstract class DashboardViewBase {
     this.boardFacade.startSprint(sprintId);
   }
 
-  completeSprint(sprintId: number): void {
-    this.boardFacade.completeSprint(sprintId);
+  /** Opens the closing summary, where unfinished work is sent to the next sprint or the backlog. */
+  completeSprint(sprint: Sprint): void {
+    this.boardFacade.openCloseSprint(sprint);
   }
 
   updateTaskStoryPoints(taskId: number, event: Event): void {
@@ -875,7 +871,151 @@ export abstract class DashboardViewBase {
 
   assignTaskSprint(taskId: number, event: Event): void {
     const select = event.target as HTMLSelectElement;
-    this.boardFacade.assignSprint(taskId, Number(select.value));
+    this.boardFacade.assignSprint(taskId, select.value ? Number(select.value) : null);
+  }
+
+  // ---------------------------------------------------------------- sprint planning & board helpers
+
+  boardScope = this.boardFacade.boardScope;
+  activeSprint = this.boardFacade.activeSprint;
+  planningSprints = this.boardFacade.planningSprints;
+  sprintProgress = this.boardFacade.sprintProgress;
+  quickAssignTaskId = this.boardFacade.quickAssignTaskId;
+  closingSummary = this.boardFacade.closingSummary;
+  closeTargets = this.boardFacade.closeTargets;
+  isClosingSprint = this.boardFacade.isClosingSprint;
+  closedSprintResult = this.boardFacade.closedSprintResult;
+
+  /** Open tasks with no sprint to go to (none yet, or left behind in a closed one): the backlog to plan from. */
+  unplannedTasks = computed<TaskCard[]>(() => {
+    const closed = new Set(this.projectSprints().filter(sp => sp.status === 'COMPLETED').map(sp => sp.id));
+    return this.columns()
+      .filter(col => !col.isDoneStage)
+      .flatMap(col => col.tasks
+        .filter(t => !t.sprintId || closed.has(t.sprintId))
+        .map(t => ({ ...t, stageName: t.stageName || col.title })));
+  });
+
+  /** Sprints that can still take work, newest plan last. */
+  openSprints = computed(() => this.projectSprints()
+    .filter(sp => sp.status !== 'COMPLETED')
+    .sort((a, b) => (a.status === 'ACTIVE' ? -1 : 0) - (b.status === 'ACTIVE' ? -1 : 0) || a.id - b.id));
+
+  pastSprints = computed(() => this.projectSprints().filter(sp => sp.status === 'COMPLETED'));
+
+  unplannedPoints = computed(() => this.unplannedTasks().reduce((sum, t) => sum + (t.storyPoints ?? 3), 0));
+
+  readonly trackById = (_: number, item: { id: number }) => item.id;
+
+  sprintTasks(sprintId: number): TaskCard[] {
+    return this.columns().flatMap(col => col.tasks
+      .filter(t => t.sprintId === sprintId)
+      .map(t => ({ ...t, stageName: t.stageName || col.title, progress: col.isDoneStage ? 100 : t.progress })));
+  }
+
+  sprintPoints(sprintId: number): number {
+    return this.sprintTasks(sprintId).reduce((sum, t) => sum + (t.storyPoints ?? 3), 0);
+  }
+
+  /** Dragging a task between the backlog list and a sprint moves it there. */
+  onPlanDrop(event: CdkDragDrop<TaskCard[]>, sprintId: number | null): void {
+    if (event.previousContainer === event.container) return;
+    const task = event.item.data as TaskCard;
+    if ((task.sprintId ?? null) === sprintId) return;
+    this.boardFacade.assignSprint(task.id, sprintId);
+  }
+
+  quickAssign(task: TaskCard, assigneeId: string | null): void {
+    this.boardFacade.quickAssign(task, assigneeId);
+    setTimeout(() => this.team.load(), 400);
+  }
+
+  /** A click anywhere else closes the quick-assign menu. */
+  @HostListener('document:click')
+  closeQuickAssign(): void {
+    if (this.quickAssignTaskId() !== null) this.quickAssignTaskId.set(null);
+  }
+
+  /** Where the quick-assign menu opens, in window coordinates (board columns clip anything positioned inside them). */
+  quickAssignPos = signal<{ top: number; left: number }>({ top: 0, left: 0 });
+
+  toggleQuickAssign(task: TaskCard, event: Event): void {
+    event.stopPropagation();
+    if (this.quickAssignTaskId() === task.id) {
+      this.quickAssignTaskId.set(null);
+      return;
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const menuHeight = 270;
+    const below = rect.bottom + 6 + menuHeight < window.innerHeight;
+    this.quickAssignPos.set({
+      top: below ? rect.bottom + 6 : Math.max(8, rect.top - 6 - menuHeight),
+      left: Math.min(rect.left, window.innerWidth - 248)
+    });
+    this.quickAssignTaskId.set(task.id);
+  }
+
+  /**
+   * What a card still needs before it can pass the checks of the stages to its right
+   * (checklist, a file or PR, not blocked). Empty for finished tasks.
+   */
+  cardNeeds(task: TaskCard, col: KanbanColumn): string[] {
+    if (col.isDoneStage) return [];
+    const cols = this.columns();
+    const ahead = cols.slice(cols.findIndex(c => c.numericId === col.numericId) + 1);
+    const needs: string[] = [];
+    const total = task.checklistTotal ?? 0;
+    const done = task.checklistDone ?? 0;
+    if (ahead.some(c => c.requiresChecklistComplete) && total > done) {
+      needs.push(`Checklist ${done}/${total}`);
+    }
+    if (ahead.some(c => c.requiresDeliverable) && !(task.attachmentCount ?? 0) && !task.gitPrUrl) {
+      needs.push('Needs a file or PR');
+    }
+    if (ahead.some(c => c.requiresNoBlockers) && task.isBlocked) {
+      needs.push('Blocked');
+    }
+    return needs;
+  }
+
+  // ---------------------------------------------------------------- getting started
+
+  private readonly dismissedSetup = signal<Set<number>>(this.readDismissedSetup());
+
+  /** First steps for a new project; hidden once all are done or the list is dismissed. */
+  setupSteps = computed(() => {
+    const project = this.team.currentProject();
+    if (!project) return null;
+    const hasTasks = this.columns().some(c => c.tasks.length > 0);
+    const sprints = this.projectSprints();
+    const steps = [
+      { key: 'team', label: 'Add your team', hint: 'Only people on the team can see this project and be assigned work.', done: (project.memberCount ?? 0) > 1 },
+      { key: 'tasks', label: 'Add the first tasks', hint: 'Start with what the team already knows needs doing.', done: hasTasks },
+      { key: 'sprint', label: 'Plan a sprint', hint: 'Pick the tasks for the next week or two.', done: sprints.length > 0 },
+      { key: 'start', label: 'Start the sprint', hint: 'The board then shows just that sprint.', done: sprints.some(sp => sp.status !== 'PLANNING') }
+    ];
+    if (steps.every(st => st.done) || this.dismissedSetup().has(project.id)) return null;
+    return { steps, doneCount: steps.filter(st => st.done).length };
+  });
+
+  runSetupStep(key: string): void {
+    if (key === 'team') this.team.openPanel();
+    else if (key === 'tasks') this.openCreateTask(this.columns()[0]?.numericId);
+    else this.switchNav('backlog');
+  }
+
+  dismissSetup(): void {
+    const id = this.selectedProjectId();
+    this.dismissedSetup.update(set => new Set(set).add(id));
+    try { localStorage.setItem('sf.setupDismissed', JSON.stringify([...this.dismissedSetup()])); } catch { /* per-browser convenience only */ }
+  }
+
+  private readDismissedSetup(): Set<number> {
+    try { return new Set(JSON.parse(localStorage.getItem('sf.setupDismissed') || '[]')); } catch { return new Set(); }
+  }
+
+  roleLabel(role: string | null | undefined): string {
+    return PROJECT_ROLES.find(r => r.value === role)?.label ?? '';
   }
 
   // --- Feature 5: Smart Automation Rules Engine (Butler Automations) Methods ---
