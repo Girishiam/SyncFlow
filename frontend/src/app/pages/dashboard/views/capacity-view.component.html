@@ -1,8 +1,8 @@
 <div class="capacity-view">
   <div class="view-header-row">
     <div>
-      <h2>Team Workload Capacity & Resource Matrix</h2>
-      <p class="view-subtitle">Active 2-week sprint capacity balance, over-allocation alerts, and workload redistribution</p>
+      <h2>Capacity</h2>
+      <p class="view-subtitle">How much open work each person has right now.</p>
     </div>
     <div class="header-action-group">
       <button class="btn-refresh-pill" (click)="refreshCapacity()">
@@ -29,14 +29,14 @@
       <span class="cap-sub">Open work (active sprint when running)</span>
     </div>
     <div class="cap-card">
-      <span class="cap-label">Overall Squad Utilization</span>
+      <span class="cap-label">Team load</span>
       <div class="cap-num">{{ teamCapacity()?.overallUtilizationPercent ?? 0 }}%</div>
       <div class="fin-progress-bar">
         <div class="fin-progress-fill" [style.width.%]="Math.min(100, teamCapacity()?.overallUtilizationPercent ?? 0)"></div>
       </div>
     </div>
     <div class="cap-card" [class.alert-border]="(teamCapacity()?.overloadedMembersCount || 0) > 0">
-      <span class="cap-label">Overloaded Engineers</span>
+      <span class="cap-label">Over capacity</span>
       <div class="cap-num" [class.text-danger]="(teamCapacity()?.overloadedMembersCount || 0) > 0">
         {{ teamCapacity()?.overloadedMembersCount || 0 }}
       </div>
@@ -47,15 +47,14 @@
   <!-- Team Members Capacity Matrix Table -->
   <div class="capacity-table-card">
     <div class="table-meta-bar">
-      <span class="results-count">Squad Engineers: <strong>{{ teamCapacity()?.members?.length || bankUsers().length }}</strong></span>
-      <span class="iso-standard">Dynamic Workload Governor</span>
+      <span class="results-count">People: <strong>{{ teamCapacity()?.members?.length || bankUsers().length }}</strong></span>
     </div>
 
     <div class="table-responsive">
       <table class="capacity-table">
         <thead>
           <tr>
-            <th>Engineer & Role</th>
+            <th>Person</th>
             <th>Status</th>
             <th>Allocated Points</th>
             <th>Sprint Utilization</th>

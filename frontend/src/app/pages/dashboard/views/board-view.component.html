@@ -17,10 +17,9 @@
       <span class="metric-label">On-Time Delivery</span>
       <div class="metric-num" [title]="onTimeDelivery().sample + ' completed task(s) with a deadline'">{{ onTimeDelivery().rate !== null ? onTimeDelivery().rate + '%' : '—' }}</div>
     </div>
-    <div class="metric-card time-metric-card" (click)="openProjectTimeModal()" title="Click to view collective project time breakdown">
+    <div class="metric-card time-metric-card" (click)="openProjectTimeModal()" title="See time logged by each person">
       <div class="metric-header-row">
         <span class="metric-label">Project Time</span>
-        <span class="metric-badge">Collective</span>
       </div>
       <div class="metric-num">{{ projectTimeSummary()?.totalHoursSpent || 0 }} hrs</div>
       <span class="metric-sub">{{ projectTimeSummary()?.developerBreakdown?.length || 0 }} contributors</span>
@@ -71,20 +70,20 @@
         (click)="openAutomationsModal()"
         title="Butler Automations Rules"
       >
-        ⚡ Butler Rules
+        <sf-icon name="zap" [size]="14"></sf-icon> Automations
       </button>
       <button
         class="filter-pill archive-pill"
         (click)="openArchivedDrawer()"
         title="View Archived Tasks"
       >
-        📦 Archived ({{ archivedTasks().length }})
+        <sf-icon name="archive" [size]="14"></sf-icon> Archived ({{ archivedTasks().length }})
       </button>
     </div>
 
     <div *ngIf="searchQuery()" class="search-active-hint">
       <span>Filtering: "<strong>{{ searchQuery() }}</strong>"</span>
-      <button class="clear-search-btn" (click)="searchQuery.set('')">×</button>
+      <button class="clear-search-btn icon-btn icon-btn-sm" (click)="searchQuery.set('')" aria-label="Close"><sf-icon name="x" [size]="14"></sf-icon></button>
     </div>
   </div>
 
@@ -100,15 +99,15 @@
           <button type="button" class="gate-chip" [class.on]="col.requiresChecklistComplete"
                   [disabled]="!boardFacade.canBuildStages()"
                   (click)="boardFacade.toggleStageGate(col, 'requiresChecklistComplete')"
-                  [title]="(col.requiresChecklistComplete ? 'Requires' : 'Does not require') + ' a completed checklist to enter'">☑</button>
+                  [title]="(col.requiresChecklistComplete ? 'Requires' : 'Does not require') + ' a completed checklist to enter'"><sf-icon name="check-square" [size]="13"></sf-icon></button>
           <button type="button" class="gate-chip" [class.on]="col.requiresNoBlockers"
                   [disabled]="!boardFacade.canBuildStages()"
                   (click)="boardFacade.toggleStageGate(col, 'requiresNoBlockers')"
-                  [title]="(col.requiresNoBlockers ? 'Requires' : 'Does not require') + ' no open blockers to enter'">⛔</button>
+                  [title]="(col.requiresNoBlockers ? 'Requires' : 'Does not require') + ' no open blockers to enter'"><sf-icon name="ban" [size]="13"></sf-icon></button>
           <button type="button" class="gate-chip" [class.on]="col.requiresDeliverable"
                   [disabled]="!boardFacade.canBuildStages()"
                   (click)="boardFacade.toggleStageGate(col, 'requiresDeliverable')"
-                  [title]="(col.requiresDeliverable ? 'Requires' : 'Does not require') + ' a deliverable or pull request to enter'">📎</button>
+                  [title]="(col.requiresDeliverable ? 'Requires' : 'Does not require') + ' a deliverable or pull request to enter'"><sf-icon name="paperclip" [size]="13"></sf-icon></button>
         </div>
         <button class="col-add" (click)="openCreateTask(col.numericId)" title="Add Task to {{ col.title }}">+</button>
       </div>
@@ -153,7 +152,7 @@
 
               <!-- Time Tracker Badge & 1-Click Live Stopwatch on Card -->
               <span class="time-tracker-chip" [class.running]="isTimerActive() && timerTaskId() === task.id" title="Logged hours / estimated">
-                <span class="time-chip-icon">⏱️</span>
+                <span class="time-chip-icon"><sf-icon name="timer" [size]="13"></sf-icon></span>
                 <span class="time-hrs-val">{{ task.totalHoursSpent || 0 }}h</span>
                 <button
                   *ngIf="isTimerActive() && timerTaskId() === task.id; else startTimerBtn"
@@ -161,7 +160,7 @@
                   (click)="stopTimerAndLog(task.id, $event)"
                   title="Stop live stopwatch and log time"
                 >
-                  ⏹ {{ formatTimerDisplay(timerElapsedSeconds()) }}
+                  <sf-icon name="stop" [size]="10"></sf-icon> {{ formatTimerDisplay(timerElapsedSeconds()) }}
                 </button>
                 <ng-template #startTimerBtn>
                   <button
@@ -169,7 +168,7 @@
                     (click)="startTimer(task.id, $event)"
                     title="Start live stopwatch timer"
                   >
-                    ▶
+                    <sf-icon name="play" [size]="10"></sf-icon>
                   </button>
                 </ng-template>
               </span>

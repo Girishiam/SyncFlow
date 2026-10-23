@@ -1,8 +1,8 @@
 <div class="financials-view">
   <div class="view-header-row">
     <div>
-      <h2>Executive Financial Budget & Resource Cost Tracking</h2>
-      <p class="view-subtitle">Core banking budget burn rate, role-based hourly billing, and story point cost forecasts</p>
+      <h2>Budget</h2>
+      <p class="view-subtitle">What this project has cost so far, based on logged hours.</p>
     </div>
     <div class="header-action-group">
       <button class="btn-refresh-pill" (click)="refreshFinancials()">
@@ -11,7 +11,7 @@
           <polyline points="1 20 1 14 7 14"></polyline>
           <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
         </svg>
-        <span>Recalculate Burn</span>
+        <span>Refresh</span>
       </button>
     </div>
   </div>
@@ -20,13 +20,13 @@
   <!-- Financial KPI Metrics -->
   <div class="financial-kpi-grid">
     <div class="fin-card highlight-gold">
-      <span class="fin-label">Total Allocated Budget</span>
+      <span class="fin-label">Budget</span>
       <div class="fin-amount">{{ fin.totalBudget !== null ? (fin.totalBudget | currency:fin.currency:'symbol':'1.0-0') : 'Not set' }}</div>
-      <span class="fin-sub">{{ fin.currency }} capitalised budget</span>
+      <span class="fin-sub">{{ fin.currency }}</span>
     </div>
 
     <div class="fin-card">
-      <span class="fin-label">Actual Expenditure (Burned)</span>
+      <span class="fin-label">Spent</span>
       <div class="fin-amount fin-spent">{{ fin.spentBudget | currency:fin.currency:'symbol':'1.0-0' }}</div>
       <div class="fin-progress-bar" *ngIf="fin.burnRatePercent !== null">
         <div class="fin-progress-fill" [style.width.%]="Math.min(100, fin.burnRatePercent)"></div>
@@ -40,18 +40,18 @@
     <div class="fin-card highlight-emerald">
       <span class="fin-label">Remaining Budget</span>
       <div class="fin-amount fin-remaining">{{ fin.remainingBudget !== null ? (fin.remainingBudget | currency:fin.currency:'symbol':'1.0-0') : '—' }}</div>
-      <span class="fin-sub">Uncommitted reserve funds</span>
+      <span class="fin-sub">left to spend</span>
     </div>
 
     <div class="fin-card">
-      <span class="fin-label">Forecast Cost at Completion</span>
+      <span class="fin-label">Forecast</span>
       <div class="fin-amount">{{ fin.projectedCostAtCompletion | currency:fin.currency:'symbol':'1.0-0' }}</div>
       <span *ngIf="fin.totalBudget !== null" class="fin-sub"
             [class.text-safe]="fin.projectedCostAtCompletion <= fin.totalBudget"
             [class.text-danger]="fin.projectedCostAtCompletion > fin.totalBudget">
-        {{ fin.projectedCostAtCompletion <= fin.totalBudget ? '✓ Under approved ceiling' : '⚠ Forecast exceeds budget' }}
+        {{ fin.projectedCostAtCompletion <= fin.totalBudget ? 'Within budget' : 'Forecast is over budget' }}
       </span>
-      <span *ngIf="fin.totalBudget === null" class="fin-sub">Spent + remaining estimates at the blended rate</span>
+      <span *ngIf="fin.totalBudget === null" class="fin-sub">spent plus remaining estimates</span>
     </div>
   </div>
 
@@ -60,7 +60,7 @@
     <div class="fin-detail-panel">
       <div class="panel-header">
         <h4>Spend by Role</h4>
-        <span class="rate-standard-tag">Logged hours × configured role rates</span>
+        <span class="rate-standard-tag">hours × role rate</span>
       </div>
       <table class="fin-table">
         <thead>
@@ -92,7 +92,7 @@
         <h4>Story Point Economics</h4>
       </div>
       <div class="point-metric-box">
-        <span class="pt-label">Actual Cost per Completed Story Point</span>
+        <span class="pt-label">Cost per finished point</span>
         <div class="pt-val">{{ fin.estimatedCostPerStoryPoint !== null ? (fin.estimatedCostPerStoryPoint | currency:fin.currency:'symbol':'1.2-2') : '—' }}</div>
         <p class="pt-desc">
           Spend divided by completed points. Blended rate:
@@ -101,7 +101,7 @@
       </div>
       <div class="point-stats-grid">
         <div class="pt-stat">
-          <span class="pt-stat-label">Total Points</span>
+          <span class="pt-stat-label">Points</span>
           <span class="pt-stat-val">{{ fin.totalStoryPoints }} pts</span>
         </div>
         <div class="pt-stat">

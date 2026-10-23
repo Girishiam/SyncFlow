@@ -9,8 +9,8 @@
         </svg>
       </div>
       <div>
-        <h2 class="view-title">Sprint Planning & Backlog Grooming</h2>
-        <p class="view-subtitle">Manage sprint cadence, story point commitments, and stage tasks for upcoming cycles.</p>
+        <h2 class="view-title">Backlog</h2>
+        <p class="view-subtitle">Plan sprints and pull work in from the backlog.</p>
       </div>
     </div>
 
@@ -32,7 +32,7 @@
         <div class="sprint-title-area">
           <span class="sprint-status-tag" [class]="sprint.status.toLowerCase()">{{ sprint.status }}</span>
           <h3 class="sprint-card-name">{{ sprint.name }}</h3>
-          <span class="sprint-dates" *ngIf="sprint.startDate">{{ sprint.startDate }} → {{ sprint.endDate }}</span>
+          <span class="sprint-dates" *ngIf="sprint.startDate">{{ sprint.startDate }} – {{ sprint.endDate }}</span>
         </div>
 
         <div class="sprint-header-controls">
@@ -94,7 +94,7 @@
   <!-- Grooming & Backlog Tasks Table -->
   <div class="backlog-tasks-section">
     <div class="backlog-section-bar">
-      <span class="backlog-sec-title">Product Backlog Items & Sizing ({{ totalTasksCount() }} tasks)</span>
+      <span class="backlog-sec-title">Backlog ({{ totalTasksCount() }})</span>
     </div>
 
     <div class="backlog-table">

@@ -55,15 +55,16 @@ export class ChatFacade implements OnDestroy {
   public selectedMemberToAdd = signal<string>('');
 
   // Available Icon Options for Channels
+  // Channel icon choices; `icon` is an <sf-icon> name. Stored ids are kept for existing channels.
   public availableIcons = [
-    { id: 'hash', label: 'General / Text', icon: '#' },
-    { id: 'chat-dots', label: 'Discussions', icon: '💬' },
-    { id: 'shield-lock', label: 'Security & Auth', icon: '🛡️' },
-    { id: 'bank', label: 'Treasury & Core', icon: '🏦' },
-    { id: 'code-slash', label: 'Engineering', icon: '💻' },
-    { id: 'megaphone', label: 'Announcements', icon: '📢' },
-    { id: 'cpu', label: 'Infrastructure', icon: '⚡' },
-    { id: 'terminal', label: 'DevOps & CI/CD', icon: '🚀' }
+    { id: 'hash', label: 'General', icon: 'hash' },
+    { id: 'chat-dots', label: 'Discussion', icon: 'message' },
+    { id: 'shield-lock', label: 'Security', icon: 'shield' },
+    { id: 'bank', label: 'Treasury', icon: 'landmark' },
+    { id: 'code-slash', label: 'Engineering', icon: 'code' },
+    { id: 'megaphone', label: 'Announcements', icon: 'megaphone' },
+    { id: 'cpu', label: 'Infrastructure', icon: 'cpu' },
+    { id: 'terminal', label: 'DevOps', icon: 'terminal' }
   ];
 
   private subscriptions: Subscription[] = [];

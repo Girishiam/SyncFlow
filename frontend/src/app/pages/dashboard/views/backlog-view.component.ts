@@ -1,4 +1,5 @@
 import { Component, ViewEncapsulation } from '@angular/core';
+import { SfIconComponent } from '../../../shared/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DashboardViewBase } from '../dashboard-view.base';
@@ -7,7 +8,7 @@ import { DashboardViewBase } from '../dashboard-view.base';
 @Component({
   selector: 'sf-backlog-view',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SfIconComponent],
   templateUrl: './backlog-view.component.html',
   encapsulation: ViewEncapsulation.None,
   // The host is the flex child of .main-content; it must pass the bounded height down to the view.

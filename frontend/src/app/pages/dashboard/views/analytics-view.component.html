@@ -2,11 +2,9 @@
   <!-- Analytics Header -->
   <div class="analytics-header-card">
     <div class="analytics-header-info">
-      <div class="badge-tag">SPRINT DELIVERY INTELLIGENCE</div>
-      <h2>Sprint Burndown & Velocity Analytics</h2>
+      <h2>Burndown</h2>
       <p class="analytics-subtitle">
-        Burndown of the active (or most recently started) sprint, computed from each task's story points and the moment it actually reached a done stage. Velocity averages the last three closed sprints.
-      </p>
+        Story points left in the current sprint, day by day.</p>
     </div>
     <div class="analytics-header-actions">
       <button class="btn-refresh-analytics" (click)="refreshBurndown()" title="Refresh sprint telemetry">
@@ -15,7 +13,7 @@
           <polyline points="1 20 1 14 7 14"></polyline>
           <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
         </svg>
-        <span>Refresh Telemetry</span>
+        <span>Refresh</span>
       </button>
     </div>
   </div>
@@ -31,9 +29,9 @@
         </svg>
       </div>
       <div class="kpi-body">
-        <span class="kpi-label">Sprint Scope</span>
+        <span class="kpi-label">Scope</span>
         <div class="kpi-value">{{ burndownAnalytics()?.totalStoryPoints ?? 0 }} <span class="unit">pts</span></div>
-        <span class="kpi-sub">Total Weighted Points</span>
+        <span class="kpi-sub">in this sprint</span>
       </div>
     </div>
 
@@ -45,9 +43,9 @@
         </svg>
       </div>
       <div class="kpi-body">
-        <span class="kpi-label">Points Burned</span>
+        <span class="kpi-label">Done</span>
         <div class="kpi-value">{{ (burndownAnalytics()?.totalStoryPoints ?? 0) - (burndownAnalytics()?.remainingStoryPoints ?? 0) }} <span class="unit">pts</span></div>
-        <span class="kpi-sub">Completed & Verified</span>
+        <span class="kpi-sub">finished</span>
       </div>
     </div>
 
@@ -59,9 +57,9 @@
         </svg>
       </div>
       <div class="kpi-body">
-        <span class="kpi-label">Remaining Scope</span>
+        <span class="kpi-label">Left</span>
         <div class="kpi-value">{{ burndownAnalytics()?.remainingStoryPoints ?? 0 }} <span class="unit">pts</span></div>
-        <span class="kpi-sub">In Development & Review</span>
+        <span class="kpi-sub">still open</span>
       </div>
     </div>
 
@@ -73,9 +71,9 @@
         </svg>
       </div>
       <div class="kpi-body">
-        <span class="kpi-label">Weekly Velocity</span>
+        <span class="kpi-label">Velocity</span>
         <div class="kpi-value">{{ burndownAnalytics()?.velocityPointsPerWeek ?? 0 }} <span class="unit">pts/wk</span></div>
-        <span class="kpi-sub">Rolling Sprint Avg</span>
+        <span class="kpi-sub">avg. of last 3 sprints</span>
       </div>
     </div>
 
@@ -87,7 +85,7 @@
         </svg>
       </div>
       <div class="kpi-body">
-        <span class="kpi-label">Sprint Timeline</span>
+        <span class="kpi-label">Time left</span>
         <div class="kpi-value milestone-date">{{ burndownAnalytics()?.daysRemainingInSprint ?? 0 }} <span class="unit">days left</span></div>
         <span class="kpi-sub">Target: Nov 04, 2026 Release</span>
       </div>
@@ -99,7 +97,7 @@
     <div class="chart-header">
       <div>
         <h3>{{ burndownAnalytics()?.sprintName || 'Last 14 days (no sprint yet)' }} · {{ burndownAnalytics()?.sprintDurationDays ?? 0 }}-day burndown</h3>
-        <span class="chart-subtitle">Ideal linear burn vs actual completed story points</span>
+        <span class="chart-subtitle">Ideal pace compared with what actually got done</span>
       </div>
       <div class="chart-legend">
         <div class="legend-item">
@@ -152,10 +150,10 @@
     </div>
   </div>
 
-  <!-- Team Delivery & Workload Matrix -->
+  <!-- Who has what -->
   <div class="analytics-card">
     <div class="table-header-row">
-      <h3>Team Delivery & Workload Matrix</h3>
+      <h3>Who has what</h3>
       <span class="table-subtitle">Open work per member{{ burndownAnalytics()?.sprintName ? ' in ' + burndownAnalytics()?.sprintName : '' }}</span>
     </div>
     <table class="modern-table">

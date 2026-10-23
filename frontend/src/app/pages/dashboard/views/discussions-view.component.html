@@ -2,7 +2,7 @@
   <div class="discussion-header">
     <div class="channel-heading-block">
       <div class="channel-icon-pill">
-        <span class="ch-symbol">{{ getChannelIconSymbol(activeChannel()?.icon) }}</span>
+        <span class="ch-symbol"><sf-icon [name]="getChannelIconName(activeChannel()?.icon)" [size]="16"></sf-icon></span>
       </div>
       <div class="channel-meta-text">
         <div class="channel-title-row">
@@ -127,7 +127,7 @@
         [(ngModel)]="chatInput"
         (input)="onChatInput($event)"
         (keydown.enter)="sendMessage()"
-        placeholder="Send a message in #{{ activeChannel()?.name || 'general' }}... (type @ to mention a role or person)"
+        placeholder="Message #{{ activeChannel()?.name || 'general' }}"
       />
       <button class="send-action" (click)="sendMessage()">Send</button>
     </div>

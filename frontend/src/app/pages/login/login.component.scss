@@ -301,35 +301,6 @@ $gold: #c59b27;
   }
 }
 
-.sync-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin-top: 1.75rem;
-  padding: 0.45rem 0.9rem;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-
-  .pulse-dot {
-    position: relative;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #6ee7a0;
-
-    &::after {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border-radius: 50%;
-      border: 2px solid #6ee7a0;
-      animation: ping 1.8s ease-out infinite;
-    }
-  }
-}
 
 // ---------------------------------------------------------------- animations
 
@@ -379,10 +350,6 @@ $gold: #c59b27;
   73%, 100% { background: #22c55e; }
 }
 
-@keyframes ping {
-  0% { transform: scale(0.6); opacity: 0.9; }
-  100% { transform: scale(1.8); opacity: 0; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .brand-pane *,

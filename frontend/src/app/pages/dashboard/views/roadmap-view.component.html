@@ -9,8 +9,8 @@
         </svg>
       </div>
       <div>
-        <h2 class="view-title">Sprint Roadmap & Gantt Timeline</h2>
-        <p class="view-subtitle">Interactive schedule projection, delivery milestones, and task dependency critical path.</p>
+        <h2 class="view-title">Roadmap</h2>
+        <p class="view-subtitle">When each task starts and is due, and what it is waiting on.</p>
       </div>
     </div>
 
@@ -29,20 +29,20 @@
   <!-- Roadmap Metrics Summary -->
   <div class="roadmap-metrics-row">
     <div class="roadmap-metric-pill">
-      <span class="label">Total Tasks</span>
+      <span class="label">Tasks</span>
       <span class="val">{{ timelineTasks().length }}</span>
     </div>
     <div class="roadmap-metric-pill">
-      <span class="label">Critical Path</span>
-      <span class="val gold">{{ (timelineTasks() | slice:0:3).length }} Milestones</span>
+      <span class="label">Blocked</span>
+      <span class="val gold">{{ roadmapStats().blocked }}</span>
     </div>
     <div class="roadmap-metric-pill">
-      <span class="label">Sprint Velocity</span>
-      <span class="val emerald">34 pts / sprint</span>
+      <span class="label">Done</span>
+      <span class="val emerald">{{ roadmapStats().done }}</span>
     </div>
     <div class="roadmap-metric-pill">
-      <span class="label">Delivery SLA</span>
-      <span class="val emerald">98.2% On-Time</span>
+      <span class="label">Overdue</span>
+      <span class="val" [class.gold]="roadmapStats().overdue > 0">{{ roadmapStats().overdue }}</span>
     </div>
   </div>
 
@@ -97,7 +97,7 @@
 
           <!-- Blocker Indicator Link -->
           <div *ngIf="t.blockedByTaskIds && t.blockedByTaskIds.length > 0" class="dependency-connector-flag" [style.left.%]="getGanttBarLeft(t.startDate) + 2">
-            ⚠️ Blocked by #{{ t.blockedByTaskIds.join(', #') }}
+            <sf-icon name="alert" [size]="12"></sf-icon> Blocked by #{{ t.blockedByTaskIds.join(', #') }}
           </div>
         </div>
       </div>

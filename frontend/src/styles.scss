@@ -1,5 +1,5 @@
-/* Google Fonts: Plus Jakarta Sans & Inter */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+/* Geist (UI) and Geist Mono (IDs, hashes, durations) */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
 
 /* Ionic Core CSS */
 @import "@ionic/angular/css/core.css";
@@ -33,8 +33,9 @@
   --border-strong: #006022;
 
   /* Typography */
-  --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-body: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', Consolas, monospace;
   
   --text-primary: #0d1a10;        /* Deep pine black */
   --text-secondary: #3a4a3e;      /* Readable pine slate */
@@ -83,13 +84,21 @@ body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'ss01', 'cv11';
+  letter-spacing: -0.005em;
+}
+
+/* Form controls use the UI font instead of the browser default */
+button, input, select, textarea {
+  font-family: inherit;
 }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   color: var(--text-primary);
   margin-top: 0;
-  font-weight: 700;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 /* Custom Scrollbar for modern look */

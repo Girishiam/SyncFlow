@@ -1,8 +1,8 @@
 <div class="webhooks-view">
   <div class="view-header-row">
     <div>
-      <h2>Enterprise Webhooks & Integrations</h2>
-      <p class="view-subtitle">Real-time HTTP event dispatchers for Slack, Microsoft Teams, Jenkins, and GitHub</p>
+      <h2>Webhooks</h2>
+      <p class="view-subtitle">Send board events to Slack, Teams, Jenkins or anything else that accepts a POST.</p>
     </div>
     <div class="header-action-group">
       <button class="btn-create-webhook-pill" (click)="openWebhooksModal()">
@@ -20,7 +20,7 @@
     <div *ngFor="let hook of webhooks()" class="webhook-card" [class.disabled-hook]="!hook.isEnabled">
       <div class="wh-top-row">
         <div class="wh-title-group">
-          <span class="wh-connector-icon">🔗</span>
+          <span class="wh-connector-icon"><sf-icon name="link" [size]="16"></sf-icon></span>
           <div>
             <h4 class="wh-name">{{ hook.name }}</h4>
             <code class="wh-url">{{ hook.targetUrl }}</code>
@@ -61,7 +61,7 @@
 
       <!-- Ping Success Banner -->
       <div *ngIf="webhookTestResult()?.id === hook.id" class="ping-success-toast">
-        ✓ Webhook Ping Delivered: {{ webhookTestResult()!.status }}
+        Test ping sent: {{ webhookTestResult()!.status }}
       </div>
     </div>
 

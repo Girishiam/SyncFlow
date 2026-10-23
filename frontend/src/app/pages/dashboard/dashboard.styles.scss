@@ -1645,7 +1645,7 @@
               background: #E7F3EC;
               color: #006022;
               border: 1px solid #C4DEC9;
-              font-family: 'JetBrains Mono', monospace;
+              font-family: var(--font-mono);
 
               &.admin-badge {
                 background: #FEF3C7;
@@ -1889,7 +1889,7 @@
                 padding: 0.2rem 0.6rem;
                 border-radius: 4px;
                 border: 1px solid #C4DEC9;
-                font-family: 'JetBrains Mono', monospace;
+                font-family: var(--font-mono);
               }
 
               .active-status-badge {
@@ -2163,7 +2163,7 @@
                       font-weight: 700;
                       color: #1E293B;
                       letter-spacing: 0.02em;
-                      font-family: 'JetBrains Mono', monospace;
+                      font-family: var(--font-mono);
                     }
 
                     .chip-desc {
@@ -2298,7 +2298,7 @@
           font-weight: 800;
           font-size: 0.92rem;
           color: #1F2923;
-          font-family: 'JetBrains Mono', monospace;
+          font-family: var(--font-mono);
         }
 
         .role-preview-users-count {
@@ -2723,7 +2723,6 @@
     position: fixed;
     inset: 0;
     background: rgba(15, 30, 20, 0.45);
-    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3070,8 +3069,7 @@
   .drawer-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 30, 20, 0.4);
-    backdrop-filter: blur(2px);
+    background: rgba(13, 26, 16, 0.28);
     z-index: 1050;
     animation: fadeIn 0.2s ease-out;
   }
@@ -5916,7 +5914,7 @@
 
                 .timestamp-badge {
                   font-size: 0.76rem;
-                  font-family: monospace;
+                  font-family: var(--font-mono);
                   color: #64748B;
                 }
               }
@@ -6044,7 +6042,7 @@
                   }
 
                   .hash-code {
-                    font-family: monospace;
+                    font-family: var(--font-mono);
                     font-size: 0.72rem;
                     color: #334155;
                   }
@@ -6055,7 +6053,7 @@
                 white-space: nowrap;
 
                 .ip-badge {
-                  font-family: monospace;
+                  font-family: var(--font-mono);
                   font-size: 0.72rem;
                   color: #64748B;
                 }
@@ -8830,7 +8828,7 @@
         }
 
         &.code-font {
-          font-family: monospace;
+          font-family: var(--font-mono);
         }
       }
     }
@@ -9357,7 +9355,7 @@
       }
 
       .stopwatch-digits {
-        font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 1.35rem;
         font-weight: 700;
         color: #F8FAFC;
@@ -10140,6 +10138,273 @@
     margin: 12px 0 4px;
     font-size: 12px;
     color: var(--text-muted);
+  }
+
+}
+
+// ---------------------------------------------------------------------------
+// Quiet chrome: one close-button style and plain white dialogs.
+// Placed last (with the dashboard prefix) so it wins over the older per-dialog rules.
+// ---------------------------------------------------------------------------
+.sf-dashboard {
+  .icon-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    box-shadow: none !important;
+    transform: none !important;
+    cursor: pointer;
+    transition: background-color 0.12s ease, color 0.12s ease;
+
+    &:hover {
+      background: rgba(13, 26, 16, 0.06) !important;
+      color: var(--text-primary) !important;
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--bank-primary);
+      outline-offset: 1px;
+    }
+  }
+
+  .icon-btn-sm {
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px;
+    border-radius: 6px !important;
+  }
+
+  .dialog-backdrop {
+    background: rgba(13, 26, 16, 0.32) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .dialog-card,
+  .automations-dialog-card,
+  .sprint-dialog-card,
+  .time-report-modal {
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 12px 32px rgba(13, 26, 16, 0.12), 0 2px 6px rgba(13, 26, 16, 0.06) !important;
+    animation: none !important;
+  }
+
+  .dialog-card {
+    padding: 0 !important;
+  }
+
+  .dialog-header,
+  .dialog-header.gate-header,
+  .dialog-header.danger-header {
+    display: flex;
+    align-items: flex-start !important;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 0 !important;
+    padding: 24px 24px 4px !important;
+    background: var(--bg-surface-card) !important;
+    border-bottom: 0 !important;
+    color: var(--text-primary) !important;
+
+    h3,
+    h4,
+    .dialog-title {
+      margin: 0;
+      font-size: 1.05rem !important;
+      font-weight: 600 !important;
+      letter-spacing: -0.015em;
+      color: var(--text-primary) !important;
+      text-transform: none !important;
+    }
+
+    .dialog-subtitle {
+      margin: 4px 0 0;
+      font-size: 0.85rem !important;
+      color: var(--text-muted) !important;
+    }
+
+    .icon-btn {
+      margin: -6px -8px 0 0;
+    }
+  }
+
+  .dialog-title-group,
+  .gate-title-row {
+    display: block !important;
+  }
+
+  .gate-target-pill {
+    display: inline !important;
+    padding: 0 !important;
+    background: none !important;
+    border: 0 !important;
+    font-size: 0.85rem !important;
+    font-weight: 400 !important;
+    color: var(--text-muted) !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+  }
+
+  .gate-warning-banner {
+    padding: 0 !important;
+    margin-bottom: 8px !important;
+    background: none !important;
+    border: 0 !important;
+    color: var(--text-secondary) !important;
+
+    p {
+      margin: 0;
+      font-size: 0.9rem;
+    }
+  }
+
+  .gate-violations-list {
+    gap: 0 !important;
+    margin-bottom: 16px;
+  }
+
+  .violation-item {
+    display: flex;
+    align-items: flex-start !important;
+    gap: 8px !important;
+    padding: 6px 0 !important;
+    background: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    font-size: 0.9rem;
+    color: var(--text-primary) !important;
+
+    .violation-icon {
+      display: inline-flex;
+      margin-top: 3px;
+      color: var(--status-blocker-text);
+      background: none !important;
+    }
+  }
+
+  .gate-override-box {
+    background: none !important;
+    border: 0 !important;
+    border-top: 1px solid var(--border-subtle) !important;
+    border-radius: 0 !important;
+    padding: 16px 0 0 !important;
+
+    h4 {
+      font-size: 0.9rem !important;
+      font-weight: 600 !important;
+      text-transform: none !important;
+      letter-spacing: 0 !important;
+    }
+  }
+
+  .dialog-card > .dialog-body,
+  .automations-dialog-card > .dialog-body,
+  .sprint-dialog-card > .dialog-body,
+  .time-report-modal > .dialog-body {
+    padding: 16px 24px !important;
+  }
+
+  .dialog-footer,
+  .dialog-card > .dialog-actions {
+    background: var(--bg-surface-card) !important;
+    border-top: 0 !important;
+    margin: 0 !important;
+    padding: 8px 24px 24px !important;
+  }
+
+  .app-header {
+    .btn-new-project-pill,
+    .header-action-btn,
+    .ws-badge {
+      white-space: nowrap;
+    }
+  }
+
+  // Notification drawer: a plain list, no tinted tiles.
+  .notification-drawer {
+    .drawer-header {
+      align-items: flex-start;
+      background: var(--bg-surface-card) !important;
+      border-bottom: 1px solid var(--border-subtle) !important;
+
+      h3 {
+        font-size: 1rem !important;
+        font-weight: 600 !important;
+        letter-spacing: -0.015em;
+      }
+    }
+
+    .btn-scan-trigger {
+      background: transparent !important;
+      border: 1px solid var(--border-medium) !important;
+      color: var(--text-secondary) !important;
+      box-shadow: none !important;
+      font-weight: 500 !important;
+      text-transform: none !important;
+    }
+
+    .notification-card {
+      box-shadow: none !important;
+      border-radius: 8px !important;
+      transform: none !important;
+    }
+
+    .notif-type-pill,
+    .action-hint {
+      display: inline-flex !important;
+      align-items: center;
+      gap: 4px !important;
+    }
+
+    .notif-type-pill {
+      padding: 0 !important;
+      background: none !important;
+      border: 0 !important;
+      text-transform: none !important;
+      letter-spacing: 0 !important;
+      font-weight: 500 !important;
+      color: var(--text-muted) !important;
+    }
+  }
+
+  // Labels read as plain text rather than shouted micro-caps.
+  label,
+  .metric-label,
+  .kpi-label,
+  .fin-label,
+  .cap-label,
+  .pt-label,
+  .filter-title,
+  .staged-label,
+  .past-logs-title,
+  .tally-label,
+  .project-tag,
+  .metric-badge,
+  .badge-tag,
+  .notification-card-header,
+  .mention-popup-header {
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+  }
+
+  .metric-label,
+  .kpi-label {
+    font-weight: 500 !important;
+  }
+
+  .project-tag {
+    font-weight: 500 !important;
   }
 
 }

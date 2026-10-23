@@ -14,7 +14,6 @@
       </div>
       <div class="brand-text">
         <span class="app-name">SyncFlow</span>
-        <span class="app-env">Enterprise</span>
       </div>
     </div>
 
@@ -45,7 +44,7 @@
           <rect x="14" y="12" width="7" height="9" />
           <rect x="3" y="16" width="7" height="5" />
         </svg>
-        <span>Sprint Board</span>
+        <span>Board</span>
       </button>
 
       <button
@@ -59,7 +58,7 @@
           <line x1="8" y1="12" x2="20" y2="12" stroke-linecap="round"/>
           <line x1="4" y1="18" x2="12" y2="18" stroke-linecap="round"/>
         </svg>
-        <span>Roadmap & Gantt</span>
+        <span>Roadmap</span>
       </button>
 
       <button
@@ -73,14 +72,14 @@
           <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
           <path d="M9 14l2 2 4-4"/>
         </svg>
-        <span>Backlog & Sprints</span>
+        <span>Backlog</span>
       </button>
 
       <button
         id="sidebar-nav-new-proj"
         class="nav-item new-proj-item"
         (click)="openCreateProject()"
-        title="Create New Enterprise Project"
+        title="New project"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19" />
@@ -125,7 +124,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
         </svg>
-        <span>Roles & RBAC</span>
+        <span>Roles</span>
       </button>
 
       <button
@@ -139,7 +138,7 @@
           <polyline points="14 2 14 8 20 8"></polyline>
           <path d="m9 15 2 2 4-4"></path>
         </svg>
-        <span>Audit Ledger</span>
+        <span>Audit log</span>
       </button>
 
       <button
@@ -152,7 +151,7 @@
           <line x1="12" y1="1" x2="12" y2="23"></line>
           <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
         </svg>
-        <span>Executive Financials</span>
+        <span>Budget</span>
       </button>
 
       <button
@@ -167,7 +166,7 @@
           <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
           <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
         </svg>
-        <span>Team Capacity</span>
+        <span>Capacity</span>
       </button>
 
       <button
@@ -182,7 +181,7 @@
           <path d="m15 11 5.78 3.13c.97.53 2.18.1 2.73-.84A4 4 0 0 1 22 17.5c0 .7-.2 1.4-.57 2"></path>
           <circle cx="12" cy="12" r="3"></circle>
         </svg>
-        <span>Webhooks & Integrations</span>
+        <span>Webhooks</span>
       </button>
 
       <button
@@ -222,7 +221,7 @@
           [class.active]="activeNav() === 'discussions' && activeChannel()?.id === ch.id"
           (click)="activeNav.set('discussions'); selectChannel(ch)"
         >
-          <span class="channel-icon-badge">{{ getChannelIconSymbol(ch.icon) }}</span>
+          <span class="channel-icon-badge"><sf-icon [name]="getChannelIconName(ch.icon)" [size]="14"></sf-icon></span>
           <span class="channel-name">{{ ch.name }}</span>
           <span *ngIf="ch.isPrivate" class="private-lock-icon" title="Private Bank Channel">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -280,7 +279,7 @@
             {{ p.name }}
           </option>
         </select>
-        <button class="btn-new-project-pill" (click)="openCreateProject()" title="Create New Enterprise Project">
+        <button class="btn-new-project-pill" (click)="openCreateProject()" title="New project">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
@@ -293,7 +292,7 @@
         <!-- Live WebSocket Indicator -->
         <div class="ws-badge" [class.connected]="wsService.isConnected()">
           <span class="ws-dot"></span>
-          <span>{{ wsService.isConnected() ? 'Live STOMP' : 'Connecting' }}</span>
+          <span>{{ wsService.isConnected() ? 'Live' : 'Connecting' }}</span>
         </div>
 
         <div class="search-box">
@@ -350,10 +349,10 @@
         </svg>
       </div>
       <div class="alert-content">
-        <span class="alert-label">CRITICAL BLOCKER REPORTED</span>
+        <span class="alert-label">Blocked</span>
         <span class="alert-msg"><strong>{{ activeBlockerBanner()!.title }}</strong>: {{ activeBlockerBanner()!.reason }}</span>
       </div>
-      <button class="alert-close" (click)="activeBlockerBanner.set(null)">×</button>
+      <button class="alert-close icon-btn" (click)="activeBlockerBanner.set(null)" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
     </div>
 
     <!-- Active view (lazy-loaded child route) -->
@@ -364,17 +363,17 @@
   <div *ngIf="isCreateModalOpen()" class="dialog-backdrop">
     <div class="dialog-card">
       <div class="dialog-header">
-        <h4>Create New Task</h4>
-        <button class="dialog-close" (click)="closeCreateTask()">×</button>
+        <h4>New task</h4>
+        <button class="dialog-close icon-btn" (click)="closeCreateTask()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
-        <label for="taskTitleInput">Task Title *</label>
+        <label for="taskTitleInput">Title</label>
         <input
           id="taskTitleInput"
           type="text"
           [(ngModel)]="newTaskTitle"
-          placeholder="e.g. Integrate WebAuthn Biometric Verification"
+          placeholder="What needs doing?"
           class="dialog-input"
         />
 
@@ -382,7 +381,7 @@
         <textarea
           id="taskDescInput"
           [(ngModel)]="newTaskDescription"
-          placeholder="Describe implementation requirements..."
+          placeholder="Anything the assignee should know"
           rows="3"
         ></textarea>
 
@@ -402,15 +401,15 @@
           </option>
         </select>
 
-        <label for="taskSprintSelect">Agile Sprint</label>
+        <label for="taskSprintSelect">Sprint</label>
         <select id="taskSprintSelect" [(ngModel)]="newTaskSprintId" class="dialog-select">
-          <option [ngValue]="null">No Sprint (Product Backlog)</option>
+          <option [ngValue]="null">No sprint (backlog)</option>
           <option *ngFor="let s of projectSprints()" [ngValue]="s.id">
             {{ s.name }} ({{ s.status }})
           </option>
         </select>
 
-        <label for="taskDeadlineInput">Due Date / Deadline</label>
+        <label for="taskDeadlineInput">Due date</label>
         <input
           id="taskDeadlineInput"
           type="date"
@@ -421,7 +420,7 @@
 
       <div class="dialog-actions">
         <button class="btn-cancel" (click)="closeCreateTask()">Cancel</button>
-        <button class="btn-primary" (click)="submitCreateTask()">Create Task</button>
+        <button class="btn-primary" (click)="submitCreateTask()">Create task</button>
       </div>
     </div>
   </div>
@@ -431,7 +430,7 @@
     <div class="dialog-card">
       <div class="dialog-header">
         <h4>Add Pipeline Stage</h4>
-        <button class="dialog-close" (click)="closeCreateStage()">×</button>
+        <button class="dialog-close icon-btn" (click)="closeCreateStage()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
@@ -446,7 +445,7 @@
 
         <label class="checkbox-label">
           <input type="checkbox" [(ngModel)]="newStageIsDone" />
-          <span>Mark as Completed / Terminal Stage</span>
+          <span>Counts as done</span>
         </label>
         <p class="gate-form-hint">Quality gates enforced when a task enters this stage:</p>
         <label class="checkbox-label">
@@ -475,11 +474,11 @@
     <div class="dialog-card">
       <div class="dialog-header">
         <h4>Create Custom Role</h4>
-        <button class="dialog-close" (click)="closeCreateRole()">×</button>
+        <button class="dialog-close icon-btn" (click)="closeCreateRole()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
-        <label for="roleNameInput">Role Name * (e.g. COMPLIANCE_OFFICER)</label>
+        <label for="roleNameInput">Role name</label>
         <input
           id="roleNameInput"
           type="text"
@@ -509,7 +508,7 @@
     <div class="dialog-card delete-role-dialog">
       <div class="dialog-header danger-header">
         <h4>Delete Security Role</h4>
-        <button class="dialog-close" (click)="closeDeleteRoleModal()">×</button>
+        <button class="dialog-close icon-btn" (click)="closeDeleteRoleModal()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
@@ -582,7 +581,7 @@
     <div class="dialog-card">
       <div class="dialog-header">
         <h4>Task Blocker</h4>
-        <button class="dialog-close" (click)="closeBlocker()">×</button>
+        <button class="dialog-close icon-btn" (click)="closeBlocker()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
@@ -623,7 +622,7 @@
           COMPLETED
         </span>
       </div>
-      <button class="drawer-close-btn" (click)="closeTaskDetail()" title="Close Drawer">×</button>
+      <button class="drawer-close-btn icon-btn" (click)="closeTaskDetail()" title="Close Drawer" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
     </div>
 
     <div class="drawer-body">
@@ -685,13 +684,13 @@
         </div>
 
         <div class="meta-item">
-          <label>Agile Sprint</label>
+          <label>Sprint</label>
           <select
             class="meta-select"
             [value]="activeDetailTask()!.sprintId || ''"
             (change)="assignTaskSprint(activeDetailTask()!.id, $event)"
           >
-            <option value="" [selected]="!activeDetailTask()!.sprintId">No Sprint (Product Backlog)</option>
+            <option value="" [selected]="!activeDetailTask()!.sprintId">No sprint (backlog)</option>
             <option *ngFor="let s of projectSprints()" [value]="s.id" [selected]="activeDetailTask()!.sprintId === s.id">
               {{ s.name }} ({{ s.status }})
             </option>
@@ -734,7 +733,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <span>Mark as Completed</span>
+            <span>Mark as done</span>
           </button>
 
           <button
@@ -760,7 +759,7 @@
               <rect x="1" y="3" width="22" height="5"></rect>
               <line x1="10" y1="12" x2="14" y2="12"></line>
             </svg>
-            <span>Archive Card</span>
+            <span>Archive</span>
           </button>
 
           <span *ngIf="isTaskCompleted(activeDetailTask()!)" class="completion-verified-note">
@@ -795,7 +794,7 @@
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
             </svg>
-            <span class="section-title">Dependencies & Blockers</span>
+            <span class="section-title">Dependencies</span>
             <span class="count-badge">{{ taskDependencies().length }}</span>
           </div>
         </div>
@@ -804,18 +803,19 @@
         <div class="dependency-list" *ngIf="taskDependencies().length > 0">
           <div *ngFor="let dep of taskDependencies()" class="dependency-card" [class]="dep.dependencyType.toLowerCase()">
             <div class="dep-badge" [class]="dep.dependencyType.toLowerCase()">
-              {{ dep.dependencyType === 'BLOCKS' ? '⛔ BLOCKS' : dep.dependencyType === 'BLOCKED_BY' ? '⚠️ BLOCKED BY' : '🔗 RELATES TO' }}
+              <sf-icon [name]="dep.dependencyType === 'BLOCKS' ? 'ban' : dep.dependencyType === 'BLOCKED_BY' ? 'alert' : 'link'" [size]="12"></sf-icon>
+                {{ dep.dependencyType === 'BLOCKS' ? 'Blocks' : dep.dependencyType === 'BLOCKED_BY' ? 'Blocked by' : 'Related' }}
             </div>
             <div class="dep-title-wrap">
               <span class="dep-title">{{ dep.targetTaskTitle }}</span>
               <span class="dep-meta">Linked by {{ dep.createdBy || 'Lead' }}</span>
             </div>
-            <button class="dep-delete-btn" (click)="deleteDependency(dep.id)" title="Remove dependency link">×</button>
+            <button class="dep-delete-btn icon-btn icon-btn-sm" (click)="deleteDependency(dep.id)" title="Remove dependency link" aria-label="Close"><sf-icon name="x" [size]="14"></sf-icon></button>
           </div>
         </div>
 
         <div *ngIf="taskDependencies().length === 0" class="empty-dependencies-hint">
-          No upstream or downstream blocker dependencies linked yet.
+          No linked tasks yet.
         </div>
 
         <!-- Add Dependency Form -->
@@ -849,7 +849,7 @@
               <path d="M9 11l3 3L22 4"></path>
               <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
             </svg>
-            <h4>Subtasks & QA Checklist</h4>
+            <h4>Checklist</h4>
             <span class="count-pill">{{ taskSubtasks().length }}</span>
           </div>
           <div class="header-progress">
@@ -894,7 +894,7 @@
           </div>
 
           <div *ngIf="taskSubtasks().length === 0" class="no-subtasks-msg">
-            <p>No checklist items added yet. Add QA verification steps or development subtasks below.</p>
+            <p>Nothing here yet.</p>
           </div>
         </div>
 
@@ -999,14 +999,14 @@
                 [disabled]="isAddingAttachment()"
                 (change)="uploadAttachment($any($event.target).files?.[0]); $any($event.target).value = ''"
               />
-              {{ isAddingAttachment() ? 'Uploading...' : '⬆ Upload File (max 25 MB)' }}
+              <sf-icon name="upload" [size]="14"></sf-icon> {{ isAddingAttachment() ? 'Uploading…' : 'Upload a file' }}
             </label>
           </div>
           <div class="att-inputs-row">
             <input
               type="text"
               [(ngModel)]="newAttachmentName"
-              placeholder="Link title (optional, e.g. Bangladesh Bank Specs v2.4)"
+              placeholder="Title (optional)"
               class="att-input name-input"
             />
           </div>
@@ -1014,7 +1014,7 @@
             <input
               type="url"
               [(ngModel)]="newAttachmentUrl"
-              placeholder="https://… link to a document, design or pull request"
+              placeholder="Paste a link"
               class="att-input url-input"
               (keydown.enter)="addAttachment()"
             />
@@ -1055,7 +1055,7 @@
           <div class="git-input-group">
             <label>Feature Branch</label>
             <div class="input-with-icon">
-              <span class="input-icon">⎇</span>
+              <span class="input-icon"><sf-icon name="git-branch" [size]="14"></sf-icon></span>
               <input
                 type="text"
                 [(ngModel)]="detailGitBranch"
@@ -1115,7 +1115,7 @@
       <div class="task-time-section">
         <div class="section-header-row">
           <div class="header-title-flex">
-            <span class="section-icon">⏱️</span>
+            <span class="section-icon"><sf-icon name="timer" [size]="16"></sf-icon></span>
             <h4>Work Logs & Time Tracking</h4>
           </div>
           <span class="hours-badge">
@@ -1154,14 +1154,14 @@
               class="btn-timer-start"
               (click)="startTimer(activeDetailTask()!.id)"
             >
-              ▶ Start Timer
+              <sf-icon name="play" [size]="12"></sf-icon> Start timer
             </button>
             <ng-template #stopBtn>
               <button class="btn-timer-stop" (click)="stopTimerAndLog(activeDetailTask()!.id)">
-                ⏹ Stop & Log Work
+                <sf-icon name="stop" [size]="12"></sf-icon> Stop and log
               </button>
               <button class="btn-timer-pause" (click)="pauseTimer()">
-                ⏸ Pause
+                <sf-icon name="pause" [size]="12"></sf-icon> Pause
               </button>
             </ng-template>
           </div>
@@ -1229,12 +1229,10 @@
               <div class="log-right-meta">
                 <span class="hours-spent-tag">+{{ log.hoursSpent }}h</span>
                 <button
-                  class="btn-del-log"
+                  class="btn-del-log icon-btn icon-btn-sm"
                   (click)="deleteTaskTimeLog(log.id, activeDetailTask()!.id)"
                   title="Remove log entry"
-                >
-                  ×
-                </button>
+                 aria-label="Close"><sf-icon name="x" [size]="14"></sf-icon></button>
               </div>
             </div>
           </div>
@@ -1278,7 +1276,7 @@
         <div class="comment-composer">
           <textarea
             [(ngModel)]="commentInput"
-            placeholder="Write an update, question, or approval..."
+            placeholder="Write a comment"
             rows="3"
             (keydown.control.enter)="submitComment()"
           ></textarea>
@@ -1374,12 +1372,12 @@
             class="form-control worklog-textarea"
             rows="6"
             [(ngModel)]="workLogSummary"
-            placeholder="What did you accomplish today? Any blockers, key commits, or tomorrow's priorities?"
+            placeholder="What did you get done today, and what is next?"
           ></textarea>
         </div>
 
         <div *ngIf="workLogSaveSuccess()" class="alert-success-banner">
-          Work log saved successfully to MSSQL database!
+          Saved.
         </div>
 
         <div class="worklog-actions">
@@ -1434,8 +1432,8 @@
   <div *ngIf="isCreateProjectModalOpen()" class="dialog-backdrop" (click)="closeCreateProject()">
     <div class="dialog-card" (click)="$event.stopPropagation()">
       <div class="dialog-header">
-        <h4>Create New Enterprise Project</h4>
-        <button class="dialog-close" (click)="closeCreateProject()">×</button>
+        <h4>New project</h4>
+        <button class="dialog-close icon-btn" (click)="closeCreateProject()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
@@ -1452,7 +1450,7 @@
         <textarea
           id="projectDescInput"
           [(ngModel)]="newProjectDescription"
-          placeholder="Brief description of the project deliverables and scope..."
+          placeholder="What is this project about?"
           rows="3"
           class="dialog-textarea"
         ></textarea>
@@ -1485,7 +1483,7 @@
     <div class="dialog-card" (click)="$event.stopPropagation()">
       <div class="dialog-header">
         <h4>Create Custom Banking Role</h4>
-        <button class="dialog-close" (click)="closeCreateRole()">×</button>
+        <button class="dialog-close icon-btn" (click)="closeCreateRole()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
@@ -1554,10 +1552,10 @@
           <div class="channel-dialog-icon">#</div>
           <div>
             <h4>Create Discussion Channel</h4>
-            <p class="dialog-subtitle">Establish a dedicated space for banking streams, teams, or project topics.</p>
+            <p class="dialog-subtitle">A place for a team, a project or a topic.</p>
           </div>
         </div>
-        <button class="dialog-close" (click)="closeCreateChannel()">×</button>
+        <button class="dialog-close icon-btn" (click)="closeCreateChannel()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
@@ -1583,7 +1581,7 @@
             class="dialog-input prefixed"
           />
         </div>
-        <p class="field-hint">Names are automatically formatted to lower-case with hyphens.</p>
+        <p class="field-hint">Lowercase, with hyphens instead of spaces.</p>
 
         <!-- Channel Logo / Icon Picker -->
         <label>Channel Logo / Icon</label>
@@ -1596,7 +1594,7 @@
             (click)="newChannelIcon.set(opt.id)"
             [title]="opt.label"
           >
-            <span class="choice-symbol">{{ opt.icon }}</span>
+            <span class="choice-symbol"><sf-icon [name]="opt.icon" [size]="16"></sf-icon></span>
             <span class="choice-label">{{ opt.label }}</span>
           </button>
         </div>
@@ -1607,7 +1605,7 @@
           id="newChannelDescInput"
           [ngModel]="newChannelDescription()"
           (ngModelChange)="newChannelDescription.set($event)"
-          placeholder="What is this channel about? (e.g. Real-time transaction reconciliation and audit)"
+          placeholder="What is this channel for?"
           rows="2"
           class="dialog-textarea"
         ></textarea>
@@ -1652,7 +1650,7 @@
               </svg>
               <span>Make Channel Private</span>
             </div>
-            <p class="privacy-desc">When private, only invited bank members can view and post messages.</p>
+            <p class="privacy-desc">Only people you add can read and post.</p>
           </div>
           <label class="switch-toggle">
             <input
@@ -1684,13 +1682,13 @@
     <div class="dialog-card channel-modal-card" (click)="$event.stopPropagation()">
       <div class="dialog-header">
         <div class="modal-title-with-badge">
-          <div class="channel-dialog-icon">{{ getChannelIconSymbol(editChannelIcon()) }}</div>
+          <div class="channel-dialog-icon"><sf-icon [name]="getChannelIconName(editChannelIcon())" [size]="20"></sf-icon></div>
           <div>
             <h4>Channel Settings: #{{ channelToEdit()?.name }}</h4>
-            <p class="dialog-subtitle">Modify topic, logo, visibility, and properties.</p>
+            <p class="dialog-subtitle">Change the name, topic, icon or who can see it.</p>
           </div>
         </div>
-        <button class="dialog-close" (click)="closeEditChannel()">×</button>
+        <button class="dialog-close icon-btn" (click)="closeEditChannel()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
@@ -1717,7 +1715,7 @@
           />
         </div>
         <p *ngIf="channelToEdit()?.name === 'general'" class="field-hint text-warning">
-          Default #general channel name cannot be modified.
+          The #general channel can't be renamed.
         </p>
 
         <!-- Channel Logo / Icon Picker -->
@@ -1731,7 +1729,7 @@
             (click)="editChannelIcon.set(opt.id)"
             [title]="opt.label"
           >
-            <span class="choice-symbol">{{ opt.icon }}</span>
+            <span class="choice-symbol"><sf-icon [name]="opt.icon" [size]="16"></sf-icon></span>
             <span class="choice-label">{{ opt.label }}</span>
           </button>
         </div>
@@ -1770,7 +1768,7 @@
               </svg>
               <span>Private Channel</span>
             </div>
-            <p class="privacy-desc">Only permitted members can access this channel.</p>
+            <p class="privacy-desc">Only members can see this channel.</p>
           </div>
           <label class="switch-toggle">
             <input
@@ -1802,7 +1800,7 @@
     <div class="dialog-card channel-members-card" (click)="$event.stopPropagation()">
       <div class="dialog-header">
         <div class="modal-title-with-badge">
-          <div class="channel-dialog-icon">👥</div>
+          <div class="channel-dialog-icon"><sf-icon name="users" [size]="20"></sf-icon></div>
           <div>
             <h4>Channel Members: #{{ activeChannel()?.name }}</h4>
             <p class="dialog-subtitle">
@@ -1810,7 +1808,7 @@
             </p>
           </div>
         </div>
-        <button class="dialog-close" (click)="closeChannelMembers()">×</button>
+        <button class="dialog-close icon-btn" (click)="closeChannelMembers()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
@@ -1905,10 +1903,10 @@
           </div>
           <div>
             <h4 class="danger-text">Delete Channel: #{{ channelToDelete()?.name }}</h4>
-            <p class="dialog-subtitle">This action is irreversible and purges all message history.</p>
+            <p class="dialog-subtitle">This deletes the channel and every message in it. It can't be undone.</p>
           </div>
         </div>
-        <button class="dialog-close" (click)="closeDeleteChannel()">×</button>
+        <button class="dialog-close icon-btn" (click)="closeDeleteChannel()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
@@ -1957,18 +1955,13 @@
   <!-- Real-time Floating Notification Toast -->
   <div *ngIf="latestNotificationToast()" class="floating-notification-toast" [class.toast-critical]="latestNotificationToast()?.priority === 'CRITICAL'" [class.toast-warning]="latestNotificationToast()?.priority === 'WARNING'">
     <div class="toast-icon">
-      <span *ngIf="latestNotificationToast()?.type === 'TASK_ASSIGNED'">📌</span>
-      <span *ngIf="latestNotificationToast()?.type === 'TASK_DUE_SOON'">⏰</span>
-      <span *ngIf="latestNotificationToast()?.type === 'TASK_OVERDUE'">🚨</span>
-      <span *ngIf="latestNotificationToast()?.type === 'CHANNEL_MENTION'">💬</span>
-      <span *ngIf="latestNotificationToast()?.type === 'BLOCKER_ALERT'">⚠️</span>
-      <span *ngIf="latestNotificationToast()?.type === 'ROLE_UPDATE'">🛡️</span>
+      <sf-icon [name]="notificationIcon(latestNotificationToast()!.type)" [size]="18"></sf-icon>
     </div>
     <div class="toast-body" (click)="onNotificationClick(latestNotificationToast()!)">
       <span class="toast-title">{{ latestNotificationToast()?.title }}</span>
       <p class="toast-message">{{ latestNotificationToast()?.message }}</p>
     </div>
-    <button class="toast-close" (click)="dismissNotificationToast()">×</button>
+    <button class="toast-close icon-btn icon-btn-sm" (click)="dismissNotificationToast()" aria-label="Close"><sf-icon name="x" [size]="14"></sf-icon></button>
   </div>
 
   <!-- Enterprise Notification Center Drawer -->
@@ -1976,26 +1969,20 @@
   <div *ngIf="isNotificationDrawerOpen()" class="notification-drawer">
     <div class="drawer-header">
       <div class="drawer-title-area">
-        <div class="notif-header-icon-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-          </svg>
-        </div>
         <div>
-          <h3>Notification Center</h3>
-          <p class="drawer-subtitle">Assignments, upcoming deadlines, channel mentions & blockers.</p>
+          <h3>Notifications</h3>
+          <p class="drawer-subtitle">Assignments, deadlines, mentions and blockers.</p>
         </div>
       </div>
       <div class="drawer-header-actions">
-        <button class="btn-scan-trigger" (click)="triggerDueScan()" title="Scan approaching task deadlines">
+        <button *ngIf="isAdmin()" class="btn-scan-trigger" (click)="triggerDueScan()" title="Scan approaching task deadlines">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="23 4 23 10 17 10"></polyline>
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
           </svg>
-          <span>Scan Deadlines</span>
+          <span>Check due dates</span>
         </button>
-        <button class="drawer-close" (click)="closeNotificationCenter()">×</button>
+        <button class="drawer-close icon-btn" (click)="closeNotificationCenter()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
     </div>
 
@@ -2044,13 +2031,8 @@
       >
         <div class="notification-card-header">
           <div class="notif-type-pill" [class]="item.type.toLowerCase()">
-            <span *ngIf="item.type === 'TASK_ASSIGNED'">📌 ASSIGNMENT</span>
-            <span *ngIf="item.type === 'TASK_DUE_SOON'">⏰ DUE SOON</span>
-            <span *ngIf="item.type === 'TASK_OVERDUE'">🚨 OVERDUE</span>
-            <span *ngIf="item.type === 'CHANNEL_MENTION'">💬 MENTION</span>
-            <span *ngIf="item.type === 'BLOCKER_ALERT'">⚠️ BLOCKER</span>
-            <span *ngIf="item.type === 'TASK_COMPLETED'">🎉 COMPLETED</span>
-            <span *ngIf="item.type === 'ROLE_UPDATE'">🛡️ ROLE GOVERNANCE</span>
+            <sf-icon [name]="notificationIcon(item.type)" [size]="12"></sf-icon>
+            <span>{{ notificationLabel(item.type) }}</span>
           </div>
           <div class="notif-meta">
             <span class="notif-time">{{ item.timeAgo }}</span>
@@ -2073,11 +2055,10 @@
 
         <div class="notif-card-footer" *ngIf="item.actionType !== 'NONE'">
           <span class="action-hint">
-            View
-            <span *ngIf="item.actionType === 'NAVIGATE_CHANNEL'">in channel</span>
-            <span *ngIf="item.actionType === 'NAVIGATE_TASK'">on sprint board</span>
-            <span *ngIf="item.actionType === 'NAVIGATE_RBAC'">in RBAC matrix</span>
-            →
+            <span *ngIf="item.actionType === 'NAVIGATE_CHANNEL'">Open channel</span>
+            <span *ngIf="item.actionType === 'NAVIGATE_TASK'">Open task</span>
+            <span *ngIf="item.actionType === 'NAVIGATE_RBAC'">Open roles</span>
+            <sf-icon name="arrow-right" [size]="12"></sf-icon>
           </span>
         </div>
       </div>
@@ -2086,12 +2067,12 @@
 
   <!-- Real-time Task Completion Celebration Toast -->
   <div *ngIf="completionCelebrationMsg()" class="celebration-toast">
-    <div class="celebration-icon">🎉</div>
+    <div class="celebration-icon"><sf-icon name="check-circle" [size]="20"></sf-icon></div>
     <div class="celebration-text">{{ completionCelebrationMsg() }}</div>
-    <button class="celebration-close" (click)="completionCelebrationMsg.set(null)">×</button>
+    <button class="celebration-close icon-btn" (click)="completionCelebrationMsg.set(null)" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
   </div>
 
-  <!-- Archived Cards Drawer -->
+  <!-- Archived Drawer -->
   <div *ngIf="isArchivedDrawerOpen()" class="drawer-overlay" (click)="closeArchivedDrawer()"></div>
   <div *ngIf="isArchivedDrawerOpen()" class="task-detail-drawer archived-drawer">
     <div class="drawer-header">
@@ -2104,16 +2085,16 @@
           </svg>
         </div>
         <div>
-          <h3 class="drawer-task-title">Archived Cards</h3>
+          <h3 class="drawer-task-title">Archived</h3>
           <span class="drawer-task-id">{{ archivedTasks().length }} tasks archived in project</span>
         </div>
       </div>
-      <button class="drawer-close" (click)="closeArchivedDrawer()">×</button>
+      <button class="drawer-close icon-btn" (click)="closeArchivedDrawer()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
     </div>
 
     <div class="drawer-body">
       <p class="drawer-desc-text">
-        Completed tasks archived from the board are safely preserved here for audit and compliance. You can inspect or restore them to the active board anytime.
+        Cards you archive end up here. Restore one to put it back on the board.
       </p>
 
       <div class="archived-list">
@@ -2141,7 +2122,7 @@
             <rect x="1" y="3" width="22" height="5"></rect>
             <line x1="10" y1="12" x2="14" y2="12"></line>
           </svg>
-          <h4>No Archived Cards</h4>
+          <h4>No Archived</h4>
           <p>When tasks are completed, click "Archive" on the card or in the detail drawer to store them here.</p>
         </div>
       </div>
@@ -2153,13 +2134,12 @@
     <div class="automations-dialog-card" (click)="$event.stopPropagation()">
       <div class="dialog-header">
         <div class="dialog-title-group">
-          <div class="dialog-icon-pill">⚡</div>
           <div>
-            <h3 class="dialog-title">Workspace Butler Automation Rules</h3>
-            <p class="dialog-subtitle">Event-driven automations that trigger actions based on card movements, checklist completion, and blockers.</p>
+            <h3 class="dialog-title">Automations</h3>
+            <p class="dialog-subtitle">Rules that run when cards move, checklists finish, or tasks get blocked.</p>
           </div>
         </div>
-        <button class="dialog-close-btn" (click)="closeAutomationsModal()" title="Close Dialog">×</button>
+        <button class="dialog-close-btn icon-btn" (click)="closeAutomationsModal()" title="Close Dialog" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body automations-body">
@@ -2168,11 +2148,11 @@
             <div class="rule-info">
               <div class="rule-name-row">
                 <span class="rule-name">{{ rule.name }}</span>
-                <span class="rule-trigger-tag">{{ rule.triggerEvent }} → {{ rule.actionType }}</span>
+                <span class="rule-trigger-tag">{{ rule.triggerEvent }} <sf-icon name="arrow-right" [size]="12"></sf-icon> {{ rule.actionType }}</span>
               </div>
               <p class="rule-desc">{{ rule.description }}</p>
               <div class="rule-stats-row">
-                <span class="rule-stat">⚡ Executed {{ rule.executionCount }} times</span>
+                <span class="rule-stat">Ran {{ rule.executionCount }} {{ rule.executionCount === 1 ? 'time' : 'times' }}</span>
                 <span class="rule-stat" *ngIf="rule.lastExecutedAt">Last run {{ rule.lastExecutedAt | date:'short' }}</span>
               </div>
             </div>
@@ -2189,7 +2169,7 @@
       </div>
 
       <div class="dialog-footer">
-        <button class="btn-primary" (click)="closeAutomationsModal()">Done & Save</button>
+        <button class="btn-primary" (click)="closeAutomationsModal()">Done</button>
       </div>
     </div>
   </div>
@@ -2199,31 +2179,30 @@
     <div class="sprint-dialog-card" (click)="$event.stopPropagation()">
       <div class="dialog-header">
         <div class="dialog-title-group">
-          <div class="dialog-icon-pill">🏃</div>
           <div>
-            <h3 class="dialog-title">Create Agile Sprint</h3>
-            <p class="dialog-subtitle">Define iteration cadence, target velocity commitments, and definition of done.</p>
+            <h3 class="dialog-title">New sprint</h3>
+            <p class="dialog-subtitle">Give it a name, a goal and a rough point target.</p>
           </div>
         </div>
-        <button class="dialog-close-btn" (click)="closeCreateSprintModal()" title="Close Dialog">×</button>
+        <button class="dialog-close-btn icon-btn" (click)="closeCreateSprintModal()" title="Close Dialog" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
       <div class="dialog-body">
         <div class="form-group">
-          <label>Sprint Name *</label>
-          <input type="text" [(ngModel)]="newSprintName" placeholder="e.g. Sprint 44 - Hardening & Security" class="dialog-input" />
+          <label>Name</label>
+          <input type="text" [(ngModel)]="newSprintName" placeholder="Sprint 44" class="dialog-input" />
         </div>
         <div class="form-group">
-          <label>Sprint Goal</label>
-          <textarea [(ngModel)]="newSprintGoal" placeholder="Describe the outcome and definition of done..." class="dialog-textarea"></textarea>
+          <label>Goal</label>
+          <textarea [(ngModel)]="newSprintGoal" placeholder="What should be true at the end of this sprint?" class="dialog-textarea"></textarea>
         </div>
         <div class="form-group">
-          <label>Target Story Points</label>
+          <label>Point target</label>
           <input type="number" [(ngModel)]="newSprintTargetPoints" class="dialog-input" />
         </div>
       </div>
       <div class="dialog-footer">
         <button class="btn-secondary" (click)="closeCreateSprintModal()">Cancel</button>
-        <button class="btn-primary" [disabled]="!newSprintName().trim()" (click)="submitCreateSprint()">Create Sprint</button>
+        <button class="btn-primary" [disabled]="!newSprintName().trim()" (click)="submitCreateSprint()">Create sprint</button>
       </div>
     </div>
   </div>
@@ -2233,30 +2212,23 @@
     <div class="dialog-card gate-dialog-card" (click)="$event.stopPropagation()">
       <div class="dialog-header gate-header">
         <div class="gate-title-row">
-          <div class="gate-icon-shield">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-          </div>
           <div>
-            <h3 class="dialog-title">Strict Workflow Transition Gate Policy</h3>
-            <span class="gate-target-pill">Target: {{ gateValidationResult()?.targetStageName }}</span>
+            <h3 class="dialog-title">This move needs a few things first</h3>
+            <span class="gate-target-pill">Moving to {{ gateValidationResult()?.targetStageName }}</span>
           </div>
         </div>
-        <button class="dialog-close-btn" (click)="cancelGateOverride()" title="Close Dialog">×</button>
+        <button class="dialog-close-btn icon-btn" (click)="cancelGateOverride()" title="Close Dialog" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
         <div class="gate-warning-banner">
-          <p>This status change was intercepted by SyncFlow automated enterprise quality policies. The following criteria must be satisfied or explicitly overridden by an authorized squad manager:</p>
+          <p>The stage you dropped this card into has checks that are not met yet:</p>
         </div>
 
         <!-- Violations List -->
         <div class="gate-violations-list">
           <div *ngFor="let violation of (gateValidationResult()?.violations || [])" class="violation-item">
-            <span class="violation-icon">⛔</span>
+            <span class="violation-icon"><sf-icon name="ban" [size]="14"></sf-icon></span>
             <span class="violation-text">{{ violation }}</span>
           </div>
         </div>
@@ -2264,19 +2236,18 @@
         <!-- Manager Override Panel -->
         <div *ngIf="canOverrideGates(); else noOverrideRights" class="gate-override-box">
           <div class="override-header">
-            <h4>Manager / Admin Override Authorization</h4>
-            <span class="override-badge">Regulatory Audit Logged</span>
+            <h4>Move it anyway</h4>
           </div>
 
-          <label for="gate-override-reason">Mandatory Override Justification (min. 10 characters) *</label>
+          <label for="gate-override-reason">Why does it need to skip the checks?</label>
           <textarea
             id="gate-override-reason"
             [(ngModel)]="gateOverrideReason"
-            placeholder="Document rationale for bypassing transition gate (e.g. Hotfix emergency approved by Central Bank Audit)..."
+            placeholder="e.g. hotfix approved by the release lead"
             class="dialog-textarea override-textarea"
           ></textarea>
 
-          <label for="gate-override-password">Confirm your password to authorize this override *</label>
+          <label for="gate-override-password">Your password</label>
           <input
             id="gate-override-password"
             type="password"
@@ -2296,14 +2267,14 @@
       </div>
 
       <div class="dialog-footer">
-        <button class="btn-secondary" (click)="cancelGateOverride()">Cancel & Revert Card</button>
+        <button class="btn-secondary" (click)="cancelGateOverride()">Cancel</button>
         <button
           *ngIf="canOverrideGates()"
           class="btn-danger-solid"
           (click)="confirmGateOverride()"
           [disabled]="isSubmittingGateOverride() || gateOverrideReason().trim().length < 10 || !gateOverridePassword()"
         >
-          {{ isSubmittingGateOverride() ? 'Verifying & Recording Override...' : 'Confirm Override & Move Task' }}
+          {{ isSubmittingGateOverride() ? 'Moving…' : 'Move anyway' }}
         </button>
       </div>
     </div>
@@ -2313,8 +2284,8 @@
   <div *ngIf="isWebhooksModalOpen()" class="dialog-backdrop" (click)="closeWebhooksModal()">
     <div class="dialog-card webhook-modal-card" (click)="$event.stopPropagation()">
       <div class="dialog-header">
-        <h3 class="dialog-title">Register Enterprise Webhook</h3>
-        <button class="dialog-close" (click)="closeWebhooksModal()">×</button>
+        <h3 class="dialog-title">Add a webhook</h3>
+        <button class="dialog-close icon-btn" (click)="closeWebhooksModal()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
@@ -2389,35 +2360,34 @@
     <div class="time-report-modal" (click)="$event.stopPropagation()">
       <div class="dialog-header">
         <div class="dialog-title-group">
-          <span class="dialog-icon-pill">⏱️</span>
           <div>
-            <h3>Project Collective Time Matrix</h3>
-            <p class="dialog-subtitle">{{ projectTimeSummary()?.projectName }} • Aggregate Work Logs</p>
+            <h3>Time on this project</h3>
+            <p class="dialog-subtitle">{{ projectTimeSummary()?.projectName }}, all logged time</p>
           </div>
         </div>
-        <button class="dialog-close-btn" (click)="closeProjectTimeModal()">×</button>
+        <button class="dialog-close-btn icon-btn" (click)="closeProjectTimeModal()" aria-label="Close"><sf-icon name="x" [size]="16"></sf-icon></button>
       </div>
 
       <div class="dialog-body">
         <!-- Top Metrics Ribbon -->
         <div class="time-kpi-grid">
           <div class="time-kpi-card highlight">
-            <span class="kpi-label">Collective Spent</span>
+            <span class="kpi-label">Logged</span>
             <span class="kpi-value">{{ projectTimeSummary()?.totalHoursSpent || 0 }} hrs</span>
             <span class="kpi-sub">{{ projectTimeSummary()?.totalLogsCount || 0 }} logged sessions</span>
           </div>
           <div class="time-kpi-card">
-            <span class="kpi-label">Estimated Effort</span>
+            <span class="kpi-label">Estimated</span>
             <span class="kpi-value">{{ projectTimeSummary()?.totalEstimatedHours || 0 }} hrs</span>
             <span class="kpi-sub">{{ projectTimeSummary()?.tasksWithLogsCount || 0 }} active tasks tracked</span>
           </div>
           <div class="time-kpi-card">
-            <span class="kpi-label">Remaining Effort</span>
+            <span class="kpi-label">Remaining</span>
             <span class="kpi-value">{{ projectTimeSummary()?.hoursRemaining || 0 }} hrs</span>
-            <span class="kpi-sub">Calculated projection</span>
+            <span class="kpi-sub">estimate minus logged</span>
           </div>
           <div class="time-kpi-card">
-            <span class="kpi-label">Project Progress</span>
+            <span class="kpi-label">Progress</span>
             <span class="kpi-value">{{ projectTimeSummary()?.progressPercentage || 0 }}%</span>
             <div class="kpi-mini-bar">
               <div class="kpi-mini-fill" [style.width.%]="projectTimeSummary()?.progressPercentage || 0"></div>
@@ -2459,7 +2429,7 @@
         <div class="report-section" *ngIf="projectTimeSummary()?.stageBreakdown?.length">
           <div class="report-section-header">
             <h4>Hours by Pipeline Stage</h4>
-            <span class="section-tag">Kanban Distribution</span>
+            <span class="section-tag">By stage</span>
           </div>
 
           <div class="stage-time-grid">
@@ -2481,7 +2451,7 @@
         <div class="report-section" *ngIf="projectTimeSummary()?.recentLogs?.length">
           <div class="report-section-header">
             <h4>Recent Project Work Logs</h4>
-            <span class="section-tag">Chronological Feed</span>
+            <span class="section-tag">Recent entries</span>
           </div>
 
           <div class="recent-logs-table-wrap">

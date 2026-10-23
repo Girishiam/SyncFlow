@@ -1,4 +1,5 @@
 import { Component, DestroyRef, OnInit, ViewEncapsulation, inject } from '@angular/core';
+import { SfIconComponent } from '../../shared/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterOutlet } from '@angular/router';
@@ -14,7 +15,7 @@ import { DashboardView, DASHBOARD_VIEWS } from './dashboard-nav.service';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterOutlet],
+  imports: [CommonModule, FormsModule, RouterOutlet, SfIconComponent],
   templateUrl: './dashboard.component.html',
   encapsulation: ViewEncapsulation.None
 })

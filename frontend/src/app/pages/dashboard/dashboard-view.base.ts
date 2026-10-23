@@ -259,6 +259,7 @@ export abstract class DashboardViewBase {
   canCreateChannel = computed(() => this.authService.hasPermission('CHAT:CREATE_CHANNEL'));
   canEditChannel = computed(() => this.authService.hasPermission('CHAT:EDIT_CHANNEL'));
   canDeleteChannel = computed(() => this.authService.hasPermission('CHAT:DELETE_CHANNEL'));
+  isAdmin = computed(() => this.authService.userRole() === 'ADMIN');
   canManageMembers = computed(() => this.authService.hasPermission('CHAT:MANAGE_MEMBERS'));
 
   // Available bank users who can be added to the channel
@@ -518,9 +519,35 @@ export abstract class DashboardViewBase {
     this.chatFacade.removeMemberFromActiveChannel(userId);
   }
 
-  getChannelIconSymbol(iconId?: string): string {
+  getChannelIconName(iconId?: string): string {
     const found = this.availableChannelIcons.find(i => i.id === iconId);
-    return found ? found.icon : '#';
+    return found ? found.icon : 'hash';
+  }
+
+  notificationIcon(type: string): string {
+    switch (type) {
+      case 'TASK_ASSIGNED': return 'pin';
+      case 'TASK_DUE_SOON': return 'clock';
+      case 'TASK_OVERDUE': return 'alert';
+      case 'CHANNEL_MENTION': return 'message';
+      case 'BLOCKER_ALERT': return 'ban';
+      case 'TASK_COMPLETED': return 'check-circle';
+      case 'ROLE_UPDATE': return 'shield';
+      default: return 'bell';
+    }
+  }
+
+  notificationLabel(type: string): string {
+    switch (type) {
+      case 'TASK_ASSIGNED': return 'Assigned';
+      case 'TASK_DUE_SOON': return 'Due soon';
+      case 'TASK_OVERDUE': return 'Overdue';
+      case 'CHANNEL_MENTION': return 'Mention';
+      case 'BLOCKER_ALERT': return 'Blocked';
+      case 'TASK_COMPLETED': return 'Done';
+      case 'ROLE_UPDATE': return 'Role change';
+      default: return 'Update';
+    }
   }
 
   // RBAC Operations
@@ -942,6 +969,17 @@ export abstract class DashboardViewBase {
         .map((d, i) => ({ i, text: 'Day ' + d.day }))
         .filter(l => l.i % labelStep === 0 || l.i === days.length - 1)
         .map(l => ({ x: x(l.i), text: l.text }))
+    };
+  });
+
+  /** Real counts for the roadmap header. */
+  roadmapStats = computed(() => {
+    const tasks = this.timelineTasks();
+    const now = Date.now();
+    return {
+      blocked: tasks.filter(t => t.isBlocked || (t.blockedByTaskIds?.length ?? 0) > 0).length,
+      done: tasks.filter(t => t.isDoneStage).length,
+      overdue: tasks.filter(t => !t.isDoneStage && t.deadline && new Date(t.deadline).getTime() < now).length
     };
   });
 

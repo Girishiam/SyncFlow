@@ -644,14 +644,14 @@ export class BoardFacade implements OnDestroy {
           this.taskService.moveTask(task.id, doneCol.numericId).subscribe({
             next: () => {
               this.loadBoard(this.selectedProjectId());
-              this.showCelebrationBanner(`🎉 Task Completed: "${task.title}" is finished & verified!`);
-              this.submitAuditComment(task.id, '✅ Task marked as COMPLETED and verified.');
+              this.showCelebrationBanner(`Done: ${task.title}`);
+              this.submitAuditComment(task.id, 'Marked as done.');
             }
           });
         } else {
           this.recalculateMetrics();
-          this.showCelebrationBanner(`🎉 Task Completed: "${task.title}" is finished & verified!`);
-          this.submitAuditComment(task.id, '✅ Task marked as COMPLETED and verified.');
+          this.showCelebrationBanner(`Done: ${task.title}`);
+          this.submitAuditComment(task.id, 'Marked as done.');
         }
       },
       error: (err) => { console.error('BoardFacade: Failed to mark task completed', err); this.notifier.showClientError(err); }
@@ -682,12 +682,12 @@ export class BoardFacade implements OnDestroy {
           this.taskService.moveTask(task.id, devCol.numericId).subscribe({
             next: () => {
               this.loadBoard(this.selectedProjectId());
-              this.submitAuditComment(task.id, '🔄 Task reopened for further review and development.');
+              this.submitAuditComment(task.id, 'Reopened.');
             }
           });
         } else {
           this.recalculateMetrics();
-          this.submitAuditComment(task.id, '🔄 Task reopened for further review and development.');
+          this.submitAuditComment(task.id, 'Reopened.');
         }
       },
       error: (err) => { console.error('BoardFacade: Failed to reopen task', err); this.notifier.showClientError(err); }

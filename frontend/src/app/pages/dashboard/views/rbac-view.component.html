@@ -2,10 +2,9 @@
   <!-- Enterprise Governance Header -->
   <div class="rbac-header-card">
     <div class="rbac-title-area">
-      <div class="badge-tag">ENTERPRISE SECURITY & GOVERNANCE</div>
-      <h2>Role-Based Access Control (RBAC) Architecture</h2>
+      <h2>Roles and permissions</h2>
       <p class="rbac-subtitle">
-        Configure granular permission matrices, audit operational roles, and enforce least-privilege governance across all core banking modules.
+        Decide what each role can see and change.
       </p>
     </div>
     <div class="rbac-actions-area">
@@ -31,7 +30,7 @@
       <div class="kpi-content">
         <span class="kpi-label">Total Roles</span>
         <span class="kpi-value">{{ totalRolesCount() }}</span>
-        <span class="kpi-subtext">System & Custom Roles</span>
+        <span class="kpi-subtext">built-in and custom</span>
       </div>
     </div>
 
@@ -45,7 +44,7 @@
       <div class="kpi-content">
         <span class="kpi-label">Active Roles</span>
         <span class="kpi-value">{{ activeRolesCount() }}</span>
-        <span class="kpi-subtext">Operational & Assignable</span>
+        <span class="kpi-subtext">can be assigned</span>
       </div>
     </div>
 
@@ -59,7 +58,7 @@
       <div class="kpi-content">
         <span class="kpi-label">Deactivated Roles</span>
         <span class="kpi-value">{{ deactivatedRolesCount() }}</span>
-        <span class="kpi-subtext">Suspended Governance</span>
+        <span class="kpi-subtext">not in use</span>
       </div>
     </div>
 
@@ -75,7 +74,7 @@
       <div class="kpi-content">
         <span class="kpi-label">Assigned Users</span>
         <span class="kpi-value">{{ totalAssignedUsersCount() }}</span>
-        <span class="kpi-subtext">Bank Members Linked</span>
+        <span class="kpi-subtext">people</span>
       </div>
     </div>
   </div>
@@ -93,7 +92,7 @@
         <rect x="14" y="14" width="7" height="7"></rect>
         <rect x="3" y="14" width="7" height="7"></rect>
       </svg>
-      <span>Roles & Granular Permissions Matrix</span>
+      <span>Permissions by role</span>
     </button>
     <button
       class="rbac-nav-pill"
@@ -110,7 +109,7 @@
     </button>
   </div>
 
-  <!-- Tab 1: Roles Governance & Granular Permissions Matrix -->
+  <!-- Tab 1: Roles Governance & Permissions -->
   <ng-container *ngIf="activeRbacTab() === 'MATRIX'">
     <!-- SECTION 1: Roles Inventory, Search & Filter Bar -->
     <div class="roles-inventory-section">
@@ -124,10 +123,10 @@
             type="text"
             [ngModel]="rbacSearchQuery()"
             (ngModelChange)="rbacSearchQuery.set($event)"
-            placeholder="Search roles by title, description, or authority..."
+            placeholder="Search roles"
             class="rbac-search-input"
           />
-          <button *ngIf="rbacSearchQuery()" class="clear-search-btn" (click)="rbacSearchQuery.set('')">×</button>
+          <button *ngIf="rbacSearchQuery()" class="clear-search-btn icon-btn icon-btn-sm" (click)="rbacSearchQuery.set('')" aria-label="Close"><sf-icon name="x" [size]="14"></sf-icon></button>
         </div>
 
         <div class="status-filters-group">
@@ -264,7 +263,7 @@
       <div class="matrix-action-header">
         <div class="matrix-role-info">
           <div class="matrix-role-title-row">
-            <h3>Granular Permissions Matrix</h3>
+            <h3>Permissions</h3>
             <span class="active-role-tag">{{ selectedRole()!.name }}</span>
             <span class="active-status-badge" [class.inactive]="selectedRole()!.status === false">
               {{ selectedRole()!.status !== false ? 'OPERATIONAL' : 'DEACTIVATED' }}
@@ -298,7 +297,7 @@
               <polyline points="17 21 17 13 7 13 7 21"></polyline>
               <polyline points="7 3 7 8 15 8"></polyline>
             </svg>
-            <span *ngIf="!isSavingRbac()">Save Matrix Changes</span>
+            <span *ngIf="!isSavingRbac()">Save changes</span>
             <span *ngIf="isSavingRbac()">Saving to Database...</span>
           </button>
         </div>
