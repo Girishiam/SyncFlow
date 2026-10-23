@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, ViewEncapsulation, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, ViewEncapsulation, effect, inject } from '@angular/core';
 import { SfIconComponent } from '../../shared/icon/icon.component';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -22,6 +22,21 @@ import { DashboardView, DASHBOARD_VIEWS } from './dashboard-nav.service';
 export class DashboardComponent extends DashboardViewBase implements OnInit {
   private destroyRef = inject(DestroyRef);
 
+  constructor() {
+    super();
+    // If a permission is taken away while a restricted page is open, fall back to the board.
+    effect(() => {
+      this.authService.currentUserSignal();
+      const view = this.nav.activeNav();
+      if (!this.canOpen(view)) this.nav.go('board');
+    }, { allowSignalWrites: true });
+
+    // Pick up role changes made by an admin whenever the user comes back to the tab.
+    const onVisible = () => { if (document.visibilityState === 'visible') this.authService.refreshProfile(); };
+    document.addEventListener('visibilitychange', onVisible);
+    this.destroyRef.onDestroy(() => document.removeEventListener('visibilitychange', onVisible));
+  }
+
   ngOnInit(): void {
     // Legacy deep links (?tab=rbac) keep working.
     this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
@@ -33,6 +48,7 @@ export class DashboardComponent extends DashboardViewBase implements OnInit {
 
     this.nav.entered$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(view => this.loadViewData(view));
 
+    this.authService.refreshProfile();
     this.boardFacade.init();
     this.chatFacade.init();
     this.rbacFacade.init();

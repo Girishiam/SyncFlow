@@ -39,7 +39,7 @@
       <li *ngFor="let step of setup.steps" [class.done]="step.done">
         <span class="setup-mark"><sf-icon *ngIf="step.done" name="check" [size]="12" [stroke]="2.5"></sf-icon></span>
         <span class="setup-text"><strong>{{ step.label }}</strong><small>{{ step.hint }}</small></span>
-        <button *ngIf="!step.done" class="btn-secondary btn-sm" (click)="runSetupStep(step.key)">
+        <button *ngIf="!step.done && step.allowed" class="btn-secondary btn-sm" (click)="runSetupStep(step.key)">
           {{ step.key === 'team' ? 'Add people' : step.key === 'tasks' ? 'Add a task' : step.key === 'sprint' ? 'Plan' : 'Go to backlog' }}
         </button>
       </li>
@@ -64,12 +64,12 @@
       <span *ngIf="sp.total; else emptySprint">{{ sp.donePts }} of {{ sp.totalPts }} pts · {{ sp.done }}/{{ sp.total }} tasks</span>
       <ng-template #emptySprint><span>No tasks planned in this sprint yet. Showing all tasks.</span></ng-template>
     </div>
-    <button *ngIf="!sp.total" class="btn-secondary btn-sm" (click)="switchNav('backlog')">Plan this sprint</button>
+    <button *ngIf="!sp.total && can(PERM.SPRINT_MANAGE)" class="btn-secondary btn-sm" (click)="switchNav('backlog')">Plan this sprint</button>
     <div *ngIf="sp.total" class="scope-switch" role="group" aria-label="What the board shows">
       <button [class.on]="boardScope() === 'SPRINT'" (click)="boardScope.set('SPRINT')">This sprint</button>
       <button [class.on]="boardScope() === 'ALL'" (click)="boardScope.set('ALL')">All tasks</button>
     </div>
-    <button class="btn-secondary btn-sm" (click)="completeSprint(sp.sprint)">Close sprint</button>
+    <button *ngIf="can(PERM.SPRINT_MANAGE)" class="btn-secondary btn-sm" (click)="completeSprint(sp.sprint)">Close sprint</button>
   </section>
 
   <!-- Board Filters Bar -->
@@ -155,7 +155,7 @@
                   (click)="boardFacade.toggleStageGate(col, 'requiresDeliverable')"
                   [title]="(col.requiresDeliverable ? 'Requires' : 'Does not require') + ' a deliverable or pull request to enter'"><sf-icon name="paperclip" [size]="13"></sf-icon></button>
         </div>
-        <button class="col-add" (click)="openCreateTask(col.numericId)" title="Add Task to {{ col.title }}">+</button>
+        <button *ngIf="can(PERM.TASK_CREATE)" class="col-add" (click)="openCreateTask(col.numericId)" title="Add Task to {{ col.title }}">+</button>
       </div>
 
       <div
@@ -266,10 +266,10 @@
           <!-- Card Footer -->
           <div class="card-footer">
             <div class="assignee-wrap quick-assign-anchor">
-              <button type="button" class="assignee-trigger" (click)="toggleQuickAssign(task, $event)"
+              <button type="button" class="assignee-trigger" [class.readonly]="!can(PERM.TASK_ASSIGN)" [disabled]="!can(PERM.TASK_ASSIGN)" (click)="toggleQuickAssign(task, $event)"
                       [attr.aria-expanded]="quickAssignTaskId() === task.id" aria-haspopup="listbox" title="Change who is on this">
-                <span class="user-avatar-sm" [class.empty]="!task.assigneeId">{{ task.assigneeId ? (task.avatar || task.assignee?.substring(0, 2)?.toUpperCase()) : '+' }}</span>
-                <span class="assignee-name">{{ task.assigneeId ? task.assignee : 'Assign' }}</span>
+                <span class="user-avatar-sm" [class.empty]="!task.assigneeId">{{ task.assigneeId ? (task.avatar || task.assignee?.substring(0, 2)?.toUpperCase()) : (can(PERM.TASK_ASSIGN) ? '+' : '–') }}</span>
+                <span class="assignee-name">{{ task.assigneeId ? task.assignee : (can(PERM.TASK_ASSIGN) ? 'Assign' : 'Unassigned') }}</span>
               </button>
               <div *ngIf="quickAssignTaskId() === task.id" class="quick-assign-menu" role="listbox" (click)="$event.stopPropagation()"
                    [style.top.px]="quickAssignPos().top" [style.left.px]="quickAssignPos().left">
@@ -328,7 +328,7 @@
 
     <!-- Add Stage Column -->
     <div class="add-stage-column">
-      <button class="add-stage-btn" (click)="openCreateStage()" title="Add custom workflow stage">
+      <button *ngIf="can(PERM.STAGE_BUILD)" class="add-stage-btn" (click)="openCreateStage()" title="Add custom workflow stage">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />

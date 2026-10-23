@@ -1,6 +1,7 @@
 import { Directive, HostListener, signal, computed, inject } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { DashboardNavService, DashboardView } from './dashboard-nav.service';
+import { DashboardNavService, DashboardView, VIEW_PERMISSIONS } from './dashboard-nav.service';
+import { PERM } from '../../core/auth/permissions';
 import { CdkDragDrop } from '@angular/cdk/drag-drop';
 import { AuthService } from '../../core/services/auth.service';
 import { WebSocketService } from '../../core/services/websocket.service';
@@ -28,6 +29,18 @@ export abstract class DashboardViewBase {
   public features = inject(FeatureFlagsService);
   public team = inject(TeamFacade);
   readonly projectRoles = PROJECT_ROLES;
+  readonly PERM = PERM;
+
+  /** Whether the signed-in user holds a permission (admins hold all). The server enforces the same rule. */
+  can(permission: string): boolean {
+    return this.authService.hasPermission(permission);
+  }
+
+  /** Whether a dashboard page is open to the signed-in user. */
+  canOpen(view: DashboardView): boolean {
+    const needed = VIEW_PERMISSIONS[view];
+    return !needed || this.can(needed);
+  }
   protected route = inject(ActivatedRoute);
   protected nav = inject(DashboardNavService);
   readonly Math = Math;
@@ -919,7 +932,7 @@ export abstract class DashboardViewBase {
 
   /** Dragging a task between the backlog list and a sprint moves it there. */
   onPlanDrop(event: CdkDragDrop<TaskCard[]>, sprintId: number | null): void {
-    if (event.previousContainer === event.container) return;
+    if (event.previousContainer === event.container || !this.can(PERM.SPRINT_MANAGE)) return;
     const task = event.item.data as TaskCard;
     if ((task.sprintId ?? null) === sprintId) return;
     this.boardFacade.assignSprint(task.id, sprintId);
@@ -941,6 +954,7 @@ export abstract class DashboardViewBase {
 
   toggleQuickAssign(task: TaskCard, event: Event): void {
     event.stopPropagation();
+    if (!this.can(PERM.TASK_ASSIGN)) return;
     if (this.quickAssignTaskId() === task.id) {
       this.quickAssignTaskId.set(null);
       return;
@@ -989,12 +1003,13 @@ export abstract class DashboardViewBase {
     const hasTasks = this.columns().some(c => c.tasks.length > 0);
     const sprints = this.projectSprints();
     const steps = [
-      { key: 'team', label: 'Add your team', hint: 'Only people on the team can see this project and be assigned work.', done: (project.memberCount ?? 0) > 1 },
-      { key: 'tasks', label: 'Add the first tasks', hint: 'Start with what the team already knows needs doing.', done: hasTasks },
-      { key: 'sprint', label: 'Plan a sprint', hint: 'Pick the tasks for the next week or two.', done: sprints.length > 0 },
-      { key: 'start', label: 'Start the sprint', hint: 'The board then shows just that sprint.', done: sprints.some(sp => sp.status !== 'PLANNING') }
+      { key: 'team', label: 'Add your team', hint: 'Only people on the team can see this project and be assigned work.', done: (project.memberCount ?? 0) > 1, allowed: !!project.canManageTeam },
+      { key: 'tasks', label: 'Add the first tasks', hint: 'Start with what the team already knows needs doing.', done: hasTasks, allowed: this.can(PERM.TASK_CREATE) },
+      { key: 'sprint', label: 'Plan a sprint', hint: 'Pick the tasks for the next week or two.', done: sprints.length > 0, allowed: this.can(PERM.SPRINT_MANAGE) },
+      { key: 'start', label: 'Start the sprint', hint: 'The board then shows just that sprint.', done: sprints.some(sp => sp.status !== 'PLANNING'), allowed: this.can(PERM.SPRINT_MANAGE) }
     ];
-    if (steps.every(st => st.done) || this.dismissedSetup().has(project.id)) return null;
+    // Only people who can act on an open step see the list.
+    if (!steps.some(st => !st.done && st.allowed) || this.dismissedSetup().has(project.id)) return null;
     return { steps, doneCount: steps.filter(st => st.done).length };
   });
 

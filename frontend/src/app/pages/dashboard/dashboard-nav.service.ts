@@ -1,10 +1,19 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { Subject, filter } from 'rxjs';
+import { PERM } from '../../core/auth/permissions';
 
 export const DASHBOARD_VIEWS = ['board', 'roadmap', 'backlog', 'discussions', 'analytics', 'rbac',
   'compliance', 'financials', 'capacity', 'webhooks'] as const;
 export type DashboardView = typeof DASHBOARD_VIEWS[number];
+
+/** Views that need a permission (the routes are guarded with the same names). */
+export const VIEW_PERMISSIONS: Partial<Record<DashboardView, string>> = {
+  rbac: PERM.MANAGE_ROLES,
+  compliance: PERM.AUDIT_VIEW,
+  financials: PERM.FINANCE_VIEW,
+  webhooks: PERM.PROJECT_EDIT
+};
 
 /** The active dashboard view, derived from the URL (/dashboard/<view>). */
 @Injectable({ providedIn: 'root' })

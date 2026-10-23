@@ -84,6 +84,21 @@ export class AuthService {
     return user.permissions?.includes(permissionString) ?? false;
   }
 
+  /**
+   * Re-reads the signed-in user (role and permissions) from the server, so a role change made by an
+   * admin shows up without signing out.
+   */
+  refreshProfile(): void {
+    if (!this.isAuthenticated()) return;
+    this.http.get<User>(`${this.apiUrl}/me`).subscribe({
+      next: user => {
+        localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+        this.currentUserSignal.set(user);
+      },
+      error: () => { /* keep the stored profile; the interceptor handles expired sessions */ }
+    });
+  }
+
   getToken(): string | null {
     return this.tokenSignal();
   }

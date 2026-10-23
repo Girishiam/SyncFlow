@@ -76,6 +76,7 @@
       </button>
 
       <button
+        *ngIf="can(PERM.PROJECT_CREATE)"
         id="sidebar-nav-new-proj"
         class="nav-item new-proj-item"
         (click)="openCreateProject()"
@@ -116,6 +117,7 @@
       </button>
 
       <button
+        *ngIf="canOpen('rbac')"
         id="sidebar-nav-rbac"
         class="nav-item"
         [class.active]="activeNav() === 'rbac'"
@@ -128,6 +130,7 @@
       </button>
 
       <button
+        *ngIf="canOpen('compliance')"
         id="sidebar-nav-compliance"
         class="nav-item"
         [class.active]="activeNav() === 'compliance'"
@@ -142,7 +145,7 @@
       </button>
 
       <button
-        *ngIf="features.isEnabled('budget')"
+        *ngIf="features.isEnabled('budget') && canOpen('financials')"
         id="sidebar-nav-financials"
         class="nav-item"
         [class.active]="activeNav() === 'financials'"
@@ -171,6 +174,7 @@
       </button>
 
       <button
+        *ngIf="canOpen('webhooks')"
         id="sidebar-nav-webhooks"
         class="nav-item"
         [class.active]="activeNav() === 'webhooks'"
@@ -285,7 +289,7 @@
           <span>Team</span>
           <span class="team-count" *ngIf="team.currentProject()?.memberCount as n">{{ n }}</span>
         </button>
-        <button class="btn-new-project-pill" (click)="openCreateProject()" title="New project">
+        <button *ngIf="can(PERM.PROJECT_CREATE)" class="btn-new-project-pill" (click)="openCreateProject()" title="New project">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
@@ -400,7 +404,7 @@
         </select>
 
         <label for="taskAssigneeSelect">Assignee</label>
-        <select id="taskAssigneeSelect" [(ngModel)]="newTaskAssigneeId" class="dialog-select">
+        <select id="taskAssigneeSelect" [(ngModel)]="newTaskAssigneeId" class="dialog-select" [disabled]="!can(PERM.TASK_ASSIGN)">
           <option value="">Unassigned</option>
           <option *ngFor="let u of team.assignable()" [value]="u.id">
             {{ u.fullName }}{{ u.onLeave ? ' (on leave)' : '' }}
@@ -408,7 +412,7 @@
         </select>
 
         <label for="taskSprintSelect">Sprint</label>
-        <select id="taskSprintSelect" [(ngModel)]="newTaskSprintId" class="dialog-select">
+        <select id="taskSprintSelect" [(ngModel)]="newTaskSprintId" class="dialog-select" [disabled]="!can(PERM.SPRINT_MANAGE)">
           <option [ngValue]="null">No sprint (backlog)</option>
           <option *ngFor="let s of openSprints()" [ngValue]="s.id">
             {{ s.name }}{{ s.status === 'ACTIVE' ? ' (running)' : '' }}
@@ -649,6 +653,7 @@
             <select
               class="meta-select"
               [ngModel]="detailAssigneeId()"
+              [disabled]="!can(PERM.TASK_ASSIGN)"
               (ngModelChange)="onAssigneeSelectChange($event)"
             >
               <option value="">Unassigned</option>
@@ -694,6 +699,7 @@
           <select
             class="meta-select"
             [value]="activeDetailTask()!.sprintId || ''"
+            [disabled]="!can(PERM.SPRINT_MANAGE)"
             (change)="assignTaskSprint(activeDetailTask()!.id, $event)"
           >
             <option value="" [selected]="!activeDetailTask()!.sprintId">No sprint (backlog)</option>
@@ -2304,7 +2310,7 @@
 
             <div class="rule-toggle-wrap">
               <label class="switch">
-                <input type="checkbox" [checked]="rule.isEnabled" (change)="toggleAutomationRule(rule.id)">
+                <input type="checkbox" [checked]="rule.isEnabled" [disabled]="!can(PERM.PROJECT_EDIT)" (change)="toggleAutomationRule(rule.id)">
                 <span class="slider round"></span>
               </label>
               <span class="toggle-status-text" [class.active-text]="rule.isEnabled">{{ rule.isEnabled ? 'Active' : 'Paused' }}</span>

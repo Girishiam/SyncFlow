@@ -11081,8 +11081,15 @@
     font: inherit;
     cursor: pointer;
 
-    &:hover {
+    &:hover:not(:disabled) {
       background: var(--bg-hover);
+    }
+
+    // Read-only for people who cannot assign work
+    &.readonly {
+      cursor: default;
+      color: inherit;
+      opacity: 1;
     }
 
     .user-avatar-sm.empty {

@@ -2,13 +2,13 @@
   <div class="backlog-header">
     <div>
       <h2 class="view-title">Backlog</h2>
-      <p class="view-subtitle">Drag tasks into a sprint to plan it. Drag them back to take them out.</p>
+      <p class="view-subtitle">{{ can(PERM.SPRINT_MANAGE) ? 'Drag tasks into a sprint to plan it. Drag them back to take them out.' : 'Sprints and the work planned for them.' }}</p>
     </div>
     <div class="backlog-header-actions">
-      <button class="btn-secondary" (click)="openCreateTask(undefined, null)">
+      <button *ngIf="can(PERM.TASK_CREATE)" class="btn-secondary" (click)="openCreateTask(undefined, null)">
         New task
       </button>
-      <button class="btn-primary" (click)="openCreateSprintModal()">New sprint</button>
+      <button *ngIf="can(PERM.SPRINT_MANAGE)" class="btn-primary" (click)="openCreateSprintModal()">New sprint</button>
     </div>
   </div>
 
@@ -19,7 +19,7 @@
 
       <div *ngIf="!openSprints().length" class="plan-empty-card">
         <p>No sprint is planned yet.</p>
-        <button class="btn-secondary btn-sm" (click)="openCreateSprintModal()">Plan a sprint</button>
+        <button *ngIf="can(PERM.SPRINT_MANAGE)" class="btn-secondary btn-sm" (click)="openCreateSprintModal()">Plan a sprint</button>
       </div>
 
       <article *ngFor="let sprint of openSprints(); trackBy: trackById" class="plan-sprint" [class.running]="sprint.status === 'ACTIVE'">
@@ -30,10 +30,10 @@
             <span class="plan-dates" *ngIf="sprint.startDate">{{ sprint.startDate | date:'MMM d' }} – {{ sprint.endDate | date:'MMM d' }}</span>
           </div>
           <div class="plan-sprint-actions">
-            <button class="btn-ghost btn-sm" (click)="openCreateTask(undefined, sprint.id)">Add task</button>
-            <button *ngIf="sprint.status === 'PLANNING'" class="btn-secondary btn-sm" (click)="startSprint(sprint.id)"
+            <button *ngIf="can(PERM.TASK_CREATE)" class="btn-ghost btn-sm" (click)="openCreateTask(undefined, sprint.id)">Add task</button>
+            <button *ngIf="sprint.status === 'PLANNING' && can(PERM.SPRINT_MANAGE)" class="btn-secondary btn-sm" (click)="startSprint(sprint.id)"
                     [disabled]="!!activeSprint()" [title]="activeSprint() ? 'Close ' + activeSprint()!.name + ' first' : 'Start this sprint'">Start</button>
-            <button *ngIf="sprint.status === 'ACTIVE'" class="btn-secondary btn-sm" (click)="completeSprint(sprint)">Close sprint</button>
+            <button *ngIf="sprint.status === 'ACTIVE' && can(PERM.SPRINT_MANAGE)" class="btn-secondary btn-sm" (click)="completeSprint(sprint)">Close sprint</button>
           </div>
         </header>
 
@@ -46,8 +46,8 @@
 
         <ul class="plan-list" cdkDropList [cdkDropListData]="sprintTasks(sprint.id)" (cdkDropListDropped)="onPlanDrop($event, sprint.id)"
             [attr.aria-label]="'Tasks in ' + sprint.name">
-          <li *ngFor="let task of sprintTasks(sprint.id); trackBy: trackById" class="plan-row" cdkDrag [cdkDragData]="task" [class.done]="task.progress === 100">
-            <span class="plan-handle" cdkDragHandle aria-hidden="true">⋮⋮</span>
+          <li *ngFor="let task of sprintTasks(sprint.id); trackBy: trackById" class="plan-row" cdkDrag [cdkDragData]="task" [cdkDragDisabled]="!can(PERM.SPRINT_MANAGE)" [class.done]="task.progress === 100">
+            <span *ngIf="can(PERM.SPRINT_MANAGE)" class="plan-handle" cdkDragHandle aria-hidden="true">⋮⋮</span>
             <button type="button" class="plan-title" (click)="openTaskDetail(task)">
               <span class="plan-id">#{{ task.id }}</span>{{ task.title }}
             </button>
@@ -55,7 +55,7 @@
             <span class="avatar-mini" [title]="task.assignee || 'Unassigned'">{{ task.assigneeId ? task.avatar : '–' }}</span>
             <span class="plan-pts">{{ task.storyPoints ?? 3 }}</span>
           </li>
-          <li *ngIf="!sprintTasks(sprint.id).length" class="plan-drop-hint">Drag tasks here from the backlog.</li>
+          <li *ngIf="!sprintTasks(sprint.id).length" class="plan-drop-hint">{{ can(PERM.SPRINT_MANAGE) ? 'Drag tasks here from the backlog.' : 'Nothing planned yet.' }}</li>
         </ul>
       </article>
 
@@ -79,17 +79,17 @@
 
       <ul class="plan-list backlog-list" cdkDropList [cdkDropListData]="unplannedTasks()" (cdkDropListDropped)="onPlanDrop($event, null)"
           aria-label="Tasks not in a sprint">
-        <li *ngFor="let task of unplannedTasks(); trackBy: trackById" class="plan-row" cdkDrag [cdkDragData]="task">
-          <span class="plan-handle" cdkDragHandle aria-hidden="true">⋮⋮</span>
+        <li *ngFor="let task of unplannedTasks(); trackBy: trackById" class="plan-row" cdkDrag [cdkDragData]="task" [cdkDragDisabled]="!can(PERM.SPRINT_MANAGE)">
+          <span *ngIf="can(PERM.SPRINT_MANAGE)" class="plan-handle" cdkDragHandle aria-hidden="true">⋮⋮</span>
           <button type="button" class="plan-title" (click)="openTaskDetail(task)">
             <span class="plan-id">#{{ task.id }}</span>{{ task.title }}
           </button>
           <span class="prio-tag" [class]="task.priority.toLowerCase()">{{ task.priority | titlecase }}</span>
           <span class="avatar-mini" [title]="task.assignee || 'Unassigned'">{{ task.assigneeId ? task.avatar : '–' }}</span>
-          <select class="mini-select plan-pts-select" [value]="task.storyPoints ?? 3" (change)="updateTaskStoryPoints(task.id, $event)" aria-label="Story points">
+          <select class="mini-select plan-pts-select" [disabled]="!can(PERM.TASK_EDIT)" [value]="task.storyPoints ?? 3" (change)="updateTaskStoryPoints(task.id, $event)" aria-label="Story points">
             <option *ngFor="let p of [1, 2, 3, 5, 8, 13]" [value]="p" [selected]="(task.storyPoints ?? 3) === p">{{ p }}</option>
           </select>
-          <select class="mini-select plan-move" (change)="assignTaskSprint(task.id, $event)" aria-label="Move to sprint">
+          <select *ngIf="can(PERM.SPRINT_MANAGE)" class="mini-select plan-move" (change)="assignTaskSprint(task.id, $event)" aria-label="Move to sprint">
             <option value="" selected>Move to…</option>
             <option *ngFor="let s of openSprints()" [value]="s.id">{{ s.name }}</option>
           </select>
