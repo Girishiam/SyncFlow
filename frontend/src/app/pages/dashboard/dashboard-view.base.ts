@@ -10,6 +10,7 @@ import { RbacFacade } from '../../features/rbac/application/rbac.facade';
 import { Channel, TaskCard, BankUser, TaskAttachmentItem } from '../../core/models/project.models';
 import { NotificationFacade } from '../../features/notification/application/notification.facade';
 import { NotificationItem } from '../../core/models/notification.models';
+import { FeatureFlagsService } from '../../core/services/feature-flags.service';
 
 /**
  * State and actions shared by the dashboard shell and every lazily loaded view. All state lives in
@@ -23,6 +24,7 @@ export abstract class DashboardViewBase {
   public rbacFacade = inject(RbacFacade);
   public notificationFacade = inject(NotificationFacade);
   public wsService = inject(WebSocketService);
+  public features = inject(FeatureFlagsService);
   protected route = inject(ActivatedRoute);
   protected nav = inject(DashboardNavService);
   readonly Math = Math;

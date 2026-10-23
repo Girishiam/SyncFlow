@@ -142,6 +142,7 @@
       </button>
 
       <button
+        *ngIf="features.isEnabled('budget')"
         id="sidebar-nav-financials"
         class="nav-item"
         [class.active]="activeNav() === 'financials'"
