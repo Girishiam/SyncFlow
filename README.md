@@ -1,6 +1,7 @@
 # 🚀 SyncFlow — Enterprise Collaborative Project Management & Workflow Orchestration Suite
 
 <p align="center">
+  <a href="https://github.com/Girishiam/SyncFlow/actions/workflows/ci.yml"><img src="https://github.com/Girishiam/SyncFlow/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a>
   <img src="https://img.shields.io/badge/Java-21-orange?style=for-the-badge&logo=openjdk" alt="Java 21" />
   <img src="https://img.shields.io/badge/Spring%20Boot-3.3.5-brightgreen?style=for-the-badge&logo=springboot" alt="Spring Boot 3.3.5" />
   <img src="https://img.shields.io/badge/Angular-18.2-red?style=for-the-badge&logo=angular" alt="Angular 18" />
